@@ -1,0 +1,28 @@
+{
+  "name": "shapi-monorepo",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Behavioral Dependency Assurance Platform - Webhook Reliability MVP",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter @shapi/backend dev\" \"pnpm --filter @shapi/dashboard dev\" \"pnpm --filter @shapi/demo-saas dev\"",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "db:generate": "pnpm --filter @shapi/backend db:generate",
+    "db:push": "pnpm --filter @shapi/backend db:push",
+    "db:seed": "pnpm --filter @shapi/backend db:seed",
+    "db:studio": "pnpm --filter @shapi/backend db:studio"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "packageManager": "pnpm@9.0.0"
+}

@@ -1,0 +1,45 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.0.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck (all workspaces)
+        run: pnpm -r typecheck
+
+      - name: Unit tests (DB-free)
+        run: |
+          pnpm --filter @shapi/invariant-engine test
+          pnpm --filter @shapi/drift-detection test
+          pnpm --filter @shapi/sdk test
+          pnpm --filter @shapi/diagnosis-engine test
+          pnpm --filter @shapi/replay-engine test
+          pnpm --filter @shapi/repair-generation test
+          pnpm --filter @shapi/github-integration test
+          pnpm --filter @shapi/demo-saas test
+          pnpm --filter @shapi/backend exec vitest run
+
+      - name: Build dashboard
+        run: pnpm --filter @shapi/dashboard build
+
+      - name: Prisma validate
+        run: pnpm --filter @shapi/backend exec prisma validate

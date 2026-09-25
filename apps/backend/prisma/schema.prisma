@@ -1,0 +1,324 @@
+// Prisma Schema for SHAPI Backend
+// Run: npx prisma generate && npx prisma db push
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// Core Models
+// ============================================================================
+
+model Integration {
+  id              String   @id @default(uuid())
+  name            String
+  type            IntegrationType
+  config          Json
+  webhookSecret   String?  @unique
+  webhookEnabled  Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  webhookEvents   WebhookEvent[]
+  invariants      Invariant[]
+  incidents       Incident[]
+  githubInstalls  GitHubInstallation[]
+  driftConfig     DriftDetectionConfig?
+
+  @@index([type])
+}
+
+enum IntegrationType {
+  STRIPE
+  GITHUB
+  SENDGRID
+  TWILIO
+  CUSTOM
+}
+
+model WebhookEvent {
+  id              String   @id @default(uuid())
+  integrationId   String
+  integration     Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  eventType       String
+  payload         Json
+  headers         Json
+  status          WebhookEventStatus @default(RECEIVED)
+  receivedAt      DateTime @default(now())
+  processedAt     DateTime?
+  retryCount      Int      @default(0)
+  errorMessage    String?
+  correlationId   String?
+  replayJobs      ReplayJob[]
+
+  @@index([integrationId, receivedAt])
+  @@index([correlationId])
+  @@index([status])
+}
+
+enum WebhookEventStatus {
+  RECEIVED
+  PROCESSING
+  COMPLETED
+  FAILED
+  RETRYING
+}
+
+model Invariant {
+  id                    String   @id @default(uuid())
+  integrationId         String
+  integration           Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  name                  String
+  description           String
+  predicateExpression   String   @db.Text
+  predicateDescription  String
+  predicateExample      String?
+  status                InvariantStatus @default(UNKNOWN)
+  evaluationWindowSec   Int      @default(300)
+  minSamples            Int      @default(10)
+  expectedSuccessRate   Float    @default(0.99)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  lastEvaluatedAt       DateTime?
+
+  evaluations InvariantEvaluation[]
+  incidents   Incident[]
+  driftResults DriftResult[]
+
+  @@index([integrationId])
+  @@index([status])
+}
+
+enum InvariantStatus {
+  HEALTHY
+  DEGRADED
+  VIOLATED
+  UNKNOWN
+}
+
+model InvariantEvaluation {
+  id              String   @id @default(uuid())
+  invariantId     String
+  invariant       Invariant @relation(fields: [invariantId], references: [id], onDelete: Cascade)
+  windowStart     DateTime
+  windowEnd       DateTime
+  totalSamples    Int
+  passedSamples   Int
+  successRate     Float
+  status          InvariantStatus
+  details         Json?
+  createdAt       DateTime @default(now())
+
+  @@unique([invariantId, windowStart, windowEnd])
+  @@index([invariantId, windowStart])
+}
+
+model Incident {
+  id              String   @id @default(uuid())
+  integrationId   String
+  integration     Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  invariantId     String?
+  invariant       Invariant? @relation(fields: [invariantId], references: [id], onDelete: SetNull)
+  title           String
+  description     String   @db.Text
+  severity        IncidentSeverity
+  status          IncidentStatus @default(DETECTED)
+  rootCause       String?  @db.Text
+  suggestedFix    String?  @db.Text
+  githubPrUrl     String?
+  detectedAt      DateTime @default(now())
+  triagedAt       DateTime?
+  resolvedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  replayJobs      ReplayJob[]
+  repairCandidates RepairCandidate[]
+  githubPRs       GitHubPullRequest[]
+
+  @@index([integrationId, status])
+  @@index([invariantId])
+  @@index([detectedAt])
+}
+
+enum IncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IncidentStatus {
+  DETECTED
+  TRIAGED
+  REPLAYING
+  REPAIRED
+  RESOLVED
+  DISMISSED
+}
+
+model DriftDetectionConfig {
+  id                    String   @id @default(uuid())
+  integrationId         String   @unique
+  integration           Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  baselineWindowDays    Int      @default(30)
+  detectionWindowHours  Int      @default(1)
+  minDetectionSamples   Int      @default(50)
+  significanceThreshold Float    @default(0.01)
+  minEffectSize         Float    @default(0.5)
+  enabled               Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model DriftResult {
+  id              String   @id @default(uuid())
+  invariantId     String
+  invariant       Invariant @relation(fields: [invariantId], references: [id], onDelete: Cascade)
+  detected        Boolean
+  pValue          Float
+  effectSize      Float
+  baselineRate    Float
+  currentRate     Float
+  sampleSize      Int
+  detectedAt      DateTime @default(now())
+
+  @@index([invariantId, detectedAt])
+  @@index([detected])
+}
+
+model ReplayJob {
+  id                  String   @id @default(uuid())
+  incidentId          String
+  incident            Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  webhookEventId      String
+  webhookEvent        WebhookEvent @relation(fields: [webhookEventId], references: [id], onDelete: Cascade)
+  status              ReplayJobStatus @default(PENDING)
+  fixCandidate        String   @db.Text
+  result              ReplayJobResult?
+  originalEvaluation  Json?
+  replayEvaluation    Json?
+  startedAt           DateTime?
+  completedAt         DateTime?
+  errorMessage        String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([incidentId])
+  @@index([status])
+}
+
+enum ReplayJobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum ReplayJobResult {
+  PASSED
+  FAILED
+  ERROR
+}
+
+model RepairCandidate {
+  id          String   @id @default(uuid())
+  incidentId  String
+  incident    Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  type        RepairType
+  description String   @db.Text
+  diff        String?  @db.Text
+  files       String[]
+  confidence  Float    @default(0.5)
+  verified    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([incidentId])
+}
+
+enum RepairType {
+  CODE_CHANGE
+  CONFIG_CHANGE
+  WEBHOOK_RETRY
+  MANUAL
+}
+
+model GitHubInstallation {
+  id                  String   @id @default(uuid())
+  integrationId       String
+  integration         Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  githubInstallationId BigInt  @unique
+  accountLogin        String
+  accountType         String
+  repositories        String[]
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  prs GitHubPullRequest[]
+}
+
+model GitHubPullRequest {
+  id              String   @id @default(uuid())
+  incidentId      String
+  incident        Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  installationId  String
+  installation    GitHubInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  repository      String
+  prNumber        Int
+  prUrl           String
+  title           String
+  status          GitHubPRStatus @default(OPEN)
+  verified        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([installationId, repository, prNumber])
+  @@index([incidentId])
+}
+
+enum GitHubPRStatus {
+  OPEN
+  MERGED
+  CLOSED
+  DRAFT
+}
+
+// ============================================================================
+// SDK / Analytics Models
+// ============================================================================
+
+model TrackedEvent {
+  id              String   @id @default(uuid())
+  eventId         String   @unique
+  integration     IntegrationType
+  type            String
+  payload         Json
+  timestamp       DateTime @default(now())
+  correlationId   String?
+  metadata        Json?
+  createdAt       DateTime @default(now())
+
+  @@index([integration, type, timestamp])
+  @@index([correlationId])
+  @@index([timestamp])
+}
+
+model APIKey {
+  id          String   @id @default(uuid())
+  name        String
+  keyHash     String   @unique
+  prefix      String
+  permissions String[]
+  expiresAt   DateTime?
+  lastUsedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([prefix])
+}

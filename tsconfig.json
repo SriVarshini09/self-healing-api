@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@shapi/shared": ["packages/shared/src"],
+      "@shapi/sdk": ["packages/sdk/src"],
+      "@shapi/invariant-engine": ["packages/invariant-engine/src"],
+      "@shapi/drift-detection": ["packages/drift-detection/src"],
+      "@shapi/diagnosis-engine": ["packages/diagnosis-engine/src"],
+      "@shapi/replay-engine": ["packages/replay-engine/src"],
+      "@shapi/repair-generation": ["packages/repair-generation/src"],
+      "@shapi/github-integration": ["packages/github-integration/src"]
+    }
+  },
+  "exclude": ["node_modules", "**/dist", "**/build"]
+}

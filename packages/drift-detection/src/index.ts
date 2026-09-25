@@ -1,0 +1,58 @@
+// @shapi/drift-detection - statistical behavioral drift detection
+export interface DriftConfig {
+  baselineWindowDays?: number;
+  detectionWindowHours?: number;
+  minDetectionSamples?: number;
+  significanceThreshold?: number;
+  minEffectSize?: number;
+}
+
+export interface DriftInput {
+  baselineSuccesses: number;
+  baselineTrials: number;
+  currentSuccesses: number;
+  currentTrials: number;
+}
+
+export interface DriftOutput {
+  detected: boolean;
+  pValue: number;
+  effectSize: number;
+  baselineRate: number;
+  currentRate: number;
+}
+
+export function normalCDF(x: number): number {
+  const t = 1 / (1 + 0.2316419 * x);
+  const d = 0.3989423 * Math.exp((-x * x) / 2);
+  const prob =
+    d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+  return x > 0 ? 1 - prob : prob;
+}
+
+export function proportionTest(successes: number, trials: number, baselineRate: number) {
+  if (trials === 0) return { pValue: 1, effectSize: 0, currentRate: 0 };
+  const currentRate = successes / trials;
+  const pooled = (successes + baselineRate * trials) / (trials + trials);
+  const se = Math.sqrt(pooled * (1 - pooled) * (2 / trials));
+  const z = se === 0 ? 0 : (currentRate - baselineRate) / se;
+  const pValue = 2 * (1 - normalCDF(Math.abs(z)));
+  const denom = Math.sqrt(Math.max(baselineRate * (1 - baselineRate), 1e-9));
+  return { pValue, effectSize: (currentRate - baselineRate) / denom, currentRate };
+}
+
+export function detectDrift(input: DriftInput, cfg: DriftConfig = {}): DriftOutput {
+  const significanceThreshold = cfg.significanceThreshold ?? 0.01;
+  const minEffectSize = cfg.minEffectSize ?? 0.5;
+  const baselineRate = input.baselineTrials === 0 ? 1 : input.baselineSuccesses / input.baselineTrials;
+  const { pValue, effectSize, currentRate } = proportionTest(
+    input.currentSuccesses,
+    input.currentTrials,
+    baselineRate,
+  );
+  const detected =
+    input.currentTrials >= (cfg.minDetectionSamples ?? 1) &&
+    pValue < significanceThreshold &&
+    Math.abs(effectSize) >= minEffectSize;
+  return { detected, pValue, effectSize, baselineRate, currentRate };
+}
