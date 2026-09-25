@@ -29,7 +29,7 @@ function Badge({ text, tone }: { text: string; tone: string }) {
   return <span className={`badge ${tone}`}>{text}</span>;
 }
 
-function toneFor(status: string): string {
+export function toneFor(status: string): string {
   const s = status.toUpperCase();
   if (['HEALTHY', 'RESOLVED', 'MERGED', 'COMPLETED'].includes(s)) return 'green';
   if (['DEGRADED', 'TRIAGED', 'REPLAYING', 'OPEN', 'RECEIVED'].includes(s)) return 'amber';
