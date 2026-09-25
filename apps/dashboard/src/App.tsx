@@ -192,6 +192,8 @@ function Incidents({ refreshKey, bump }: { refreshKey: number; bump: () => void 
   const [items, setItems] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
   const [timeline, setTimeline] = useState<any[]>([]);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [diagnosing, setDiagnosing] = useState(false);
 
   const load = useCallback(async () => {
     const res = await api<any>('/incidents?pageSize=50');
@@ -199,16 +201,21 @@ function Incidents({ refreshKey, bump }: { refreshKey: number; bump: () => void 
   }, []);
 
   useEffect(() => {
-    load().catch(() => undefined);
+    load().catch((e) => setActionError(e instanceof Error ? e.message : String(e)));
   }, [load, refreshKey]);
 
   const open = async (id: string) => {
-    const [detail, tl] = await Promise.all([
-      api<any>(`/incidents/${id}`),
-      api<any>(`/incidents/${id}/timeline`),
-    ]);
-    setSelected(detail);
-    setTimeline(tl.timeline ?? []);
+    try {
+      setActionError(null);
+      const [detail, tl] = await Promise.all([
+        api<any>(`/incidents/${id}`),
+        api<any>(`/incidents/${id}/timeline`),
+      ]);
+      setSelected(detail);
+      setTimeline(tl.timeline ?? []);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e));
+    }
   };
 
   return (
@@ -234,13 +241,22 @@ function Incidents({ refreshKey, bump }: { refreshKey: number; bump: () => void 
             <p>{selected.description}</p>
             {selected.rootCause && <p><strong>Root cause:</strong> {selected.rootCause}</p>}
             {selected.suggestedFix && <p><strong>Suggested fix:</strong> {selected.suggestedFix}</p>}
+            {actionError && <div className="card error">Action failed: {actionError}</div>}
             <div className="form-row">
-              <button onClick={async () => {
-                const res = await api(`/incidents/${selected.id}/diagnose`, { method: 'POST' });
-                setSelected((res as any).incident);
-                bump();
-                await open(selected.id);
-              }}>Diagnose + suggest repairs</button>
+              <button disabled={diagnosing} onClick={async () => {
+                try {
+                  setDiagnosing(true);
+                  setActionError(null);
+                  const res = await api(`/incidents/${selected.id}/diagnose`, { method: 'POST' });
+                  setSelected((res as any).incident);
+                  bump();
+                  await open(selected.id);
+                } catch (e) {
+                  setActionError(e instanceof Error ? e.message : String(e));
+                } finally {
+                  setDiagnosing(false);
+                }
+              }}>{diagnosing ? 'Diagnosing…' : 'Diagnose + suggest repairs'}</button>
             </div>
             {selected.repairCandidates?.length > 0 && (
               <>
