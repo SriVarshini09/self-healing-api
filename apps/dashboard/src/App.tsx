@@ -6,9 +6,14 @@ const API = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3001/api
 const API_KEY = (import.meta as any).env?.VITE_SHAPI_API_KEY || 'shapi_demo_local_d3v_k3y_9f2c';
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const hasBody = init?.body !== undefined && init?.body !== null;
   const res = await fetch(`${API}${path}`, {
-    headers: { 'content-type': 'application/json', 'x-api-key': API_KEY },
     ...init,
+    headers: {
+      ...(hasBody ? { 'content-type': 'application/json' } : {}),
+      'x-api-key': API_KEY,
+      ...(init?.headers ?? {}),
+    },
   });
   if (!res.ok) {
     const text = await res.text();
