@@ -139,3 +139,14 @@ Typechecks: `pnpm -r typecheck`. Builds verified: backend `tsc`, dashboard `tsc 
 ## Incident lifecycle
 
 `DETECTED → TRIAGED (diagnosis + repair candidates) → REPLAYING (replay verification) → REPAIRED (PR) → RESOLVED (CI merge)`, with `DISMISSED` as escape hatch.
+
+## Production checklist (manual, requires real secrets)
+
+- Stripe: set a real `STRIPE_WEBHOOK_SECRET` (`whsec_...`) in `.env` and point
+  Stripe CLI at `POST /api/v1/webhooks/stripe` for a true signature check.
+  Without it, `test`-signature traffic uses test mode (local simulate only).
+- GitHub: set `GITHUB_TOKEN` and create a repair PR against a real repo to
+  exercise the Octokit path (`openRepairPr`). Without it, PRs are simulated.
+- Multi-tenant predicates: upgrade the `node:vm` sandbox to `isolated-vm`
+  before accepting untrusted predicate code.
+- Auth: rotate `SHAPI_API_KEY` per environment; set `VITE_SHAPI_API_KEY` to match.
