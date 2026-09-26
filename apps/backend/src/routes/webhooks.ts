@@ -20,7 +20,7 @@ export async function webhookRoutes(app: FastifyInstance) {
     return handleStripeWebhook(request as WebhookRequest, reply);
   });
 
-  app.post('/webhooks/github', async (request, reply) => {
+  app.post('/webhooks/github', { config: { rawBody: true } }, async (request, reply) => {
     return handleWebhook(request, reply, 'github');
   });
 
@@ -102,6 +102,10 @@ async function handleStripeWebhook(request: WebhookRequest, reply: FastifyReply)
 async function handleWebhook(request: FastifyRequest, reply: FastifyReply, type: WebhookKind) {
   const headers = normalizeHeaders(request.headers ?? {});
   const payload = (request.body ?? {}) as Record<string, unknown>;
+  // HMAC must run over the exact raw bytes (whitespace included); re-stringified
+  // JSON would compute a different digest and reject real webhooks.
+  const rawBody = (request as WebhookRequest).rawBody;
+  const rawBytes = typeof rawBody === 'string' ? rawBody : undefined;
   const integration = await findIntegrationByTypeAndVerify(type, headers, payload);
 
   if (!integration) {
@@ -109,7 +113,7 @@ async function handleWebhook(request: FastifyRequest, reply: FastifyReply, type:
     return reply.code(401).send({ error: 'Invalid webhook signature' });
   }
 
-  const verified = await verifyWebhookSignature(type, integration, headers, payload);
+  const verified = await verifyWebhookSignature(type, integration, headers, payload, rawBytes);
   if (!verified) {
     logger.warn({ integrationId: integration.id }, 'Webhook signature verification failed');
     return reply.code(401).send({ error: 'Invalid webhook signature' });
@@ -209,11 +213,12 @@ async function findIntegrationByTypeAndVerify(
   });
 }
 
-async function verifyWebhookSignature(
+export async function verifyWebhookSignature(
   type: WebhookKind,
   integration: { webhookSecret: string | null; id: string },
   headers: Record<string, string>,
   payload: Record<string, unknown>,
+  rawBytes?: string,
 ): Promise<boolean> {
   if (!integration.webhookSecret) {
     logger.warn({ integrationId: integration.id }, 'No webhook secret configured');
@@ -229,7 +234,7 @@ async function verifyWebhookSignature(
       if (!signature) return false;
       try {
         const hmac = crypto.createHmac('sha256', integration.webhookSecret);
-        hmac.update(JSON.stringify(payload));
+        hmac.update(rawBytes ?? JSON.stringify(payload));
         const expected = `sha256=${hmac.digest('hex')}`;
         if (signature.length !== expected.length) return false;
         return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));

@@ -26,8 +26,10 @@ async function main() {
   if (mode === 'success' || mode === 'failure') {
     const enableFailure = mode === 'failure';
     await post(`${DEMO}/admin/failure-mode`, { enabled: enableFailure });
-    const co = await (await post(`${DEMO}/checkout`, { email: 'founder@test.com', plan: 'pro' })).json().catch(() => ({}));
-    const customer = (co as any).customerId ?? 'cus_demo';
+    const co = (await (await post(`${DEMO}/checkout`, { email: 'founder@test.com', plan: 'pro' })).json().catch(() => ({}))) as {
+      customerId?: unknown;
+    };
+    const customer = typeof co.customerId === 'string' ? co.customerId : 'cus_demo';
     await post(`${DEMO}/webhooks/stripe`, stripeEvent(customer, 2000), { 'stripe-signature': 'test' });
     console.log(enableFailure
       ? 'Sent payment webhook with failureMode=ON (200 OK expected, provisioning.failed tracked)'

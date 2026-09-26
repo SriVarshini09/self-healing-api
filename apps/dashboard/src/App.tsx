@@ -97,30 +97,42 @@ function Integrations({ refreshKey, bump }: { refreshKey: number; bump: () => vo
   const [name, setName] = useState('Stripe Payments');
   const [type, setType] = useState('STRIPE');
   const [webhookInfo, setWebhookInfo] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const res = await api<any>('/integrations?pageSize=50');
-    setItems(res.data ?? []);
+    try {
+      setError(null);
+      const res = await api<any>('/integrations?pageSize=50');
+      setItems(res.data ?? []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
   }, []);
 
   useEffect(() => {
-    load().catch(() => undefined);
+    void load();
   }, [load, refreshKey]);
 
   return (
     <div className="card">
-      <h3>Integrations</h3>
+      <div className="card-head"><h3>Integrations</h3><span className="table-label">{items.length} connected</span></div>
+      {error && <div className="card error">Load failed: {error}</div>}
       <div className="form-row">
         <input value={name} onChange={e => setName(e.target.value)} placeholder="Name" />
         <select value={type} onChange={e => setType(e.target.value)}>
           <option>STRIPE</option><option>GITHUB</option><option>SENDGRID</option><option>TWILIO</option><option>CUSTOM</option>
         </select>
         <button onClick={async () => {
-          await api('/integrations', { method: 'POST', body: JSON.stringify({ name, type, config: {} }) });
-          setName('');
-          bump();
+          try {
+            setError(null);
+            await api('/integrations', { method: 'POST', body: JSON.stringify({ name, type, config: {} }) });
+            setName('');
+            bump();
+          } catch (e) {
+            setError(e instanceof Error ? e.message : String(e));
+          }
         }}>Add</button>
-        <button className="secondary" onClick={load}>Refresh</button>
+        <button className="secondary" onClick={() => void load()}>Refresh</button>
       </div>
       {items.map(i => (
         <div key={i.id} className="row">
@@ -128,8 +140,13 @@ function Integrations({ refreshKey, bump }: { refreshKey: number; bump: () => vo
           <strong>{i.name}</strong>
           <span className="muted mono">{i.id.slice(0, 8)}</span>
           <button className="secondary" onClick={async () => {
-            const info = await api(`/integrations/${i.id}/webhook-url`);
-            setWebhookInfo(info);
+            try {
+              setError(null);
+              const info = await api(`/integrations/${i.id}/webhook-url`);
+              setWebhookInfo(info);
+            } catch (e) {
+              setError(e instanceof Error ? e.message : String(e));
+            }
           }}>Webhook URL</button>
         </div>
       ))}
@@ -144,25 +161,34 @@ function Invariants({ refreshKey, bump }: { refreshKey: number; bump: () => void
   const [items, setItems] = useState<any[]>([]);
   const [integrations, setIntegrations] = useState<any[]>([]);
   const [form, setForm] = useState({ integrationId: '', name: '', predicateExpression: "event.type === 'invoice.payment_succeeded' && event.payload && event.payload.data && event.payload.data.object && event.payload.data.object.amount_paid > 0", predicateDescription: '' });
+  const [error, setError] = useState<string | null>(null);
+  const [evalResult, setEvalResult] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [inv, integ] = await Promise.all([
-      api<any>('/invariants?pageSize=50'),
-      api<any>('/integrations?pageSize=50'),
-    ]);
-    setItems(inv.data ?? []);
-    setIntegrations(integ.data ?? []);
-    if (!form.integrationId && integ.data?.[0]) setForm(f => ({ ...f, integrationId: integ.data[0].id }));
+    try {
+      setError(null);
+      const [inv, integ] = await Promise.all([
+        api<any>('/invariants?pageSize=50'),
+        api<any>('/integrations?pageSize=50'),
+      ]);
+      setItems(inv.data ?? []);
+      setIntegrations(integ.data ?? []);
+      if (!form.integrationId && integ.data?.[0]) setForm(f => ({ ...f, integrationId: integ.data[0].id }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    load().catch(() => undefined);
+    void load();
   }, [load, refreshKey]);
 
   return (
     <div className="card">
-      <h3>Behavioral invariants</h3>
-      <p className="muted">Executable predicates over webhook events. Core abstraction of SHAPI.</p>
+      <div className="card-head"><h3>Behavioral invariants</h3><span className="table-label">{items.length} defined</span></div>
+      <p className="muted section-note">Executable predicates over webhook events. Core abstraction of SHAPI.</p>
+      {error && <div className="card error">Load failed: {error}</div>}
+      {evalResult && <div className="card"><span className="mono">{evalResult}</span></div>}
       <div className="form-col">
         <div className="form-row">
           <select value={form.integrationId} onChange={e => setForm({ ...form, integrationId: e.target.value })}>
@@ -173,8 +199,13 @@ function Invariants({ refreshKey, bump }: { refreshKey: number; bump: () => void
         <input value={form.predicateExpression} onChange={e => setForm({ ...form, predicateExpression: e.target.value })} placeholder="predicate expression" className="mono" />
         <input value={form.predicateDescription} onChange={e => setForm({ ...form, predicateDescription: e.target.value })} placeholder="human description" />
         <div><button onClick={async () => {
-          await api('/invariants', { method: 'POST', body: JSON.stringify({ ...form, description: form.predicateDescription }) });
-          bump();
+          try {
+            setError(null);
+            await api('/invariants', { method: 'POST', body: JSON.stringify({ ...form, description: form.predicateDescription }) });
+            bump();
+          } catch (e) {
+            setError(e instanceof Error ? e.message : String(e));
+          }
         }}>Create invariant</button></div>
       </div>
       {items.map(i => (
@@ -183,9 +214,14 @@ function Invariants({ refreshKey, bump }: { refreshKey: number; bump: () => void
           <strong>{i.name}</strong>
           <span className="muted mono">{i.predicateExpression.slice(0, 80)}</span>
           <button className="secondary" onClick={async () => {
-            const res = await api(`/invariants/${i.id}/evaluate`, { method: 'POST', body: JSON.stringify({}) });
-            alert(`Evaluated: ${JSON.stringify(res)}`);
-            bump();
+            try {
+              setError(null);
+              const res = await api(`/invariants/${i.id}/evaluate`, { method: 'POST', body: JSON.stringify({}) });
+              setEvalResult(`Evaluated ${i.name}: ${JSON.stringify(res).slice(0, 300)}`);
+              bump();
+            } catch (e) {
+              setError(e instanceof Error ? e.message : String(e));
+            }
           }}>Evaluate</button>
         </div>
       ))}
@@ -287,12 +323,18 @@ function Incidents({ refreshKey, bump }: { refreshKey: number; bump: () => void 
 
 function Drift({ refreshKey }: { refreshKey: number }) {
   const [rows, setRows] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    api<any>('/drift/results?pageSize=20').then(r => setRows(r.data ?? [])).catch(() => undefined);
+    let cancelled = false;
+    api<any>('/drift/results?pageSize=20')
+      .then(r => { if (!cancelled) { setRows(r.data ?? []); setError(null); } })
+      .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : String(e)); });
+    return () => { cancelled = true; };
   }, [refreshKey]);
   return (
     <div className="card">
-      <h3>Drift results</h3>
+      <div className="card-head"><h3>Drift results</h3><span className="table-label">{rows.length} checks</span></div>
+      {error && <div className="card error">Load failed: {error}</div>}
       {rows.map(r => (
         <div key={r.id} className="row">
           <Badge text={r.detected ? 'DRIFT' : 'OK'} tone={r.detected ? 'red' : 'green'} />
@@ -307,12 +349,18 @@ function Drift({ refreshKey }: { refreshKey: number }) {
 
 function Events({ refreshKey }: { refreshKey: number }) {
   const [rows, setRows] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    api<any>('/sdk/events?pageSize=20').then(r => setRows(r.data ?? [])).catch(() => undefined);
+    let cancelled = false;
+    api<any>('/sdk/events?pageSize=20')
+      .then(r => { if (!cancelled) { setRows(r.data ?? []); setError(null); } })
+      .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : String(e)); });
+    return () => { cancelled = true; };
   }, [refreshKey]);
   return (
     <div className="card">
-      <h3>SDK tracked events</h3>
+      <div className="card-head"><h3>SDK tracked events</h3><span className="table-label">{rows.length} events</span></div>
+      {error && <div className="card error">Load failed: {error}</div>}
       {rows.map(e => (
         <div key={e.id} className="row">
           <Badge text={e.integration} tone="gray" />

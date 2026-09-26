@@ -14,7 +14,7 @@ function obj(value: unknown): JsonRecord {
 }
 
 export async function githubRoutes(app: FastifyInstance) {
-  app.post('/github/webhook', async (request, reply) => {
+  app.post('/github/webhook', { config: { rawBody: true } }, async (request, reply) => {
     const rawHeaders = (request.headers ?? {}) as Record<string, unknown>;
     const headers: Record<string, string> = {};
     for (const [k, v] of Object.entries(rawHeaders)) {
@@ -29,8 +29,10 @@ export async function githubRoutes(app: FastifyInstance) {
 
     if (webhookSecret && signature) {
       try {
+        // HMAC over the exact raw bytes; re-stringified JSON would mismatch.
+        const raw = (request as unknown as { rawBody?: unknown }).rawBody;
         const hmac = crypto.createHmac('sha256', webhookSecret);
-        hmac.update(JSON.stringify(payload));
+        hmac.update(typeof raw === 'string' ? raw : JSON.stringify(payload));
         const expected = `sha256=${hmac.digest('hex')}`;
         if (
           signature.length !== expected.length ||
