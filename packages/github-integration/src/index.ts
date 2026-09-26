@@ -1,6 +1,6 @@
 // @shapi/github-integration - verified PR workflow helpers
 import crypto from 'crypto';
-import { Octokit } from 'octokit';
+import { Octokit } from '@octokit/rest';
 
 export function verifyWebhookSignature(secret: string, rawBody: string, signature: string): boolean {
   try {
