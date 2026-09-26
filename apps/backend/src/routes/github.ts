@@ -84,10 +84,11 @@ export async function githubRoutes(app: FastifyInstance) {
 
   app.post('/github/incidents/:incidentId/pr', async (request, reply) => {
     const { incidentId } = (request.params ?? {}) as { incidentId: string };
-    const { installationId, repository, branchName, title, body, diff, files } = (request.body ?? {}) as {
+    const { installationId, repository, branchName, base, title, body, diff, files } = (request.body ?? {}) as {
       installationId: string;
       repository: string;
       branchName: string;
+      base?: string;
       title: string;
       body: string;
       diff: string;
@@ -124,6 +125,7 @@ export async function githubRoutes(app: FastifyInstance) {
       title,
       body: `${prBody}\n\n${diff ? `\`\`\`diff\n${diff}\n\`\`\`` : ''}`,
       branch,
+      ...(base ? { base } : {}),
       files: (files ?? []).map(f => ({
         path: f,
         content: top?.diff ?? `// SHAPI repair for incident ${incidentId}\n// ${top?.description ?? title}\n`,
