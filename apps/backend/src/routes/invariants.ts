@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../utils/prisma.js';
-import { InvariantStatus } from '@prisma/client';
+import type { Prisma} from '@prisma/client';
+import { InvariantStatus, WebhookEventStatus, type Invariant } from '@prisma/client';
 import {
   evaluatePredicate as sandboxedEvaluate,
   validatePredicate as sandboxValidate,
@@ -13,9 +14,11 @@ export async function invariantRoutes(app: FastifyInstance) {
     const page = Number(q.page ?? 1) || 1;
     const pageSize = Math.min(Number(q.pageSize ?? 20) || 20, 100);
 
-    const where: any = {};
-    if (q.integrationId) where.integrationId = q.integrationId;
-    if (q.status) where.status = q.status;
+    const where: Prisma.InvariantWhereInput = {};
+    if (typeof q.integrationId === 'string') where.integrationId = q.integrationId;
+    if (typeof q.status === 'string' && (Object.values(InvariantStatus) as string[]).includes(q.status)) {
+      where.status = q.status as InvariantStatus;
+    }
 
     const [invariants, total] = await Promise.all([
       prisma.invariant.findMany({
@@ -140,7 +143,7 @@ export async function invariantRoutes(app: FastifyInstance) {
       : new Date(Date.now() - invariant.evaluationWindowSec * 1000);
     const end = body.windowEnd ? new Date(body.windowEnd) : new Date();
 
-    const evaluation = await evaluateInvariantWindow(invariant as any, start, end);
+    const evaluation = await evaluateInvariantWindow(invariant, start, end);
     return reply.send(evaluation);
   });
 
@@ -173,13 +176,7 @@ export function validatePredicateExpression(expression: string): void {
 }
 
 async function evaluateInvariantWindow(
-  invariant: {
-    id: string;
-    integrationId: string;
-    predicateExpression: string;
-    expectedSuccessRate: number;
-    minSamples: number;
-  },
+  invariant: Invariant,
   windowStart: Date,
   windowEnd: Date,
 ) {
@@ -188,7 +185,7 @@ async function evaluateInvariantWindow(
       where: {
         integrationId: invariant.integrationId,
         receivedAt: { gte: windowStart, lte: windowEnd },
-        status: 'COMPLETED' as any,
+        status: WebhookEventStatus.COMPLETED,
       },
     })
     // Only events the predicate scopes to count as samples.
@@ -228,7 +225,7 @@ async function evaluateInvariantWindow(
       passedSamples,
       successRate,
       status,
-      details: {} as any,
+      details: {} as Prisma.InputJsonValue,
     },
   });
 

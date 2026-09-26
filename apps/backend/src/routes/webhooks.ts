@@ -1,33 +1,39 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { prisma } from '../utils/prisma.js';
 import { logger } from '../utils/logger.js';
 import crypto from 'crypto';
+import type {
+  Prisma} from '@prisma/client';
 import {
+  IncidentSeverity,
+  IncidentStatus,
   WebhookEventStatus,
   IntegrationType,
 } from '@prisma/client';
+
+type WebhookRequest = FastifyRequest & { rawBody?: unknown };
 import { evaluatePredicate as sandboxedEvaluate } from '@shapi/invariant-engine';
 
 export async function webhookRoutes(app: FastifyInstance) {
   // rawBody: true opts into fastify-raw-body capture for HMAC verification.
   app.post('/webhooks/stripe', { config: { rawBody: true } }, async (request, reply) => {
-    return handleStripeWebhook(request as any, reply as any);
+    return handleStripeWebhook(request as WebhookRequest, reply);
   });
 
   app.post('/webhooks/github', async (request, reply) => {
-    return handleWebhook(request as any, reply as any, 'github');
+    return handleWebhook(request, reply, 'github');
   });
 
   app.post('/webhooks/sendgrid', async (request, reply) => {
-    return handleWebhook(request as any, reply as any, 'sendgrid');
+    return handleWebhook(request, reply, 'sendgrid');
   });
 
   app.post('/webhooks/twilio', async (request, reply) => {
-    return handleWebhook(request as any, reply as any, 'twilio');
+    return handleWebhook(request, reply, 'twilio');
   });
 
   app.post('/webhooks/:integrationId', async (request, reply) => {
-    return handleGenericWebhook(request as any, reply as any);
+    return handleGenericWebhook(request, reply);
   });
 }
 
@@ -48,7 +54,7 @@ function toPrismaIntegrationType(kind: WebhookKind): IntegrationType {
   }
 }
 
-async function handleStripeWebhook(request: any, reply: any) {
+async function handleStripeWebhook(request: WebhookRequest, reply: FastifyReply) {
   const headers = normalizeHeaders(request.headers ?? {});
   const rawBody: string =
     typeof request.rawBody === 'string'
@@ -79,8 +85,8 @@ async function handleStripeWebhook(request: any, reply: any) {
     data: {
       integrationId: candidate.id,
       eventType,
-      payload: payload as any,
-      headers: headers as any,
+      payload: payload as Prisma.InputJsonValue,
+      headers: headers as Prisma.InputJsonValue,
       status: WebhookEventStatus.RECEIVED,
       correlationId: extractCorrelationId(headers, payload),
     },
@@ -93,7 +99,7 @@ async function handleStripeWebhook(request: any, reply: any) {
   return reply.code(200).send({ received: true, eventId: webhookEvent.id });
 }
 
-async function handleWebhook(request: any, reply: any, type: WebhookKind) {
+async function handleWebhook(request: FastifyRequest, reply: FastifyReply, type: WebhookKind) {
   const headers = normalizeHeaders(request.headers ?? {});
   const payload = (request.body ?? {}) as Record<string, unknown>;
   const integration = await findIntegrationByTypeAndVerify(type, headers, payload);
@@ -115,8 +121,8 @@ async function handleWebhook(request: any, reply: any, type: WebhookKind) {
     data: {
       integrationId: integration.id,
       eventType,
-      payload: payload as any,
-      headers: headers as any,
+      payload: payload as Prisma.InputJsonValue,
+      headers: headers as Prisma.InputJsonValue,
       status: WebhookEventStatus.RECEIVED,
       correlationId: extractCorrelationId(headers, payload),
     },
@@ -133,7 +139,7 @@ async function handleWebhook(request: any, reply: any, type: WebhookKind) {
   return reply.code(200).send({ received: true, eventId: webhookEvent.id });
 }
 
-async function handleGenericWebhook(request: any, reply: any) {
+async function handleGenericWebhook(request: FastifyRequest, reply: FastifyReply) {
   const { integrationId } = (request.params ?? {}) as { integrationId: string };
   const headers = normalizeHeaders(request.headers ?? {});
   const payload = (request.body ?? {}) as Record<string, unknown>;
@@ -157,8 +163,8 @@ async function handleGenericWebhook(request: any, reply: any) {
     data: {
       integrationId,
       eventType,
-      payload: payload as any,
-      headers: headers as any,
+      payload: payload as Prisma.InputJsonValue,
+      headers: headers as Prisma.InputJsonValue,
       status: WebhookEventStatus.RECEIVED,
       correlationId: headers['x-correlation-id'] || null,
     },
@@ -406,14 +412,18 @@ async function createDriftIncident(
   const existingIncident = await prisma.incident.findFirst({
     where: {
       invariantId,
-      status: { in: ['DETECTED', 'TRIAGED', 'REPLAYING'] as any },
+      status: { in: [IncidentStatus.DETECTED, IncidentStatus.TRIAGED, IncidentStatus.REPLAYING] },
     },
   });
 
   if (existingIncident) return;
 
   const severity =
-    Math.abs(effectSize) > 1 ? 'CRITICAL' : Math.abs(effectSize) > 0.8 ? 'HIGH' : 'MEDIUM';
+    Math.abs(effectSize) > 1
+      ? IncidentSeverity.CRITICAL
+      : Math.abs(effectSize) > 0.8
+        ? IncidentSeverity.HIGH
+        : IncidentSeverity.MEDIUM;
 
   await prisma.incident.create({
     data: {
@@ -421,8 +431,8 @@ async function createDriftIncident(
       invariantId,
       title: `Behavioral drift detected: ${invariant.name}`,
       description: `Invariant "${invariant.name}" success rate dropped from ${(baselineRate * 100).toFixed(1)}% to ${(currentRate * 100).toFixed(1)}% (p=${pValue.toFixed(4)}, effect size=${effectSize.toFixed(2)})`,
-      severity: severity as any,
-      status: 'DETECTED' as any,
+      severity,
+      status: IncidentStatus.DETECTED,
     },
   });
 }

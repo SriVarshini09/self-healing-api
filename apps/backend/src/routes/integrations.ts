@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../utils/prisma.js';
-import { IntegrationType } from '@prisma/client';
+import type { Prisma} from '@prisma/client';
+import { IntegrationType, WebhookEventStatus } from '@prisma/client';
 import crypto from 'crypto';
 
 function parseType(input: unknown): IntegrationType {
@@ -18,7 +19,7 @@ export async function integrationRoutes(app: FastifyInstance) {
     const page = Number(q.page ?? 1) || 1;
     const pageSize = Math.min(Number(q.pageSize ?? 20) || 20, 100);
 
-    const where: any = {};
+    const where: Prisma.IntegrationWhereInput = {};
     if (typeRaw) where.type = parseType(typeRaw);
 
     const [integrations, total] = await Promise.all([
@@ -69,7 +70,7 @@ export async function integrationRoutes(app: FastifyInstance) {
       data: {
         name: data.name,
         type: parseType(data.type),
-        config: (data.config ?? {}) as any,
+        config: (data.config ?? {}) as Prisma.InputJsonValue,
         webhookSecret,
         webhookEnabled: data.webhookEnabled ?? true,
       },
@@ -97,7 +98,7 @@ export async function integrationRoutes(app: FastifyInstance) {
       where: { id },
       data: {
         ...(data.name !== undefined ? { name: data.name } : {}),
-        ...(data.config !== undefined ? { config: data.config as any } : {}),
+        ...(data.config !== undefined ? { config: data.config as Prisma.InputJsonValue } : {}),
         ...(data.webhookSecret !== undefined ? { webhookSecret: data.webhookSecret } : {}),
         ...(data.webhookEnabled !== undefined ? { webhookEnabled: data.webhookEnabled } : {}),
       },
@@ -117,9 +118,11 @@ export async function integrationRoutes(app: FastifyInstance) {
     const page = Number(q.page ?? 1) || 1;
     const pageSize = Math.min(Number(q.pageSize ?? 20) || 20, 100);
 
-    const where: any = { integrationId: id };
-    if (q.status) where.status = q.status;
-    if (q.eventType) where.eventType = q.eventType;
+    const where: Prisma.WebhookEventWhereInput = { integrationId: id };
+    if (typeof q.status === 'string' && (Object.values(WebhookEventStatus) as string[]).includes(q.status)) {
+      where.status = q.status as WebhookEventStatus;
+    }
+    if (typeof q.eventType === 'string') where.eventType = q.eventType;
 
     const [events, total] = await Promise.all([
       prisma.webhookEvent.findMany({

@@ -1,5 +1,5 @@
 import { prisma } from '../utils/prisma.js';
-import { InvariantStatus } from '@prisma/client';
+import { IncidentSeverity, IncidentStatus, InvariantStatus } from '@prisma/client';
 import {
   evaluatePredicate as sandboxedEvaluate,
   isRelevantEvent,
@@ -74,7 +74,7 @@ async function openViolationIncident(invariantId: string) {
   const existing = await prisma.incident.findFirst({
     where: {
       invariantId,
-      status: { in: ['DETECTED', 'TRIAGED', 'REPLAYING'] as any },
+      status: { in: [IncidentStatus.DETECTED, IncidentStatus.TRIAGED, IncidentStatus.REPLAYING] },
     },
   });
   if (existing) return;
@@ -85,8 +85,8 @@ async function openViolationIncident(invariantId: string) {
       invariantId,
       title: `Invariant violated: ${invariant.name}`,
       description: `Behavioral invariant "${invariant.name}" failed: ${invariant.predicateDescription}`,
-      severity: 'HIGH' as any,
-      status: 'DETECTED' as any,
+      severity: IncidentSeverity.HIGH,
+      status: IncidentStatus.DETECTED,
     },
   });
   logger.info({ invariantId }, 'Opened violation incident');

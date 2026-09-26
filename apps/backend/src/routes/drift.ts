@@ -1,5 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../utils/prisma.js';
+import type { Prisma } from '@prisma/client';
+import { IncidentSeverity, IncidentStatus } from '@prisma/client';
 import { performProportionTest } from './webhooks.js';
 
 export async function driftRoutes(app: FastifyInstance) {
@@ -35,8 +37,8 @@ export async function driftRoutes(app: FastifyInstance) {
     const page = Number(q.page ?? 1) || 1;
     const pageSize = Math.min(Number(q.pageSize ?? 20) || 20, 100);
 
-    const where: any = {};
-    if (q.invariantId) where.invariantId = q.invariantId;
+    const where: Prisma.DriftResultWhereInput = {};
+    if (typeof q.invariantId === 'string') where.invariantId = q.invariantId;
     if (q.detected !== undefined) where.detected = q.detected === true || q.detected === 'true';
 
     const [results, total] = await Promise.all([
@@ -174,12 +176,16 @@ async function createDriftIncident(
   if (!invariant) return;
 
   const existingIncident = await prisma.incident.findFirst({
-    where: { invariantId, status: { in: ['DETECTED', 'TRIAGED', 'REPLAYING'] as any } },
+    where: { invariantId, status: { in: [IncidentStatus.DETECTED, IncidentStatus.TRIAGED, IncidentStatus.REPLAYING] } },
   });
   if (existingIncident) return;
 
   const severity =
-    Math.abs(effectSize) > 1 ? 'CRITICAL' : Math.abs(effectSize) > 0.8 ? 'HIGH' : 'MEDIUM';
+    Math.abs(effectSize) > 1
+      ? IncidentSeverity.CRITICAL
+      : Math.abs(effectSize) > 0.8
+        ? IncidentSeverity.HIGH
+        : IncidentSeverity.MEDIUM;
 
   await prisma.incident.create({
     data: {
@@ -187,8 +193,8 @@ async function createDriftIncident(
       invariantId,
       title: `Behavioral drift detected: ${invariant.name}`,
       description: `Invariant "${invariant.name}" success rate dropped from ${(baselineRate * 100).toFixed(1)}% to ${(currentRate * 100).toFixed(1)}% (p=${pValue.toFixed(4)}, effect size=${effectSize.toFixed(2)})`,
-      severity: severity as any,
-      status: 'DETECTED' as any,
+      severity,
+      status: IncidentStatus.DETECTED,
     },
   });
 }

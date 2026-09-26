@@ -1,5 +1,5 @@
 import { prisma } from '../utils/prisma.js';
-import type { Invariant, WebhookEvent } from '@prisma/client';
+import { WebhookEventStatus, type Invariant, type WebhookEvent } from '@prisma/client';
 import { evaluatePredicate as sandboxedEvaluate } from '@shapi/invariant-engine';
 
 export interface ReplayResult {
@@ -93,7 +93,7 @@ export async function batchReplay(
   if (!invariant) throw new Error('Invariant not found');
 
   const events = await prisma.webhookEvent.findMany({
-    where: { integrationId: invariant.integrationId, status: 'COMPLETED' as any },
+    where: { integrationId: invariant.integrationId, status: WebhookEventStatus.COMPLETED },
     orderBy: { receivedAt: 'desc' },
     take: limit,
   });

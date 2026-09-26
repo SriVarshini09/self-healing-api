@@ -1,6 +1,17 @@
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../utils/prisma.js';
+import { GitHubPRStatus, IncidentStatus } from '@prisma/client';
 import crypto from 'crypto';
+
+type JsonRecord = Record<string, unknown>;
+
+function str(value: unknown, fallback = ''): string {
+  return typeof value === 'string' ? value : fallback;
+}
+
+function obj(value: unknown): JsonRecord {
+  return typeof value === 'object' && value !== null ? (value as JsonRecord) : {};
+}
 
 export async function githubRoutes(app: FastifyInstance) {
   app.post('/github/webhook', async (request, reply) => {
@@ -41,7 +52,7 @@ export async function githubRoutes(app: FastifyInstance) {
   });
 
   app.get('/github/installations', async (_request, reply) => {
-    const installations = await (prisma as any).gitHubInstallation.findMany({
+    const installations = await prisma.gitHubInstallation.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
         integration: { select: { id: true, name: true } },
@@ -53,7 +64,7 @@ export async function githubRoutes(app: FastifyInstance) {
 
   app.get('/github/installations/:installationId', async (request, reply) => {
     const { installationId } = (request.params ?? {}) as { installationId: string };
-    const installation = await (prisma as any).gitHubInstallation.findUnique({
+    const installation = await prisma.gitHubInstallation.findUnique({
       where: { id: installationId },
       include: { integration: true, prs: { orderBy: { createdAt: 'desc' }, take: 20 } },
     });
@@ -63,7 +74,7 @@ export async function githubRoutes(app: FastifyInstance) {
 
   app.get('/github/incidents/:incidentId/prs', async (request, reply) => {
     const { incidentId } = (request.params ?? {}) as { incidentId: string };
-    const prs = await (prisma as any).gitHubPullRequest.findMany({
+    const prs = await prisma.gitHubPullRequest.findMany({
       where: { incidentId },
       orderBy: { createdAt: 'desc' },
       include: { installation: true },
@@ -83,7 +94,7 @@ export async function githubRoutes(app: FastifyInstance) {
       files: string[];
     };
 
-    const installation = await (prisma as any).gitHubInstallation.findUnique({
+    const installation = await prisma.gitHubInstallation.findUnique({
       where: { id: installationId },
     });
     if (!installation) return reply.code(404).send({ error: 'Installation not found' });
@@ -120,13 +131,13 @@ export async function githubRoutes(app: FastifyInstance) {
     });
     const { prNumber, prUrl } = opened;
 
-    const pr = await (prisma as any).gitHubPullRequest.create({
-      data: { incidentId, installationId, repository: fullRepo, prNumber, prUrl, title, status: 'OPEN' },
+    const pr = await prisma.gitHubPullRequest.create({
+      data: { incidentId, installationId, repository: fullRepo, prNumber, prUrl, title, status: GitHubPRStatus.OPEN },
     });
 
     await prisma.incident.update({
       where: { id: incidentId },
-      data: { githubPrUrl: prUrl, status: 'REPAIRED' as any },
+      data: { githubPrUrl: prUrl, status: IncidentStatus.REPAIRED },
     });
 
     return reply.code(201).send(pr);
@@ -134,22 +145,22 @@ export async function githubRoutes(app: FastifyInstance) {
 
   app.post('/github/prs/:prId/verify', async (request, reply) => {
     const { prId } = (request.params ?? {}) as { prId: string };
-    const pr = await (prisma as any).gitHubPullRequest.findUnique({
+    const pr = await prisma.gitHubPullRequest.findUnique({
       where: { id: prId },
       include: { incident: true, installation: true },
     });
     if (!pr) return reply.code(404).send({ error: 'PR not found' });
 
     const verified = Math.random() > 0.3;
-    await (prisma as any).gitHubPullRequest.update({
+    await prisma.gitHubPullRequest.update({
       where: { id: prId },
-      data: { verified, status: verified ? 'MERGED' : 'OPEN' },
+      data: { verified, status: verified ? GitHubPRStatus.MERGED : GitHubPRStatus.OPEN },
     });
 
     if (verified && pr.incident) {
       await prisma.incident.update({
         where: { id: pr.incidentId },
-        data: { status: 'RESOLVED' as any, resolvedAt: new Date() },
+        data: { status: IncidentStatus.RESOLVED, resolvedAt: new Date() },
       });
     }
 
@@ -158,58 +169,63 @@ export async function githubRoutes(app: FastifyInstance) {
 }
 
 async function handleInstallationEvent(payload: Record<string, unknown>) {
-  const action = payload.action as string;
-  const installation = (payload.installation ?? {}) as any;
-  const repositories = ((payload.repositories as any[]) ?? []) as any[];
+  const action = str(payload.action);
+  const installation = obj(payload.installation);
+  const account = obj(installation.account);
+  const repositories = Array.isArray(payload.repositories)
+    ? (payload.repositories as unknown[]).map(r => str(obj(r).full_name))
+    : [];
 
   if (action === 'created') {
-    await (prisma as any).gitHubInstallation.upsert({
+    await prisma.gitHubInstallation.upsert({
       where: { githubInstallationId: BigInt(Number(installation.id)) },
       update: {
-        accountLogin: String(installation.account?.login ?? 'unknown'),
-        accountType: String(installation.account?.type ?? 'Organization'),
-        repositories: repositories.map(r => String(r.full_name)),
+        accountLogin: str(account.login, 'unknown'),
+        accountType: str(account.type, 'Organization'),
+        repositories,
       },
       create: {
         githubInstallationId: BigInt(Number(installation.id ?? Date.now())),
-        accountLogin: String(installation.account?.login ?? 'unknown'),
-        accountType: String(installation.account?.type ?? 'Organization'),
-        repositories: repositories.map(r => String(r.full_name)),
-        integrationId: (payload.integrationId as string) ?? '',
+        accountLogin: str(account.login, 'unknown'),
+        accountType: str(account.type, 'Organization'),
+        repositories,
+        integrationId: str(payload.integrationId),
       },
     });
-  } else if (action === 'deleted' && installation?.id) {
-    await (prisma as any).gitHubInstallation.deleteMany({
+  } else if (action === 'deleted' && installation.id !== undefined) {
+    await prisma.gitHubInstallation.deleteMany({
       where: { githubInstallationId: BigInt(Number(installation.id)) },
     });
   }
 }
 
 async function handlePullRequestEvent(payload: Record<string, unknown>) {
-  const action = payload.action as string;
-  const pr = (payload.pull_request ?? {}) as any;
+  const action = str(payload.action);
+  const pr = obj(payload.pull_request);
+  const prBase = obj(pr.base);
   const repoFullName =
-    (payload.repository as any)?.full_name ?? pr.base?.repo?.full_name ?? '';
+    str(obj(payload.repository).full_name) || str(obj(prBase.repo).full_name);
+  const merged = pr.merged === true;
 
-  const ourPR = await (prisma as any).gitHubPullRequest.findFirst({
+  const ourPR = await prisma.gitHubPullRequest.findFirst({
     where: { prNumber: Number(pr.number), repository: String(repoFullName) },
   });
 
   if (ourPR) {
-    const statusMap: Record<string, any> = {
-      opened: 'OPEN',
-      closed: pr.merged ? 'MERGED' : 'CLOSED',
-      reopened: 'OPEN',
+    const statusMap: Record<string, GitHubPRStatus> = {
+      opened: GitHubPRStatus.OPEN,
+      closed: merged ? GitHubPRStatus.MERGED : GitHubPRStatus.CLOSED,
+      reopened: GitHubPRStatus.OPEN,
     };
-    await (prisma as any).gitHubPullRequest.update({
+    await prisma.gitHubPullRequest.update({
       where: { id: ourPR.id },
-      data: { status: statusMap[action] ?? 'OPEN' },
+      data: { status: statusMap[action] ?? GitHubPRStatus.OPEN },
     });
 
-    if (action === 'closed' && pr.merged) {
+    if (action === 'closed' && merged) {
       await prisma.incident.update({
         where: { id: ourPR.incidentId },
-        data: { status: 'RESOLVED' as any, resolvedAt: new Date() },
+        data: { status: IncidentStatus.RESOLVED, resolvedAt: new Date() },
       });
     }
   }
@@ -220,24 +236,24 @@ async function handlePushEvent(_payload: Record<string, unknown>) {
 }
 
 async function handleWorkflowRunEvent(payload: Record<string, unknown>) {
-  const action = payload.action as string;
-  const workflowRun = (payload.workflow_run ?? {}) as any;
+  const action = str(payload.action);
+  const workflowRun = obj(payload.workflow_run);
   if (action !== 'completed') return;
 
-  const prs = await (prisma as any).gitHubPullRequest.findMany({
-    where: { status: 'OPEN' },
+  const prs = await prisma.gitHubPullRequest.findMany({
+    where: { status: GitHubPRStatus.OPEN },
   });
 
   for (const pr of prs) {
-    if (workflowRun.head_repository?.full_name === pr.repository) {
-      if (workflowRun.conclusion === 'success') {
-        await (prisma as any).gitHubPullRequest.update({
+    if (str(obj(workflowRun.head_repository).full_name) === pr.repository) {
+      if (str(workflowRun.conclusion) === 'success') {
+        await prisma.gitHubPullRequest.update({
           where: { id: pr.id },
-          data: { verified: true, status: 'MERGED' },
+          data: { verified: true, status: GitHubPRStatus.MERGED },
         });
         await prisma.incident.update({
           where: { id: pr.incidentId },
-          data: { status: 'RESOLVED' as any, resolvedAt: new Date() },
+          data: { status: IncidentStatus.RESOLVED, resolvedAt: new Date() },
         });
       }
     }

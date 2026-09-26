@@ -1,5 +1,14 @@
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../utils/prisma.js';
+import type {
+  Prisma,
+  RepairType} from '@prisma/client';
+import {
+  IncidentSeverity,
+  IncidentStatus,
+  ReplayJobResult,
+  ReplayJobStatus,
+} from '@prisma/client';
 
 export async function incidentRoutes(app: FastifyInstance) {
   app.get('/incidents', async (request, reply) => {
@@ -7,11 +16,15 @@ export async function incidentRoutes(app: FastifyInstance) {
     const page = Number(q.page ?? 1) || 1;
     const pageSize = Math.min(Number(q.pageSize ?? 20) || 20, 100);
 
-    const where: any = {};
-    if (q.integrationId) where.integrationId = q.integrationId;
-    if (q.invariantId) where.invariantId = q.invariantId;
-    if (q.status) where.status = q.status;
-    if (q.severity) where.severity = q.severity;
+    const where: Prisma.IncidentWhereInput = {};
+    if (typeof q.integrationId === 'string') where.integrationId = q.integrationId;
+    if (typeof q.invariantId === 'string') where.invariantId = q.invariantId;
+    if (typeof q.status === 'string' && (Object.values(IncidentStatus) as string[]).includes(q.status)) {
+      where.status = q.status as IncidentStatus;
+    }
+    if (typeof q.severity === 'string' && (Object.values(IncidentSeverity) as string[]).includes(q.severity)) {
+      where.severity = q.severity as IncidentSeverity;
+    }
 
     const [incidents, total] = await Promise.all([
       prisma.incident.findMany({
@@ -55,15 +68,15 @@ export async function incidentRoutes(app: FastifyInstance) {
   app.patch('/incidents/:id', async (request, reply) => {
     const { id } = (request.params ?? {}) as { id: string };
     const data = (request.body ?? {}) as {
-      status?: any;
+      status?: IncidentStatus;
       rootCause?: string;
       suggestedFix?: string;
       githubPrUrl?: string;
     };
 
-    const updateData: any = { ...data };
-    if (data.status === 'TRIAGED') updateData.triagedAt = new Date();
-    if (data.status === 'RESOLVED') updateData.resolvedAt = new Date();
+    const updateData: Prisma.IncidentUpdateInput = { ...data };
+    if (data.status === IncidentStatus.TRIAGED) updateData.triagedAt = new Date();
+    if (data.status === IncidentStatus.RESOLVED) updateData.resolvedAt = new Date();
 
     const incident = await prisma.incident.update({
       where: { id },
@@ -143,12 +156,12 @@ export async function incidentRoutes(app: FastifyInstance) {
     if (!incident) return reply.code(404).send({ error: 'Incident not found' });
 
     const { diagnoseIncident } = await import('../services/diagnosis.js');
-    const diagnosis = await diagnoseIncident(incident as any);
+    const diagnosis = await diagnoseIncident(incident);
 
     const updated = await prisma.incident.update({
       where: { id },
       data: {
-        status: 'TRIAGED' as any,
+        status: IncidentStatus.TRIAGED,
         rootCause: diagnosis.rootCause,
         suggestedFix: diagnosis.suggestedFix,
         triagedAt: new Date(),
@@ -156,13 +169,13 @@ export async function incidentRoutes(app: FastifyInstance) {
     });
 
     const { generateRepairCandidates } = await import('../services/repair.js');
-    const candidates = await generateRepairCandidates(incident as any, diagnosis);
+    const candidates = await generateRepairCandidates(incident, diagnosis);
 
     for (const candidate of candidates) {
       await prisma.repairCandidate.create({
         data: {
           incidentId: id,
-          type: candidate.type as any,
+          type: candidate.type as RepairType,
           description: candidate.description,
           diff: candidate.diff,
           files: candidate.files,
@@ -188,7 +201,7 @@ export async function incidentRoutes(app: FastifyInstance) {
     if (!webhookEvent) return reply.code(404).send({ error: 'Webhook event not found' });
 
     const replayJob = await prisma.replayJob.create({
-      data: { incidentId: id, webhookEventId, fixCandidate, status: 'PENDING' as any },
+      data: { incidentId: id, webhookEventId, fixCandidate, status: ReplayJobStatus.PENDING },
     });
 
     processReplayJob(replayJob.id).catch(err => {
@@ -197,7 +210,7 @@ export async function incidentRoutes(app: FastifyInstance) {
 
     await prisma.incident.update({
       where: { id },
-      data: { status: 'REPLAYING' as any },
+      data: { status: IncidentStatus.REPLAYING },
     });
 
     return reply.code(201).send(replayJob);
@@ -213,7 +226,7 @@ async function processReplayJob(replayJobId: string) {
 
   await prisma.replayJob.update({
     where: { id: replayJobId },
-    data: { status: 'RUNNING' as any, startedAt: new Date() },
+    data: { status: ReplayJobStatus.RUNNING, startedAt: new Date() },
   });
 
   try {
@@ -223,9 +236,9 @@ async function processReplayJob(replayJobId: string) {
     await prisma.replayJob.update({
       where: { id: replayJobId },
       data: {
-        status: 'COMPLETED' as any,
-        result: (result.passed ? 'PASSED' : 'FAILED') as any,
-        replayEvaluation: result.evaluation as any,
+        status: ReplayJobStatus.COMPLETED,
+        result: result.passed ? ReplayJobResult.PASSED : ReplayJobResult.FAILED,
+        replayEvaluation: result.evaluation as Prisma.InputJsonValue,
         completedAt: new Date(),
       },
     });
@@ -240,8 +253,8 @@ async function processReplayJob(replayJobId: string) {
     await prisma.replayJob.update({
       where: { id: replayJobId },
       data: {
-        status: 'FAILED' as any,
-        result: 'ERROR' as any,
+        status: ReplayJobStatus.FAILED,
+        result: ReplayJobResult.ERROR,
         errorMessage: error instanceof Error ? error.message : 'Unknown error',
         completedAt: new Date(),
       },

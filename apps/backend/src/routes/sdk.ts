@@ -1,5 +1,13 @@
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../utils/prisma.js';
+import type { Prisma } from '@prisma/client';
+import { IntegrationType } from '@prisma/client';
+
+function parseIntegrationType(input: unknown): IntegrationType {
+  const s = String(input ?? '').toUpperCase();
+  if ((Object.values(IntegrationType) as string[]).includes(s)) return s as IntegrationType;
+  throw new Error(`Unknown integration type: ${String(input)}`);
+}
 
 export async function sdkRoutes(app: FastifyInstance) {
   // SDK track endpoint - stores TrackedEvent, no auth for local MVP (API key validated loosely)
@@ -18,7 +26,12 @@ export async function sdkRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: 'eventId, integration, type required' });
     }
 
-    const integrationType = String(body.integration).toUpperCase() as any;
+    let integrationType: IntegrationType;
+    try {
+      integrationType = parseIntegrationType(body.integration);
+    } catch {
+      return reply.code(400).send({ error: 'Unknown integration type' });
+    }
 
     try {
       const tracked = await prisma.trackedEvent.upsert({
@@ -28,10 +41,10 @@ export async function sdkRoutes(app: FastifyInstance) {
           eventId: body.eventId,
           integration: integrationType,
           type: body.type,
-          payload: (body.payload ?? {}) as any,
+          payload: (body.payload ?? {}) as Prisma.InputJsonValue,
           timestamp: body.timestamp ? new Date(body.timestamp) : new Date(),
           correlationId: body.correlationId,
-          metadata: (body.metadata ?? {}) as any,
+          metadata: (body.metadata ?? {}) as Prisma.InputJsonValue,
         },
       });
 
@@ -61,10 +74,15 @@ export async function sdkRoutes(app: FastifyInstance) {
     const q = (request.query ?? {}) as Record<string, unknown>;
     const page = Number(q.page ?? 1) || 1;
     const pageSize = Math.min(Number(q.pageSize ?? 20) || 20, 100);
-    const where: any = {};
-    if (q.integration) where.integration = String(q.integration).toUpperCase();
-    if (q.type) where.type = q.type;
-    if (q.correlationId) where.correlationId = q.correlationId;
+    const where: Prisma.TrackedEventWhereInput = {};
+    if (typeof q.integration === 'string') {
+      const s = q.integration.toUpperCase();
+      if ((Object.values(IntegrationType) as string[]).includes(s)) {
+        where.integration = s as IntegrationType;
+      }
+    }
+    if (typeof q.type === 'string') where.type = q.type;
+    if (typeof q.correlationId === 'string') where.correlationId = q.correlationId;
 
     const [data, total] = await Promise.all([
       prisma.trackedEvent.findMany({

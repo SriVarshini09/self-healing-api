@@ -16,8 +16,7 @@ module.exports = {
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     '@typescript-eslint/consistent-type-imports': 'error',
     '@typescript-eslint/no-floating-promises': 'warn',
-    // Backend handles dynamic webhook payloads + Prisma delegates; tighten incrementally.
-    '@typescript-eslint/no-explicit-any': 'warn'
+    '@typescript-eslint/no-explicit-any': 'error'
   },
   ignorePatterns: ['node_modules', 'dist', 'build', '.turbo']
 }

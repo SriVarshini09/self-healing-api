@@ -1,5 +1,5 @@
 import { prisma } from '../utils/prisma.js';
-import type { Incident, Invariant } from '@prisma/client';
+import type { Incident, Integration, Invariant } from '@prisma/client';
 import type { DiagnosisResult } from './diagnosis.js';
 
 export interface RepairCandidate {
@@ -10,7 +10,7 @@ export interface RepairCandidate {
   confidence: number;
 }
 
-type IncidentWithRelations = Incident & { invariant: Invariant | null; integration: any };
+type IncidentWithRelations = Incident & { invariant: Invariant | null; integration: Integration };
 
 export async function generateRepairCandidates(
   incident: IncidentWithRelations,
@@ -88,7 +88,7 @@ function generatePredicateFix(
   return null;
 }
 
-function generateRetryFix(integration: any): RepairCandidate | null {
+function generateRetryFix(integration: Integration): RepairCandidate | null {
   const config = (integration?.config ?? {}) as Record<string, unknown>;
   const hasRetryConfig =
     config.retryAttempts !== undefined || config.retryDelay !== undefined;
@@ -104,7 +104,7 @@ function generateRetryFix(integration: any): RepairCandidate | null {
   return null;
 }
 
-function generateConfigFix(integration: any, diagnosis: DiagnosisResult): RepairCandidate | null {
+function generateConfigFix(integration: Integration, diagnosis: DiagnosisResult): RepairCandidate | null {
   if (
     diagnosis.rootCause.includes('webhook') ||
     diagnosis.rootCause.includes('timeout')
@@ -133,7 +133,7 @@ function generateConfigFix(integration: any, diagnosis: DiagnosisResult): Repair
 
 function generateCodeFix(
   invariant: Invariant,
-  integration: any,
+  integration: Integration,
   diagnosis: DiagnosisResult,
 ): RepairCandidate | null {
   if (diagnosis.suggestedFix.includes('predicate')) {
