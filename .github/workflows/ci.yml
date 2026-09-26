@@ -46,3 +46,5 @@ jobs:
 
       - name: Prisma validate
         run: pnpm --filter @shapi/backend exec prisma validate
+        env:
+          DATABASE_URL: postgresql://shapi:shapi@localhost:5432/shapi?schema=public
