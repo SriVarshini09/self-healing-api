@@ -373,10 +373,23 @@ function Events({ refreshKey }: { refreshKey: number }) {
   );
 }
 
+type Theme = 'navy' | 'white';
+
 export default function App() {
   const [tab, setTab] = useState<Tab>('overview');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [theme, setTheme] = useState<Theme>(() =>
+    (typeof localStorage !== 'undefined' && localStorage.getItem('shapi-theme') === 'white' ? 'white' : 'navy') as Theme,
+  );
   const bump = useCallback(() => setRefreshKey(k => k + 1), []);
+  useEffect(() => {
+    document.documentElement.dataset.shapiTheme = theme;
+    try {
+      localStorage.setItem('shapi-theme', theme);
+    } catch {
+      // storage unavailable (private mode) — theme still applies for the session
+    }
+  }, [theme]);
   const labels: Record<Tab, string> = { overview: 'Overview', integrations: 'Integrations', invariants: 'Invariants', incidents: 'Incidents', drift: 'Drift monitoring', events: 'Event stream' };
   const icons: Record<Tab, string> = { overview: '◫', integrations: '⌘', invariants: '◈', incidents: '⚑', drift: '⌁', events: '≋' };
 
@@ -393,7 +406,7 @@ export default function App() {
         <div className="sidebar-footer"><strong>Behavioral assurance</strong>Making every integration outcome visible.</div>
       </aside>
       <div className="workspace">
-      <div className="topbar"><div className="crumb">SHAPI <span aria-hidden="true">/</span> <strong>{labels[tab]}</strong></div><div className="top-actions"><span className="live"><span className="live-dot" /> SYSTEM LIVE</span><span className="avatar">SA</span></div></div>
+      <div className="topbar"><div className="crumb">SHAPI <span aria-hidden="true">/</span> <strong>{labels[tab]}</strong></div><div className="top-actions"><button className="secondary theme-toggle" onClick={() => setTheme(t => (t === 'navy' ? 'white' : 'navy'))} title={theme === 'navy' ? 'Switch to white theme' : 'Switch to navy theme'}>{theme === 'navy' ? '○ White' : '● Navy'}</button><span className="live"><span className="live-dot" /> SYSTEM LIVE</span><span className="avatar">SA</span></div></div>
       <main>
         <div className="page-heading"><div><div className="eyebrow">WEBHOOK RELIABILITY PLATFORM</div><h1>{tab === 'overview' ? 'Good morning' : labels[tab]}</h1><p className="subtitle">{tab === 'overview' ? 'Know when integrations succeed in business—not just in HTTP.' : `Manage and monitor your ${labels[tab].toLowerCase()} across connected services.`}</p></div>{tab === 'overview' && <button className="secondary" onClick={bump}>↻ &nbsp; Refresh data</button>}</div>
         {tab === 'overview' && <Overview refreshKey={refreshKey} />}

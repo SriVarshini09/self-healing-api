@@ -12,6 +12,17 @@ button { cursor:pointer; }
 .app { min-height:100vh; display:flex; font-family:'Manrope',sans-serif; }
 .sidebar { width:248px; background:linear-gradient(180deg,#162634 0%,var(--navy) 30%,#101c25 100%); color:#d6e0e5; padding:28px 16px; display:flex; flex-direction:column; flex-shrink:0; position:relative; overflow:hidden; }
 .sidebar::before { content:''; position:absolute; inset:0; background:radial-gradient(220px 220px at 20% 0%,rgba(92,160,255,.14),transparent 70%),radial-gradient(260px 260px at 90% 100%,rgba(49,201,131,.08),transparent 70%); pointer-events:none; animation:sheen 7s ease-in-out infinite; }
+.theme-toggle { white-space:nowrap; }
+/* White theme: same layout, light sidebar */
+html[data-shapi-theme='white'] .sidebar { background:linear-gradient(180deg,#ffffff 0%,#f4f7fa 100%); color:#4d606b; border-right:1px solid var(--line); }
+html[data-shapi-theme='white'] .sidebar::before { background:radial-gradient(220px 220px at 20% 0%,rgba(38,116,245,.09),transparent 70%),radial-gradient(260px 260px at 90% 100%,rgba(49,201,131,.06),transparent 70%); }
+html[data-shapi-theme='white'] .brand { color:var(--ink); }
+html[data-shapi-theme='white'] .nav-label { color:#9aa7b1; }
+html[data-shapi-theme='white'] .side-nav button { color:#61717b; }
+html[data-shapi-theme='white'] .side-nav button:hover { background:#e9f1fb; color:var(--ink); }
+html[data-shapi-theme='white'] .side-nav button.active { background:linear-gradient(90deg,#e3eefe,#eef4fb); color:var(--ink); box-shadow:inset 2px 0 0 var(--blue); }
+html[data-shapi-theme='white'] .sidebar-footer { border-top-color:var(--line); color:#9aa7b1; }
+html[data-shapi-theme='white'] .sidebar-footer strong { color:#4d606b; }
 .side-nav,.brand,.nav-label,.sidebar-footer { position:relative; }
 .brand { display:flex; align-items:center; gap:11px; padding:0 12px 36px; color:#fff; font-weight:800; letter-spacing:.16em; font-size:18px; }
 .brand-mark { width:28px; height:28px; border-radius:9px; background:linear-gradient(135deg,#5ca0ff,#2455d7); display:grid; place-items:center; color:#fff; font-size:14px; box-shadow:0 7px 18px #0c1720,0 0 22px rgba(92,160,255,.35); }
