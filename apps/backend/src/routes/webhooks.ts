@@ -39,6 +39,17 @@ export async function webhookRoutes(app: FastifyInstance) {
 
 type WebhookKind = 'stripe' | 'github' | 'sendgrid' | 'twilio' | 'custom';
 
+const DEV_STRIPE_SECRETS = new Set([
+  '',
+  'whsec_dev_stripe_secret_1234567890abcdef',
+  'whsec_your_stripe_webhook_secret',
+  'whsec_demo_secret_1234567890abcdef',
+]);
+
+function isDevSecret(secret: string): boolean {
+  return DEV_STRIPE_SECRETS.has(secret);
+}
+
 function toPrismaIntegrationType(kind: WebhookKind): IntegrationType {
   switch (kind) {
     case 'stripe':
@@ -69,10 +80,15 @@ async function handleStripeWebhook(request: WebhookRequest, reply: FastifyReply)
     return reply.code(401).send({ error: 'Invalid webhook signature' });
   }
 
+  // A real STRIPE_WEBHOOK_SECRET in the environment overrides the seeded demo
+  // secret so `stripe listen` traffic verifies without touching the database.
+  const envSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  const secret = envSecret && !isDevSecret(envSecret) ? envSecret : candidate.webhookSecret ?? undefined;
+
   let payload: Record<string, unknown>;
   try {
     const { verifyStripeWebhook } = await import('../services/stripe.js');
-    const result = verifyStripeWebhook(rawBody, headers['stripe-signature'], candidate.webhookSecret ?? undefined);
+    const result = verifyStripeWebhook(rawBody, headers['stripe-signature'], secret);
     payload = result.event as unknown as Record<string, unknown>;
     if (result.verified) logger.debug('Stripe signature verified via SDK');
   } catch (err) {
