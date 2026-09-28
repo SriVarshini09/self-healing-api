@@ -1,8 +1,13 @@
 import type { FastifyInstance } from 'fastify';
 import { config } from '../config.js';
 import { prisma } from '../utils/prisma.js';
+import { serializeJson } from '../utils/json.js';
 
 export async function registerPlugins(app: FastifyInstance) {
+  // Prisma models carry BigInt columns (e.g. GitHubInstallation.githubInstallationId)
+  // which JSON.stringify cannot serialize. Convert safely instead of 500ing.
+  app.setReplySerializer(serializeJson);
+
   // Raw body capture for HMAC webhook verification (opt-in per route via config.rawBody).
   await app.register(import('fastify-raw-body'), {
     field: 'rawBody',
