@@ -37,22 +37,25 @@ export function toneFor(status: string): string {
   return 'gray';
 }
 
-function Overview({ refreshKey }: { refreshKey: number }) {
+function Overview({ refreshKey, command }: { refreshKey: number; command: boolean }) {
   const [summary, setSummary] = useState<any>(null);
   const [incidents, setIncidents] = useState<any[]>([]);
+  const [drift, setDrift] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [s, inc] = await Promise.all([
+        const [s, inc, dr] = await Promise.all([
           api<any>('/drift/summary'),
           api<any>('/incidents?pageSize=5'),
+          api<any>('/drift/results?pageSize=12'),
         ]);
         if (!cancelled) {
           setSummary(s);
           setIncidents(inc.data ?? []);
+          setDrift(dr.data ?? []);
           setError(null);
         }
       } catch (e) {
@@ -66,29 +69,84 @@ function Overview({ refreshKey }: { refreshKey: number }) {
 
   if (error) return <div className="card error">Backend unreachable: {error} — run backend on :3001</div>;
 
+  const openCount = incidents.filter(i => !['RESOLVED', 'DISMISSED'].includes(String(i.status))).length;
+  const tiles = [
+    { label: 'Invariants', value: summary?.totalInvariants ?? '—', delta: 'asserting outcomes' },
+    { label: 'Monitored integrations', value: summary?.monitoredIntegrations ?? '—', delta: 'event streams live' },
+    { label: 'Active drift alerts', value: summary?.activeAlerts ?? '—', delta: 'last 24h' },
+    { label: 'Open incidents', value: openCount, delta: 'needs triage' },
+  ];
+
   return (
-    <div className="grid">
-      <div className="card">
-        <div className="card-head"><h3>Behavioral health</h3><Badge text="MONITORING" tone="green" /></div>
-        <p className="muted">A 200 OK does not prove success. Invariants assert business outcomes.</p>
-        <div className="stats">
-          <div><div className="stat-num">{summary?.totalInvariants ?? '—'}</div><div className="stat-label">Invariants</div></div>
-          <div><div className="stat-num">{summary?.monitoredIntegrations ?? '—'}</div><div className="stat-label">Monitored integrations</div></div>
-          <div><div className="stat-num">{summary?.activeAlerts ?? '—'}</div><div className="stat-label">Active drift alerts (24h)</div></div>
+    <>
+      {command && (
+        <div className="cmd-hero">
+          <div className="cmd-hero-copy">
+            <div className="eyebrow">Behavioral operations center</div>
+            <h2 className="cmd-title">Integration Outcomes, Verified Live</h2>
+            <p className="muted">Real-time business-outcome assurance across every connected service. A 200 OK does not prove success.</p>
+            <div className="cmd-hero-stats">
+              <div><span className="cmd-hero-num">{summary?.totalInvariants ?? '—'}</span><span className="muted"> invariants</span></div>
+              <div><span className="cmd-hero-num">{openCount}</span><span className="muted"> open incidents</span></div>
+            </div>
+          </div>
+          <div className="globe" aria-hidden="true">
+            <div className="globe-sphere" />
+            <div className="globe-ring r1" />
+            <div className="globe-ring r2" />
+            <div className="globe-sat s1" />
+            <div className="globe-sat s2" />
+            <div className="globe-sat s3" />
+          </div>
         </div>
-      </div>
-      <div className="card">
-        <div className="card-head"><h3>Latest incidents</h3><span className="table-label">Recent activity</span></div>
-        {incidents.length === 0 && <p className="muted">No incidents. Trigger the demo SaaS failure to see one.</p>}
-        {incidents.map(i => (
-          <div key={i.id} className="row">
-            <Badge text={i.status} tone={toneFor(i.status)} />
-            <Badge text={i.severity} tone={toneFor(i.severity)} />
-            <span>{i.title}</span>
+      )}
+      <div className="tiles">
+        {tiles.map(t => (
+          <div key={t.label} className="card tile">
+            <div className="table-label">{t.label}</div>
+            <div className="tile-num">{t.value}</div>
+            <div className="tile-delta">{t.delta}</div>
           </div>
         ))}
       </div>
-    </div>
+      {command && drift.length > 0 && (
+        <div className="card">
+          <div className="card-head"><h3>Drift activity</h3><span className="table-label">recent checks</span></div>
+          <div className="bars">
+            {drift.map(d => (
+              <div
+                key={d.id}
+                className={`bar ${d.detected ? 'hit' : ''}`}
+                style={{ height: `${18 + Math.min(82, Math.abs(Number(d.effectSize)) * 60)}px` }}
+                title={`p=${Number(d.pValue).toFixed(4)} d=${Number(d.effectSize).toFixed(2)}`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="grid">
+        <div className="card">
+          <div className="card-head"><h3>Behavioral health</h3><Badge text="MONITORING" tone="green" /></div>
+          <p className="muted">A 200 OK does not prove success. Invariants assert business outcomes.</p>
+          <div className="stats">
+            <div><div className="stat-num">{summary?.totalInvariants ?? '—'}</div><div className="stat-label">Invariants</div></div>
+            <div><div className="stat-num">{summary?.monitoredIntegrations ?? '—'}</div><div className="stat-label">Monitored integrations</div></div>
+            <div><div className="stat-num">{summary?.activeAlerts ?? '—'}</div><div className="stat-label">Active drift alerts (24h)</div></div>
+          </div>
+        </div>
+        <div className="card">
+          <div className="card-head"><h3>Latest incidents</h3><span className="table-label">Recent activity</span></div>
+          {incidents.length === 0 && <p className="muted">No incidents. Trigger the demo SaaS failure to see one.</p>}
+          {incidents.map(i => (
+            <div key={i.id} className="row">
+              <Badge text={i.status} tone={toneFor(i.status)} />
+              <Badge text={i.severity} tone={toneFor(i.severity)} />
+              <span>{i.title}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -373,14 +431,22 @@ function Events({ refreshKey }: { refreshKey: number }) {
   );
 }
 
-type Theme = 'navy' | 'white';
+type Theme = 'navy' | 'white' | 'command';
+const THEMES: Theme[] = ['navy', 'white', 'command'];
+const THEME_LABEL: Record<Theme, string> = { navy: '● Navy', white: '○ White', command: '◈ Command' };
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('overview');
   const [refreshKey, setRefreshKey] = useState(0);
-  const [theme, setTheme] = useState<Theme>(() =>
-    (typeof localStorage !== 'undefined' && localStorage.getItem('shapi-theme') === 'white' ? 'white' : 'navy') as Theme,
-  );
+  const [theme, setTheme] = useState<Theme>(() => {
+    try {
+      const saved = localStorage.getItem('shapi-theme');
+      if (saved === 'white' || saved === 'command' || saved === 'navy') return saved;
+    } catch {
+      // storage unavailable — fall through to default
+    }
+    return 'navy';
+  });
   const bump = useCallback(() => setRefreshKey(k => k + 1), []);
   useEffect(() => {
     document.documentElement.dataset.shapiTheme = theme;
@@ -406,10 +472,10 @@ export default function App() {
         <div className="sidebar-footer"><strong>Behavioral assurance</strong>Making every integration outcome visible.</div>
       </aside>
       <div className="workspace">
-      <div className="topbar"><div className="crumb">SHAPI <span aria-hidden="true">/</span> <strong>{labels[tab]}</strong></div><div className="top-actions"><button className="secondary theme-toggle" onClick={() => setTheme(t => (t === 'navy' ? 'white' : 'navy'))} title={theme === 'navy' ? 'Switch to white theme' : 'Switch to navy theme'}>{theme === 'navy' ? '○ White' : '● Navy'}</button><span className="live"><span className="live-dot" /> SYSTEM LIVE</span><span className="avatar">SA</span></div></div>
+      <div className="topbar"><div className="crumb">SHAPI <span aria-hidden="true">/</span> <strong>{labels[tab]}</strong></div><div className="top-actions"><button className="secondary theme-toggle" onClick={() => setTheme(t => THEMES[(THEMES.indexOf(t) + 1) % THEMES.length])} title="Cycle theme">{THEME_LABEL[theme]}</button><span className="live"><span className="live-dot" /> SYSTEM LIVE</span><span className="avatar">SA</span></div></div>
       <main>
         <div className="page-heading"><div><div className="eyebrow">WEBHOOK RELIABILITY PLATFORM</div><h1>{tab === 'overview' ? 'Good morning' : labels[tab]}</h1><p className="subtitle">{tab === 'overview' ? 'Know when integrations succeed in business—not just in HTTP.' : `Manage and monitor your ${labels[tab].toLowerCase()} across connected services.`}</p></div>{tab === 'overview' && <button className="secondary" onClick={bump}>↻ &nbsp; Refresh data</button>}</div>
-        {tab === 'overview' && <Overview refreshKey={refreshKey} />}
+        {tab === 'overview' && <Overview refreshKey={refreshKey} command={theme === 'command'} />}
         {tab === 'integrations' && <Integrations refreshKey={refreshKey} bump={bump} />}
         {tab === 'invariants' && <Invariants refreshKey={refreshKey} bump={bump} />}
         {tab === 'incidents' && <Incidents refreshKey={refreshKey} bump={bump} />}
