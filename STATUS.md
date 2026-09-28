@@ -89,7 +89,7 @@ DETECTED → TRIAGED → REPLAYING → REPAIRED → RESOLVED (DISMISSED escape h
 ## Next Steps (manual-only; local MVP verified 2026-09-25)
 
 1. ~~`pnpm dev`, run simulate success/failure/drift, verify dashboard incidents visually~~ — done live (6 invariants, 2 integrations, drift + incidents + repairs verified in premium UI)
-2. Set `STRIPE_WEBHOOK_SECRET` to a real `whsec_...` + point Stripe CLI at `/api/v1/webhooks/stripe` for a true end-to-end signature check
+2. ~~Set `STRIPE_WEBHOOK_SECRET` to a real `whsec_...` + point Stripe CLI at `/api/v1/webhooks/stripe` for a true end-to-end signature check~~ — done 2026-09-28: real `stripe.webhooks.constructEvent` HMAC verified a live `invoice.payment_succeeded` from Stripe CLI (event COMPLETED; also fixed route to honor the env secret over the seeded demo secret)
 3. Set `GITHUB_TOKEN` and create a repair PR against a real repo to exercise the Octokit path
 4. For untrusted multi-tenant predicates, upgrade the node:vm sandbox to isolated-vm
 
