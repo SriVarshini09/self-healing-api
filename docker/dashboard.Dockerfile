@@ -13,7 +13,7 @@ FROM nginx:1.27-alpine AS runtime
 COPY --from=build /app/dashboard/dist /usr/share/nginx/html
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
 COPY deploy/dashboard-entrypoint.sh /docker-entrypoint.d/40-shapi-config.sh
-RUN chmod +x /docker-entrypoint.d/40-shapi-config.sh
+RUN sed -i 's/\r$//' /docker-entrypoint.d/40-shapi-config.sh && chmod +x /docker-entrypoint.d/40-shapi-config.sh
 
 EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD wget -q -O - http://127.0.0.1/health >/dev/null || exit 1
