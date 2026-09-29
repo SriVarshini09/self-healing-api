@@ -88,7 +88,9 @@ export async function openRepairPr(
   const octokit = client ?? (new Octokit({ auth }) as Pick<Octokit, 'rest'>);
   const [owner, repo] = opts.repository.split('/');
   if (!owner || !repo) throw new Error(`Invalid repository "${opts.repository}" (want owner/repo)`);
-  const base = opts.base ?? 'main';
+  // Never assume 'main': discover the repository's actual default branch
+  // unless the caller pinned one explicitly.
+  const base = opts.base ?? (await octokit.rest.repos.get({ owner, repo })).data.default_branch;
 
   const { data: baseRef } = await octokit.rest.git.getRef({ owner, repo, ref: `heads/${base}` });
   const baseSha = baseRef.object.sha;
@@ -137,4 +139,67 @@ export async function openRepairPr(
     base,
   });
   return { prNumber: pr.number, prUrl: pr.html_url, real: true };
+}
+
+export interface VerifyRepairPrResult {
+  /** true only when CI check runs on the PR head SHA all pass */
+  verified: boolean;
+  /** true only when at least one check run exists and every run completed with success */
+  ciPassed: boolean;
+  /** true only when GitHub reports the PR merged (actual merged state) */
+  merged: boolean;
+  /** true when GitHub reports the PR closed */
+  closed: boolean;
+  headSha: string;
+  /** number of check runs evaluated for the head SHA */
+  checksTotal: number;
+}
+
+/**
+ * Verify a repair PR against real GitHub state: fetch the PR, read the check
+ * runs for its head SHA, and report CI status plus merged/closed state.
+ * `verified` derives ONLY from CI — never random, never assumed.
+ * Accepts an injected `client` for tests.
+ */
+export async function verifyRepairPr(
+  repository: string,
+  prNumber: number,
+  token?: string,
+  client?: Pick<Octokit, 'rest'>,
+): Promise<VerifyRepairPrResult> {
+  const auth = token ?? process.env.GITHUB_TOKEN;
+  if (!auth && !client) {
+    throw new Error('GITHUB_TOKEN is not configured');
+  }
+
+  const octokit = client ?? (new Octokit({ auth }) as Pick<Octokit, 'rest'>);
+  const [owner, repo] = repository.split('/');
+  if (!owner || !repo) throw new Error(`Invalid repository "${repository}" (want owner/repo)`);
+
+  const { data: pr } = await octokit.rest.pulls.get({ owner, repo, pull_number: prNumber });
+  const headSha: string = pr.head.sha;
+  const merged = pr.merged === true;
+  const closed = pr.state === 'closed';
+
+  // Check-runs are paginated: a later page may contain the failure, so every
+  // page must be evaluated. Any retrieval error throws (fail closed).
+  // A short page terminates the loop.
+  const runs: Array<{ status: string | null; conclusion: string | null }> = [];
+  const PAGE_SIZE = 100;
+  for (let page = 1; ; page += 1) {
+    const { data: checks } = await octokit.rest.checks.listForRef({
+      owner,
+      repo,
+      ref: headSha,
+      per_page: PAGE_SIZE,
+      page,
+    });
+    const batch: Array<{ status: string | null; conclusion: string | null }> =
+      checks.check_runs ?? [];
+    runs.push(...batch);
+    if (batch.length < PAGE_SIZE) break;
+  }
+  const ciPassed = runs.length > 0 && runs.every(r => r.status === 'completed' && r.conclusion === 'success');
+
+  return { verified: ciPassed, ciPassed, merged, closed, headSha, checksTotal: runs.length };
 }

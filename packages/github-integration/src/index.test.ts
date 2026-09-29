@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import crypto from 'crypto';
-import { verifyWebhookSignature, buildPrBody, shouldAutoMerge, openRepairPr } from './index.js';
+import { verifyWebhookSignature, buildPrBody, shouldAutoMerge, openRepairPr, verifyRepairPr } from './index.js';
 
 afterEach(() => {
   delete process.env.GITHUB_TOKEN;
@@ -36,18 +36,22 @@ describe('github-integration', () => {
     expect(r.prUrl).toContain('github.com/acme/demo/pull/');
   });
 
-  it('creates a real PR through an injected client (no network)', async () => {
+  it('discovers the default branch instead of assuming main', async () => {
     const calls: string[] = [];
     const fake = {
       rest: {
         git: {
-          getRef: vi.fn(async () => ({ data: { object: { sha: 'base-sha' } } })),
+          getRef: vi.fn(async (args: any) => {
+            calls.push(`getRef:${args.ref}`);
+            return { data: { object: { sha: 'base-sha' } } };
+          }),
           createRef: vi.fn(async () => {
             calls.push('createRef');
             return {};
           }),
         },
         repos: {
+          get: vi.fn(async () => ({ data: { default_branch: 'master' } })),
           getContent: vi.fn(async () => {
             const e: any = new Error('not found');
             e.status = 404;
@@ -75,10 +79,226 @@ describe('github-integration', () => {
       fake as any,
     );
     expect(r).toEqual({ prNumber: 42, prUrl: 'https://github.com/acme/demo/pull/42', real: true });
-    expect(calls).toEqual(['createRef', 'writeFile']);
+    expect(calls).toEqual(['getRef:heads/master', 'createRef', 'writeFile']);
     expect(fake.rest.pulls.create).toHaveBeenCalledWith(
-      expect.objectContaining({ head: 'shapi/fix-abc', base: 'main' }),
+      expect.objectContaining({ head: 'shapi/fix-abc', base: 'master' }),
     );
+  });
+
+  it('uses an explicitly pinned base without discovery', async () => {
+    const fake = {
+      rest: {
+        git: {
+          getRef: vi.fn(async () => ({ data: { object: { sha: 'base-sha' } } })),
+          createRef: vi.fn(async () => ({})),
+        },
+        repos: {
+          get: vi.fn(async () => {
+            throw new Error('discovery must not run when base is pinned');
+          }),
+          getContent: vi.fn(async () => {
+            const e: any = new Error('not found');
+            e.status = 404;
+            throw e;
+          }),
+          createOrUpdateFileContents: vi.fn(async () => ({})),
+        },
+        pulls: {
+          create: vi.fn(async () => ({ data: { number: 7, html_url: 'https://github.com/acme/demo/pull/7' } })),
+        },
+      },
+    };
+    const r = await openRepairPr(
+      {
+        repository: 'acme/demo',
+        title: 'SHAPI fix',
+        body: 'verified repair',
+        branch: 'shapi/fix-abc',
+        base: 'develop',
+        files: [],
+      },
+      'fake-token',
+      fake as any,
+    );
+    expect(r.real).toBe(true);
+    expect(fake.rest.git.getRef).toHaveBeenCalledWith(
+      expect.objectContaining({ ref: 'heads/develop' }),
+    );
+    expect(fake.rest.pulls.create).toHaveBeenCalledWith(
+      expect.objectContaining({ base: 'develop' }),
+    );
+  });
+
+  it('verifyRepairPr reports verified when all CI checks pass', async () => {
+    const fake = {
+      rest: {
+        pulls: {
+          get: vi.fn(async () => ({
+            data: { number: 42, state: 'open', merged: false, head: { sha: 'abc123' } },
+          })),
+        },
+        checks: {
+          listForRef: vi.fn(async () => ({
+            data: {
+              total_count: 2,
+              check_runs: [
+                { status: 'completed', conclusion: 'success' },
+                { status: 'completed', conclusion: 'success' },
+              ],
+            },
+          })),
+        },
+      },
+    };
+    const r = await verifyRepairPr('acme/demo', 42, 'fake-token', fake as any);
+    expect(r).toEqual({
+      verified: true,
+      ciPassed: true,
+      merged: false,
+      closed: false,
+      headSha: 'abc123',
+      checksTotal: 2,
+    });
+    expect(fake.rest.checks.listForRef).toHaveBeenCalledWith(
+      expect.objectContaining({ ref: 'abc123' }),
+    );
+  });
+
+  it('verifyRepairPr reports unverified when any CI check fails', async () => {
+    const fake = {
+      rest: {
+        pulls: {
+          get: vi.fn(async () => ({
+            data: { number: 42, state: 'open', merged: false, head: { sha: 'abc123' } },
+          })),
+        },
+        checks: {
+          listForRef: vi.fn(async () => ({
+            data: {
+              total_count: 2,
+              check_runs: [
+                { status: 'completed', conclusion: 'success' },
+                { status: 'completed', conclusion: 'failure' },
+              ],
+            },
+          })),
+        },
+      },
+    };
+    const r = await verifyRepairPr('acme/demo', 42, 'fake-token', fake as any);
+    expect(r.verified).toBe(false);
+    expect(r.ciPassed).toBe(false);
+    expect(r.merged).toBe(false);
+    expect(r.checksTotal).toBe(2);
+  });
+
+  it('verifyRepairPr fails closed when a later check-run page fails', async () => {
+    const pageOne = Array.from({ length: 100 }, () => ({ status: 'completed', conclusion: 'success' }));
+    const fake = {
+      rest: {
+        pulls: {
+          get: vi.fn(async () => ({
+            data: { number: 42, state: 'open', merged: false, head: { sha: 'abc123' } },
+          })),
+        },
+        checks: {
+          listForRef: vi.fn(async (args: any) => {
+            if ((args.page ?? 1) === 1) return { data: { total_count: 101, check_runs: pageOne } };
+            return {
+              data: {
+                total_count: 101,
+                check_runs: [{ status: 'completed', conclusion: 'failure' }],
+              },
+            };
+          }),
+        },
+      },
+    };
+    const r = await verifyRepairPr('acme/demo', 42, 'fake-token', fake as any);
+    expect(r.verified).toBe(false);
+    expect(r.ciPassed).toBe(false);
+    expect(r.checksTotal).toBe(101);
+    expect(fake.rest.checks.listForRef).toHaveBeenCalledTimes(2);
+  });
+
+  it('verifyRepairPr fails closed with zero check runs on an open PR', async () => {
+    const fake = {
+      rest: {
+        pulls: {
+          get: vi.fn(async () => ({
+            data: { number: 42, state: 'open', merged: false, head: { sha: 'abc123' } },
+          })),
+        },
+        checks: {
+          listForRef: vi.fn(async () => ({ data: { total_count: 0, check_runs: [] } })),
+        },
+      },
+    };
+    const r = await verifyRepairPr('acme/demo', 42, 'fake-token', fake as any);
+    expect(r).toEqual({
+      verified: false,
+      ciPassed: false,
+      merged: false,
+      closed: false,
+      headSha: 'abc123',
+      checksTotal: 0,
+    });
+  });
+
+  it('verifyRepairPr fails closed when a check is still running', async () => {
+    const fake = {
+      rest: {
+        pulls: {
+          get: vi.fn(async () => ({
+            data: { number: 42, state: 'open', merged: false, head: { sha: 'abc123' } },
+          })),
+        },
+        checks: {
+          listForRef: vi.fn(async () => ({
+            data: {
+              total_count: 2,
+              check_runs: [
+                { status: 'completed', conclusion: 'success' },
+                { status: 'in_progress', conclusion: null },
+              ],
+            },
+          })),
+        },
+      },
+    };
+    const r = await verifyRepairPr('acme/demo', 42, 'fake-token', fake as any);
+    expect(r.verified).toBe(false);
+    expect(r.ciPassed).toBe(false);
+    expect(r.checksTotal).toBe(2);
+  });
+
+  it('verifyRepairPr throws without token or client', async () => {
+    delete process.env.GITHUB_TOKEN;
+    await expect(verifyRepairPr('acme/demo', 1)).rejects.toThrow('GITHUB_TOKEN is not configured');
+  });
+
+  it('verifyRepairPr reports merged state from GitHub, not CI', async () => {
+    const fake = {
+      rest: {
+        pulls: {
+          get: vi.fn(async () => ({
+            data: { number: 42, state: 'closed', merged: true, head: { sha: 'def456' } },
+          })),
+        },
+        checks: {
+          listForRef: vi.fn(async () => ({ data: { total_count: 0, check_runs: [] } })),
+        },
+      },
+    };
+    const r = await verifyRepairPr('acme/demo', 42, 'fake-token', fake as any);
+    expect(r).toEqual({
+      verified: false,
+      ciPassed: false,
+      merged: true,
+      closed: true,
+      headSha: 'def456',
+      checksTotal: 0,
+    });
   });
 
   it('rejects malformed repository names', async () => {

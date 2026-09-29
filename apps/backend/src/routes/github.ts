@@ -155,20 +155,23 @@ export async function githubRoutes(app: FastifyInstance) {
     });
     if (!pr) return reply.code(404).send({ error: 'PR not found' });
 
-    const verified = Math.random() > 0.3;
-    await prisma.gitHubPullRequest.update({
-      where: { id: prId },
-      data: { verified, status: verified ? GitHubPRStatus.MERGED : GitHubPRStatus.OPEN },
-    });
-
-    if (verified && pr.incident) {
-      await prisma.incident.update({
-        where: { id: pr.incidentId },
-        data: { status: IncidentStatus.RESOLVED, resolvedAt: new Date() },
-      });
+    // Real verification only: CI passing sets verified, never MERGED/RESOLVED.
+    // MERGED status and incident resolution happen exclusively from actual
+    // GitHub merged state (pull_request closed+merged webhook).
+    const { verifyRepairPr } = await import('@shapi/github-integration');
+    let result;
+    try {
+      result = await verifyRepairPr(pr.repository, pr.prNumber);
+    } catch (e) {
+      return reply.code(502).send({ error: e instanceof Error ? e.message : 'GitHub verification failed' });
     }
 
-    return reply.send({ verified, pr });
+    const updated = await prisma.gitHubPullRequest.update({
+      where: { id: prId },
+      data: { verified: result.verified },
+    });
+
+    return reply.send({ verified: result.verified, ciPassed: result.ciPassed, merged: result.merged, closed: result.closed, pr: updated });
   });
 }
 
@@ -243,23 +246,38 @@ async function handleWorkflowRunEvent(payload: Record<string, unknown>) {
   const action = str(payload.action);
   const workflowRun = obj(payload.workflow_run);
   if (action !== 'completed') return;
+  if (str(workflowRun.conclusion) !== 'success') return;
 
-  const prs = await prisma.gitHubPullRequest.findMany({
-    where: { status: GitHubPRStatus.OPEN },
-  });
+  // Only PRs explicitly referenced by this workflow run, in this repository.
+  // Never sweep every open SHAPI PR: an unrelated green run must not verify them.
+  const repoFullName = str(obj(payload.repository).full_name);
+  if (!repoFullName) return;
+  const refs = Array.isArray(workflowRun.pull_requests) ? workflowRun.pull_requests : [];
 
-  for (const pr of prs) {
-    if (str(obj(workflowRun.head_repository).full_name) === pr.repository) {
-      if (str(workflowRun.conclusion) === 'success') {
-        await prisma.gitHubPullRequest.update({
-          where: { id: pr.id },
-          data: { verified: true, status: GitHubPRStatus.MERGED },
-        });
-        await prisma.incident.update({
-          where: { id: pr.incidentId },
-          data: { status: IncidentStatus.RESOLVED, resolvedAt: new Date() },
-        });
-      }
+  const { verifyRepairPr } = await import('@shapi/github-integration');
+
+  for (const ref of refs) {
+    const prNumber = Number(obj(ref).number);
+    if (!prNumber) continue;
+    const ours = await prisma.gitHubPullRequest.findFirst({
+      where: { prNumber, repository: repoFullName, status: GitHubPRStatus.OPEN },
+    });
+    if (!ours) continue;
+
+    let result;
+    try {
+      result = await verifyRepairPr(repoFullName, prNumber);
+    } catch {
+      continue;
+    }
+    // CI passing marks verified only. It never sets MERGED and never resolves
+    // the incident; those follow solely from actual merged state via the
+    // pull_request closed+merged webhook.
+    if (result.verified) {
+      await prisma.gitHubPullRequest.update({
+        where: { id: ours.id },
+        data: { verified: true },
+      });
     }
   }
 }
