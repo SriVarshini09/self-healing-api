@@ -13,6 +13,7 @@
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
     "db:push": "prisma db push",
+    "db:migrate:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
@@ -20,8 +21,10 @@
   },
   "dependencies": {
     "@fastify/cors": "^8.4.1",
+    "@fastify/formbody": "^7.4.0",
     "@fastify/helmet": "^11.1.1",
     "@fastify/rate-limit": "^9.1.0",
+    "@shapi/drift-detection": "workspace:*",
     "@fastify/swagger": "^8.12.0",
     "@fastify/swagger-ui": "^3.0.0",
     "@prisma/client": "^5.7.1",

@@ -2,8 +2,8 @@
   "name": "@shapi/diagnosis-engine",
   "version": "0.0.1",
   "private": true,
-  "main": "./src/index.ts",
+  "main": "./dist/index.js",
   "types": "./src/index.ts",
-  "scripts": { "build": "tsc --noEmit", "test": "vitest run", "typecheck": "tsc --noEmit" },
+  "scripts": { "build": "tsc --outDir dist --noEmit false", "test": "vitest run", "typecheck": "tsc --noEmit" },
   "devDependencies": { "typescript": "^5.3.3", "vitest": "^1.2.0" }
 }

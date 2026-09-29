@@ -9,14 +9,29 @@ import {
   ReplayJobResult,
   ReplayJobStatus,
 } from '@prisma/client';
+import { z } from 'zod';
+import { tenantIdFor } from '../utils/auth-context.js';
+
+const replaySchema = z.object({
+  webhookEventId: z.string().min(1),
+  fixCandidate: z.string().trim().min(1).max(20_000),
+});
+
+const incidentPatchSchema = z.object({
+  status: z.nativeEnum(IncidentStatus).optional(),
+  rootCause: z.string().max(20_000).optional(),
+  suggestedFix: z.string().max(20_000).optional(),
+  githubPrUrl: z.string().url().max(2_000).nullable().optional(),
+}).strict();
 
 export async function incidentRoutes(app: FastifyInstance) {
   app.get('/incidents', async (request, reply) => {
+    const tenantId = tenantIdFor(request);
     const q = (request.query ?? {}) as Record<string, unknown>;
     const page = Number(q.page ?? 1) || 1;
     const pageSize = Math.min(Number(q.pageSize ?? 20) || 20, 100);
 
-    const where: Prisma.IncidentWhereInput = {};
+    const where: Prisma.IncidentWhereInput = { integration: { tenantId } };
     if (typeof q.integrationId === 'string') where.integrationId = q.integrationId;
     if (typeof q.invariantId === 'string') where.invariantId = q.invariantId;
     if (typeof q.status === 'string' && (Object.values(IncidentStatus) as string[]).includes(q.status)) {
@@ -50,11 +65,12 @@ export async function incidentRoutes(app: FastifyInstance) {
   });
 
   app.get('/incidents/:id', async (request, reply) => {
+    const tenantId = tenantIdFor(request);
     const { id } = (request.params ?? {}) as { id: string };
     const incident = await prisma.incident.findUnique({
-      where: { id },
+      where: { id, integration: { tenantId } },
       include: {
-        integration: true,
+        integration: { select: { id: true, name: true, type: true, webhookEnabled: true } },
         invariant: true,
         replayJobs: { orderBy: { createdAt: 'desc' } },
         repairCandidates: { orderBy: { createdAt: 'desc' } },
@@ -66,23 +82,23 @@ export async function incidentRoutes(app: FastifyInstance) {
   });
 
   app.patch('/incidents/:id', async (request, reply) => {
+    const tenantId = tenantIdFor(request);
     const { id } = (request.params ?? {}) as { id: string };
-    const data = (request.body ?? {}) as {
-      status?: IncidentStatus;
-      rootCause?: string;
-      suggestedFix?: string;
-      githubPrUrl?: string;
-    };
+    const parsed = incidentPatchSchema.safeParse(request.body ?? {});
+    if (!parsed.success) return reply.code(400).send({ error: 'Invalid incident payload', details: parsed.error.flatten() });
+    const data = parsed.data;
 
     const updateData: Prisma.IncidentUpdateInput = { ...data };
     if (data.status === IncidentStatus.TRIAGED) updateData.triagedAt = new Date();
     if (data.status === IncidentStatus.RESOLVED) updateData.resolvedAt = new Date();
 
+    const existing = await prisma.incident.findFirst({ where: { id, integration: { tenantId } } });
+    if (!existing) return reply.code(404).send({ error: 'Incident not found' });
     const incident = await prisma.incident.update({
       where: { id },
       data: updateData,
       include: {
-        integration: true,
+        integration: { select: { id: true, name: true, type: true, webhookEnabled: true } },
         invariant: true,
         replayJobs: true,
         repairCandidates: true,
@@ -93,9 +109,10 @@ export async function incidentRoutes(app: FastifyInstance) {
   });
 
   app.get('/incidents/:id/timeline', async (request, reply) => {
+    const tenantId = tenantIdFor(request);
     const { id } = (request.params ?? {}) as { id: string };
     const incident = await prisma.incident.findUnique({
-      where: { id },
+      where: { id, integration: { tenantId } },
       include: {
         replayJobs: { orderBy: { createdAt: 'asc' } },
         repairCandidates: { orderBy: { createdAt: 'asc' } },
@@ -148,10 +165,14 @@ export async function incidentRoutes(app: FastifyInstance) {
   });
 
   app.post('/incidents/:id/diagnose', async (request, reply) => {
+    const tenantId = tenantIdFor(request);
     const { id } = (request.params ?? {}) as { id: string };
     const incident = await prisma.incident.findUnique({
-      where: { id },
-      include: { invariant: true, integration: true },
+      where: { id, integration: { tenantId } },
+      include: {
+        invariant: true,
+        integration: { select: { id: true, name: true, type: true, tenantId: true, config: true } },
+      },
     });
     if (!incident) return reply.code(404).send({ error: 'Incident not found' });
 
@@ -189,17 +210,20 @@ export async function incidentRoutes(app: FastifyInstance) {
   });
 
   app.post('/incidents/:id/replay', async (request, reply) => {
+    const tenantId = tenantIdFor(request);
     const { id } = (request.params ?? {}) as { id: string };
-    const { webhookEventId, fixCandidate } = (request.body ?? {}) as {
-      webhookEventId: string;
-      fixCandidate: string;
-    };
+    const parsed = replaySchema.safeParse(request.body ?? {});
+    if (!parsed.success) return reply.code(400).send({ error: 'Invalid replay payload', details: parsed.error.flatten() });
+    const { webhookEventId, fixCandidate } = parsed.data;
 
-    const incident = await prisma.incident.findUnique({ where: { id } });
+    const incident = await prisma.incident.findFirst({ where: { id, integration: { tenantId } } });
     if (!incident) return reply.code(404).send({ error: 'Incident not found' });
 
     const webhookEvent = await prisma.webhookEvent.findUnique({ where: { id: webhookEventId } });
     if (!webhookEvent) return reply.code(404).send({ error: 'Webhook event not found' });
+    if (webhookEvent.integrationId !== incident.integrationId) {
+      return reply.code(400).send({ error: 'Webhook event does not belong to this incident integration' });
+    }
 
     const replayJob = await prisma.replayJob.create({
       data: { incidentId: id, webhookEventId, fixCandidate, status: ReplayJobStatus.PENDING },
@@ -246,7 +270,10 @@ async function processReplayJob(replayJobId: string) {
 
     if (result.passed) {
       await prisma.repairCandidate.updateMany({
-        where: { incidentId: job.incidentId },
+        where: {
+          incidentId: job.incidentId,
+          OR: [{ diff: job.fixCandidate }, { description: job.fixCandidate }],
+        },
         data: { verified: true },
       });
     }

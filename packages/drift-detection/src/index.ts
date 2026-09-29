@@ -30,11 +30,17 @@ export function normalCDF(x: number): number {
   return x > 0 ? 1 - prob : prob;
 }
 
-export function proportionTest(successes: number, trials: number, baselineRate: number) {
+export function proportionTest(
+  successes: number,
+  trials: number,
+  baselineRate: number,
+  baselineTrials = trials,
+) {
   if (trials === 0) return { pValue: 1, effectSize: 0, currentRate: 0 };
   const currentRate = successes / trials;
-  const pooled = (successes + baselineRate * trials) / (trials + trials);
-  const se = Math.sqrt(pooled * (1 - pooled) * (2 / trials));
+  if (baselineTrials === 0) return { pValue: 1, effectSize: 0, currentRate };
+  const pooled = (successes + baselineRate * baselineTrials) / (trials + baselineTrials);
+  const se = Math.sqrt(pooled * (1 - pooled) * (1 / trials + 1 / baselineTrials));
   const z = se === 0 ? 0 : (currentRate - baselineRate) / se;
   const pValue = 2 * (1 - normalCDF(Math.abs(z)));
   const denom = Math.sqrt(Math.max(baselineRate * (1 - baselineRate), 1e-9));
@@ -49,6 +55,7 @@ export function detectDrift(input: DriftInput, cfg: DriftConfig = {}): DriftOutp
     input.currentSuccesses,
     input.currentTrials,
     baselineRate,
+    input.baselineTrials,
   );
   const detected =
     input.currentTrials >= (cfg.minDetectionSamples ?? 1) &&

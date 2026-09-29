@@ -2,11 +2,15 @@ import type { FastifyInstance } from 'fastify';
 import { prisma } from '../utils/prisma.js';
 import type { Prisma } from '@prisma/client';
 import { IncidentSeverity, IncidentStatus } from '@prisma/client';
-import { performProportionTest } from './webhooks.js';
+import { detectDrift } from '@shapi/drift-detection';
+import { tenantIdFor } from '../utils/auth-context.js';
 
 export async function driftRoutes(app: FastifyInstance) {
   app.get('/drift/config/:integrationId', async (request, reply) => {
+    const tenantId = tenantIdFor(request);
     const { integrationId } = (request.params ?? {}) as { integrationId: string };
+    const integration = await prisma.integration.findFirst({ where: { id: integrationId, tenantId } });
+    if (!integration) return reply.code(404).send({ error: 'Integration not found' });
     let config = await prisma.driftDetectionConfig.findUnique({ where: { integrationId } });
     if (!config) {
       config = await prisma.driftDetectionConfig.create({ data: { integrationId } });
@@ -15,7 +19,10 @@ export async function driftRoutes(app: FastifyInstance) {
   });
 
   app.patch('/drift/config/:integrationId', async (request, reply) => {
+    const tenantId = tenantIdFor(request);
     const { integrationId } = (request.params ?? {}) as { integrationId: string };
+    const integration = await prisma.integration.findFirst({ where: { id: integrationId, tenantId } });
+    if (!integration) return reply.code(404).send({ error: 'Integration not found' });
     const data = (request.body ?? {}) as Partial<{
       baselineWindowDays: number;
       detectionWindowHours: number;
@@ -33,11 +40,12 @@ export async function driftRoutes(app: FastifyInstance) {
   });
 
   app.get('/drift/results', async (request, reply) => {
+    const tenantId = tenantIdFor(request);
     const q = (request.query ?? {}) as Record<string, unknown>;
     const page = Number(q.page ?? 1) || 1;
     const pageSize = Math.min(Number(q.pageSize ?? 20) || 20, 100);
 
-    const where: Prisma.DriftResultWhereInput = {};
+    const where: Prisma.DriftResultWhereInput = { invariant: { integration: { tenantId } } };
     if (typeof q.invariantId === 'string') where.invariantId = q.invariantId;
     if (q.detected !== undefined) where.detected = q.detected === true || q.detected === 'true';
 
@@ -59,6 +67,7 @@ export async function driftRoutes(app: FastifyInstance) {
   });
 
   app.get('/drift/results/:invariantId', async (request, reply) => {
+    const tenantId = tenantIdFor(request);
     const { invariantId } = (request.params ?? {}) as { invariantId: string };
     const q = (request.query ?? {}) as Record<string, unknown>;
     const page = Number(q.page ?? 1) || 1;
@@ -66,12 +75,12 @@ export async function driftRoutes(app: FastifyInstance) {
 
     const [results, total] = await Promise.all([
       prisma.driftResult.findMany({
-        where: { invariantId },
+        where: { invariantId, invariant: { integration: { tenantId } } },
         orderBy: { detectedAt: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
-      prisma.driftResult.count({ where: { invariantId } }),
+      prisma.driftResult.count({ where: { invariantId, invariant: { integration: { tenantId } } } }),
     ]);
 
     return reply.send({
@@ -81,8 +90,9 @@ export async function driftRoutes(app: FastifyInstance) {
   });
 
   app.post('/drift/check/:invariantId', async (request, reply) => {
+    const tenantId = tenantIdFor(request);
     const { invariantId } = (request.params ?? {}) as { invariantId: string };
-    const invariant = await prisma.invariant.findUnique({ where: { id: invariantId } });
+    const invariant = await prisma.invariant.findFirst({ where: { id: invariantId, integration: { tenantId } } });
     if (!invariant) return reply.code(404).send({ error: 'Invariant not found' });
 
     const config = await prisma.driftDetectionConfig.findUnique({
@@ -92,68 +102,67 @@ export async function driftRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: 'Drift detection not enabled for this integration' });
     }
 
+    const currentStart = new Date(Date.now() - config.detectionWindowHours * 60 * 60 * 1000);
     const baselineStart = new Date(Date.now() - config.baselineWindowDays * 24 * 60 * 60 * 1000);
     const baselineEvaluations = await prisma.invariantEvaluation.findMany({
-      where: { invariantId, windowStart: { gte: baselineStart } },
+      where: { invariantId, windowStart: { gte: baselineStart, lt: currentStart } },
     });
     if (baselineEvaluations.length < 10) {
       return reply.code(400).send({ error: 'Insufficient baseline data (need at least 10 evaluations)' });
     }
-    const baselineRate =
-      baselineEvaluations.reduce((sum, e) => sum + e.successRate, 0) / baselineEvaluations.length;
-
-    const currentStart = new Date(Date.now() - config.detectionWindowHours * 60 * 60 * 1000);
+    const baselineSuccesses = baselineEvaluations.reduce((sum, e) => sum + e.passedSamples, 0);
+    const baselineTrials = baselineEvaluations.reduce((sum, e) => sum + e.totalSamples, 0);
     const currentEvaluations = await prisma.invariantEvaluation.findMany({
       where: { invariantId, windowStart: { gte: currentStart } },
     });
-    if (currentEvaluations.length < config.minDetectionSamples) {
+    const currentSuccesses = currentEvaluations.reduce((sum, e) => sum + e.passedSamples, 0);
+    const currentTrials = currentEvaluations.reduce((sum, e) => sum + e.totalSamples, 0);
+    if (currentTrials < config.minDetectionSamples) {
       return reply
         .code(400)
         .send({ error: `Insufficient current data (need at least ${config.minDetectionSamples} samples)` });
     }
-    const currentRate =
-      currentEvaluations.reduce((sum, e) => sum + e.successRate, 0) / currentEvaluations.length;
-
-    const { pValue, effectSize } = performProportionTest(
-      currentEvaluations.reduce((sum, e) => sum + e.passedSamples, 0),
-      currentEvaluations.reduce((sum, e) => sum + e.totalSamples, 0),
-      baselineRate,
+    const drift = detectDrift(
+      { baselineSuccesses, baselineTrials, currentSuccesses, currentTrials },
+      {
+        minDetectionSamples: config.minDetectionSamples,
+        significanceThreshold: config.significanceThreshold,
+        minEffectSize: config.minEffectSize,
+      },
     );
-
-    const detected =
-      pValue < config.significanceThreshold && Math.abs(effectSize) >= config.minEffectSize;
 
     const result = await prisma.driftResult.create({
       data: {
         invariantId,
-        detected,
-        pValue,
-        effectSize,
-        baselineRate,
-        currentRate,
-        sampleSize: currentEvaluations.reduce((sum, e) => sum + e.totalSamples, 0),
+        detected: drift.detected,
+        pValue: drift.pValue,
+        effectSize: drift.effectSize,
+        baselineRate: drift.baselineRate,
+        currentRate: drift.currentRate,
+        sampleSize: currentTrials,
       },
     });
 
-    if (detected) {
-      await createDriftIncident(invariantId, baselineRate, currentRate, pValue, effectSize);
+    if (drift.detected) {
+      await createDriftIncident(invariantId, drift.baselineRate, drift.currentRate, drift.pValue, drift.effectSize);
     }
 
     return reply.send(result);
   });
 
   app.get('/drift/summary', async (_request, reply) => {
+    const tenantId = tenantIdFor(_request);
     const [recentDetections, totalInvariants, enabledConfigs] = await Promise.all([
       prisma.driftResult.findMany({
-        where: { detected: true, detectedAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+        where: { detected: true, detectedAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }, invariant: { integration: { tenantId } } },
         orderBy: { detectedAt: 'desc' },
         take: 10,
         include: {
           invariant: { select: { id: true, name: true, integration: { select: { name: true } } } },
         },
       }),
-      prisma.invariant.count(),
-      prisma.driftDetectionConfig.count({ where: { enabled: true } }),
+      prisma.invariant.count({ where: { integration: { tenantId } } }),
+      prisma.driftDetectionConfig.count({ where: { enabled: true, integration: { tenantId } } }),
     ]);
 
     return reply.send({

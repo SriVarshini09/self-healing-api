@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import crypto from 'crypto';
-import { verifyWebhookSignature, buildPrBody, shouldAutoMerge, openRepairPr, verifyRepairPr } from './index.js';
+import { verifyWebhookSignature, buildPrBody, shouldAutoMerge, openRepairPr, verifyPullRequest, verifyRepairPr } from './index.js';
 
 afterEach(() => {
   delete process.env.GITHUB_TOKEN;
@@ -305,5 +305,24 @@ describe('github-integration', () => {
     await expect(
       openRepairPr({ repository: 'nope', title: 't', body: 'b', branch: 'br', files: [] }, 'tok', {} as any),
     ).rejects.toThrow('Invalid repository');
+  });
+
+  it('verifies merged PRs only when all checks pass', async () => {
+    const fake = {
+      rest: {
+        pulls: {
+          get: vi.fn(async () => ({ data: { merged: true, merged_at: 'now', state: 'closed', head: { sha: 'sha' } } })),
+        },
+        checks: {
+          listForRef: vi.fn(async () => ({ data: { total_count: 1, check_runs: [{ status: 'completed', conclusion: 'success' }] } })),
+        },
+      },
+    };
+    await expect(verifyPullRequest('acme/demo', 42, 'token', fake as any)).resolves.toMatchObject({
+      verified: true,
+      merged: true,
+      ciPassed: true,
+      checks: 1,
+    });
   });
 });

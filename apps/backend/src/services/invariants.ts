@@ -1,5 +1,5 @@
 import { prisma } from '../utils/prisma.js';
-import { IncidentSeverity, IncidentStatus, InvariantStatus } from '@prisma/client';
+import { IncidentSeverity, IncidentStatus, InvariantStatus, WebhookEventStatus, type Invariant, type Prisma } from '@prisma/client';
 import {
   evaluatePredicate as sandboxedEvaluate,
   isRelevantEvent,
@@ -64,6 +64,100 @@ export async function evaluateInvariantsForEvent(
   }
 
   return evaluated;
+}
+
+export async function evaluateInvariantWindow(
+  invariant: Invariant,
+  windowStart: Date,
+  windowEnd: Date,
+) {
+  const integration = await prisma.integration.findUnique({
+    where: { id: invariant.integrationId },
+    select: { type: true, tenantId: true },
+  });
+  if (!integration) return null;
+
+  const webhookEvents = await prisma.webhookEvent.findMany({
+      where: {
+        integrationId: invariant.integrationId,
+        receivedAt: { gte: windowStart, lte: windowEnd },
+        status: WebhookEventStatus.COMPLETED,
+      },
+  });
+  const trackedEvents = await prisma.trackedEvent.findMany({
+    where: {
+      tenantId: integration.tenantId,
+      integration: integration.type,
+      timestamp: { gte: windowStart, lte: windowEnd },
+    },
+  });
+
+  let passedSamples = 0;
+  let totalSamples = 0;
+  for (const event of webhookEvents) {
+    if (!isRelevantEvent(invariant.predicateExpression, event.eventType)) continue;
+    totalSamples++;
+    if (sandboxedEvaluate(invariant.predicateExpression, {
+      type: event.eventType,
+      payload: (event.payload ?? {}) as Record<string, unknown>,
+      headers: (event.headers ?? {}) as Record<string, unknown>,
+    } as InvariantEvent).passed) {
+      passedSamples++;
+    }
+  }
+
+  for (const event of trackedEvents) {
+    if (!isRelevantEvent(invariant.predicateExpression, event.type)) continue;
+    totalSamples++;
+    if (sandboxedEvaluate(invariant.predicateExpression, {
+      type: event.type,
+      payload: (event.payload ?? {}) as Record<string, unknown>,
+      headers: {},
+    } as InvariantEvent).passed) {
+      passedSamples++;
+    }
+  }
+
+  const successRate = totalSamples === 0 ? 1 : passedSamples / totalSamples;
+  const status = determineInvariantStatus(
+    successRate,
+    invariant.expectedSuccessRate,
+    totalSamples,
+    invariant.minSamples,
+  );
+
+  const evaluation = await prisma.invariantEvaluation.upsert({
+    where: { invariantId_windowStart_windowEnd: { invariantId: invariant.id, windowStart, windowEnd } },
+    update: { totalSamples, passedSamples, successRate, status, details: {} as Prisma.InputJsonValue },
+    create: {
+      invariantId: invariant.id,
+      windowStart,
+      windowEnd,
+      totalSamples,
+      passedSamples,
+      successRate,
+      status,
+      details: {} as Prisma.InputJsonValue,
+    },
+  });
+
+  await prisma.invariant.update({
+    where: { id: invariant.id },
+    data: { status, lastEvaluatedAt: new Date() },
+  });
+  return evaluation;
+}
+
+function determineInvariantStatus(
+  successRate: number,
+  expectedRate: number,
+  totalSamples: number,
+  minSamples: number,
+): InvariantStatus {
+  if (totalSamples < minSamples) return InvariantStatus.UNKNOWN;
+  if (successRate >= expectedRate) return InvariantStatus.HEALTHY;
+  if (successRate >= expectedRate * 0.9) return InvariantStatus.DEGRADED;
+  return InvariantStatus.VIOLATED;
 }
 
 async function openViolationIncident(invariantId: string) {

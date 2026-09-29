@@ -12,7 +12,8 @@ export interface RepairCandidate {
   changes?: Prisma.JsonValue | null;
 }
 
-type IncidentWithRelations = Incident & { invariant: Invariant | null; integration: Integration };
+type RepairIntegration = Pick<Integration, 'name' | 'type' | 'config'>;
+type IncidentWithRelations = Incident & { invariant: Invariant | null; integration: RepairIntegration };
 
 export async function generateRepairCandidates(
   incident: IncidentWithRelations,
@@ -91,7 +92,7 @@ function generatePredicateFix(
   return null;
 }
 
-function generateRetryFix(integration: Integration): RepairCandidate | null {
+function generateRetryFix(integration: RepairIntegration): RepairCandidate | null {
   const config = (integration?.config ?? {}) as Record<string, unknown>;
   const hasRetryConfig =
     config.retryAttempts !== undefined || config.retryDelay !== undefined;
@@ -107,7 +108,7 @@ function generateRetryFix(integration: Integration): RepairCandidate | null {
   return null;
 }
 
-function generateConfigFix(integration: Integration, diagnosis: DiagnosisResult): RepairCandidate | null {
+function generateConfigFix(integration: RepairIntegration, diagnosis: DiagnosisResult): RepairCandidate | null {
   if (
     diagnosis.rootCause.includes('webhook') ||
     diagnosis.rootCause.includes('timeout')
@@ -136,7 +137,7 @@ function generateConfigFix(integration: Integration, diagnosis: DiagnosisResult)
 
 function generateCodeFix(
   invariant: Invariant,
-  integration: Integration,
+  integration: RepairIntegration,
   diagnosis: DiagnosisResult,
 ): RepairCandidate | null {
   if (diagnosis.suggestedFix.includes('predicate')) {

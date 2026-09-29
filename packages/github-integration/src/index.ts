@@ -69,6 +69,47 @@ export interface OpenRepairPrResult {
   real: boolean;
 }
 
+export interface PullRequestVerificationResult {
+  verified: boolean;
+  merged: boolean;
+  state: string;
+  ciPassed: boolean;
+  checks: number;
+}
+
+/** Verify a real pull request using GitHub state and check runs. */
+export async function verifyPullRequest(
+  repository: string,
+  prNumber: number,
+  token?: string,
+  client?: Pick<Octokit, 'rest'>,
+): Promise<PullRequestVerificationResult> {
+  const auth = token ?? process.env.GITHUB_TOKEN;
+  if (!auth && !client) throw new Error('GITHUB_TOKEN is required for real PR verification');
+  const octokit = client ?? (new Octokit({ auth }) as Pick<Octokit, 'rest'>);
+  const [owner, repo] = repository.split('/');
+  if (!owner || !repo) throw new Error(`Invalid repository "${repository}" (want owner/repo)`);
+
+  const { data: pull } = await octokit.rest.pulls.get({ owner, repo, pull_number: prNumber });
+  const { data: checks } = await octokit.rest.checks.listForRef({
+    owner,
+    repo,
+    ref: pull.head.sha,
+  });
+  const failed = checks.check_runs.some(check =>
+    check.status === 'completed' && !['success', 'skipped', 'neutral'].includes(check.conclusion ?? ''),
+  );
+  const ciPassed = !failed && checks.check_runs.every(check => check.status === 'completed');
+  const merged = Boolean(pull.merged_at) || pull.merged;
+  return {
+    verified: Boolean(merged && ciPassed),
+    merged,
+    state: pull.state,
+    ciPassed,
+    checks: checks.total_count,
+  };
+}
+
 /**
  * Open a repair PR on GitHub. Uses a real Octokit client when `token` (or
  * GITHUB_TOKEN) is set; otherwise returns a simulated PR so local demos work

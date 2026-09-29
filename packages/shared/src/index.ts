@@ -57,6 +57,7 @@ export const WebhookEventSchema = z.object({
   integrationId: z.string().uuid(),
   integrationType: IntegrationTypeSchema,
   eventType: z.string(),
+  providerEventId: z.string().nullable().optional(),
   payload: z.record(z.unknown()),
   headers: z.record(z.string()),
   status: WebhookEventStatusSchema,

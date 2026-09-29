@@ -1,17 +1,24 @@
 import { useCallback, useEffect, useState } from 'react';
 import './App.css';
 
-const API = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3001/api/v1';
-// Dev default matches the seeded local key; set VITE_SHAPI_API_KEY for real envs.
-const API_KEY = (import.meta as any).env?.VITE_SHAPI_API_KEY || 'shapi_demo_local_d3v_k3y_9f2c';
+const viteEnv = (import.meta as { env?: Record<string, string | undefined> }).env ?? {};
+const runtimeEnv = (globalThis as {
+  __SHAPI_CONFIG__?: { apiUrl?: string; apiKey?: string };
+}).__SHAPI_CONFIG__ ?? {};
+const API = runtimeEnv.apiUrl || viteEnv.VITE_API_URL || 'http://localhost:3001/api/v1';
+// Keep the seeded key convenient for localhost demos, but never ship it as the
+// fallback credential for a deployed dashboard.
+const isLocalhost = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const API_KEY = runtimeEnv.apiKey || viteEnv.VITE_SHAPI_API_KEY || (isLocalhost ? 'shapi_demo_local_d3v_k3y_9f2c' : '');
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const hasBody = init?.body !== undefined && init?.body !== null;
   const res = await fetch(`${API}${path}`, {
     ...init,
+    credentials: 'include',
     headers: {
       ...(hasBody ? { 'content-type': 'application/json' } : {}),
-      'x-api-key': API_KEY,
+      ...(API_KEY ? { 'x-api-key': API_KEY } : {}),
       ...(init?.headers ?? {}),
     },
   });
@@ -23,7 +30,27 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
-type Tab = 'overview' | 'integrations' | 'invariants' | 'incidents' | 'drift' | 'events';
+type AuthUser = { id: string; name: string; tenantId: string; role: string };
+
+function LoginScreen({ oidcEnabled }: { oidcEnabled: boolean }) {
+  return (
+    <div className="auth-shell">
+      <div className="card auth-card">
+        <div className="brand auth-brand"><span className="brand-mark">S</span><span>SHAPI</span></div>
+        <div className="eyebrow">SECURE WORKSPACE</div>
+        <h1>Sign in to SHAPI</h1>
+        <p className="subtitle">Use your organization identity to inspect integration health and incidents.</p>
+        {oidcEnabled ? (
+          <button onClick={() => { window.location.href = `${API}/auth/login`; }}>Continue with organization login</button>
+        ) : (
+          <div className="card error">OIDC is not configured. Set the OIDC_* variables in the backend environment.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+type Tab = 'overview' | 'integrations' | 'invariants' | 'incidents' | 'drift' | 'events' | 'keys';
 
 function Badge({ text, tone }: { text: string; tone: string }) {
   return <span className={`badge ${tone}`}>{text}</span>;
@@ -431,11 +458,99 @@ function Events({ refreshKey }: { refreshKey: number }) {
   );
 }
 
+function ApiKeys({ refreshKey }: { refreshKey: number }) {
+  const [rows, setRows] = useState<any[]>([]);
+  const [name, setName] = useState('Dashboard key');
+  const [permissions, setPermissions] = useState('read,write');
+  const [role, setRole] = useState('OPERATOR');
+  const [newKey, setNewKey] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      setError(null);
+      setRows(await api<any[]>('/api-keys'));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }, []);
+
+  useEffect(() => { void load(); }, [load, refreshKey]);
+
+  const create = async () => {
+    try {
+      setError(null);
+      const result = await api<any>('/api-keys', {
+        method: 'POST',
+        body: JSON.stringify({ name, permissions: permissions.split(','), role }),
+      });
+      setNewKey(result.key);
+      setName('');
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  return (
+    <div className="card">
+      <div className="card-head"><h3>API keys</h3><span className="table-label">{rows.length} keys</span></div>
+      <p className="muted section-note">Create scoped credentials for SDKs, operators, and automation. Raw keys are shown once.</p>
+      {error && <div className="card error">Action failed: {error}</div>}
+      {newKey && (
+        <div className="card code">
+          <strong>Copy this key now</strong>
+          <div className="mono">{newKey}</div>
+          <button className="secondary" onClick={() => setNewKey(null)}>Dismiss</button>
+        </div>
+      )}
+      <div className="form-row">
+        <input value={name} onChange={e => setName(e.target.value)} placeholder="Key name" />
+        <select value={permissions} onChange={e => setPermissions(e.target.value)}>
+          <option value="read">Read only</option>
+          <option value="read,write">Read + write</option>
+          <option value="*">Full access</option>
+        </select>
+        <select value={role} onChange={e => setRole(e.target.value)}>
+          <option value="OWNER">Owner</option>
+          <option value="ADMIN">Admin</option>
+          <option value="OPERATOR">Operator</option>
+          <option value="VIEWER">Viewer</option>
+        </select>
+        <button onClick={() => void create()} disabled={!name.trim()}>Create key</button>
+        <button className="secondary" onClick={() => void load()}>Refresh</button>
+      </div>
+      {rows.map(key => (
+        <div key={key.id} className="row">
+          <strong>{key.name}</strong>
+          <span className="mono">{key.prefix}…</span>
+          <Badge text={key.permissions.join(', ')} tone="gray" />
+          <Badge text={key.role ?? 'OPERATOR'} tone="gray" />
+          <span className="muted">{key.expiresAt ? 'expires ' + new Date(key.expiresAt).toLocaleDateString() : 'no expiry'}</span>
+          <button className="secondary" onClick={async () => {
+            try {
+              setError(null);
+              await api('/api-keys/' + key.id, { method: 'DELETE' });
+              await load();
+            } catch (e) {
+              setError(e instanceof Error ? e.message : String(e));
+            }
+          }}>Revoke</button>
+        </div>
+      ))}
+      {rows.length === 0 && <p className="muted">No API keys found.</p>}
+    </div>
+  );
+}
+
 type Theme = 'navy' | 'white' | 'command';
 const THEMES: Theme[] = ['navy', 'white', 'command'];
 const THEME_LABEL: Record<Theme, string> = { navy: '● Navy', white: '○ White', command: '◈ Command' };
 
 export default function App() {
+  const [authState, setAuthState] = useState<'checking' | 'authenticated' | 'login'>(API_KEY ? 'authenticated' : 'checking');
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [oidcEnabled, setOidcEnabled] = useState(false);
   const [tab, setTab] = useState<Tab>('overview');
   const [refreshKey, setRefreshKey] = useState(0);
   const [theme, setTheme] = useState<Theme>(() => {
@@ -449,6 +564,29 @@ export default function App() {
   });
   const bump = useCallback(() => setRefreshKey(k => k + 1), []);
   useEffect(() => {
+    if (API_KEY) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [meResponse, configResponse] = await Promise.all([
+          fetch(`${API}/auth/me`, { credentials: 'include' }),
+          fetch(`${API}/auth/config`, { credentials: 'include' }),
+        ]);
+        const authConfig = await configResponse.json() as { oidcEnabled?: boolean };
+        if (!cancelled) setOidcEnabled(Boolean(authConfig.oidcEnabled));
+        if (meResponse.ok) {
+          const body = await meResponse.json() as { user: AuthUser };
+          if (!cancelled) { setAuthUser(body.user); setAuthState('authenticated'); }
+        } else if (!cancelled) {
+          setAuthState('login');
+        }
+      } catch {
+        if (!cancelled) setAuthState('login');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+  useEffect(() => {
     document.documentElement.dataset.shapiTheme = theme;
     try {
       localStorage.setItem('shapi-theme', theme);
@@ -456,8 +594,10 @@ export default function App() {
       // storage unavailable (private mode) — theme still applies for the session
     }
   }, [theme]);
-  const labels: Record<Tab, string> = { overview: 'Overview', integrations: 'Integrations', invariants: 'Invariants', incidents: 'Incidents', drift: 'Drift monitoring', events: 'Event stream' };
-  const icons: Record<Tab, string> = { overview: '◫', integrations: '⌘', invariants: '◈', incidents: '⚑', drift: '⌁', events: '≋' };
+  if (authState === 'checking') return <div className="auth-shell"><div className="card auth-card">Checking your SHAPI session…</div></div>;
+  if (authState === 'login') return <LoginScreen oidcEnabled={oidcEnabled} />;
+  const labels: Record<Tab, string> = { overview: 'Overview', integrations: 'Integrations', invariants: 'Invariants', incidents: 'Incidents', drift: 'Drift monitoring', events: 'Event stream', keys: 'API keys' };
+  const icons: Record<Tab, string> = { overview: '◫', integrations: '⌘', invariants: '◈', incidents: '⚑', drift: '⌁', events: '≋', keys: '⚿' };
 
   return (
     <div className="app">
@@ -465,14 +605,14 @@ export default function App() {
         <div className="brand"><span className="brand-mark">S</span><span>SHAPI</span></div>
         <div className="nav-label">Workspace</div>
         <nav className="side-nav">
-          {(['overview', 'integrations', 'invariants', 'incidents', 'drift', 'events'] as Tab[]).map(t => (
+          {(['overview', 'integrations', 'invariants', 'incidents', 'drift', 'events', 'keys'] as Tab[]).map(t => (
             <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}><span className="nav-icon">{icons[t]}</span>{labels[t]}</button>
           ))}
         </nav>
         <div className="sidebar-footer"><strong>Behavioral assurance</strong>Making every integration outcome visible.</div>
       </aside>
       <div className="workspace">
-      <div className="topbar"><div className="crumb">SHAPI <span aria-hidden="true">/</span> <strong>{labels[tab]}</strong></div><div className="top-actions"><button className="secondary theme-toggle" onClick={() => setTheme(t => THEMES[(THEMES.indexOf(t) + 1) % THEMES.length])} title="Cycle theme">{THEME_LABEL[theme]}</button><span className="live"><span className="live-dot" /> SYSTEM LIVE</span><span className="avatar">SA</span></div></div>
+      <div className="topbar"><div className="crumb">SHAPI <span aria-hidden="true">/</span> <strong>{labels[tab]}</strong></div><div className="top-actions"><button className="secondary theme-toggle" onClick={() => setTheme(t => THEMES[(THEMES.indexOf(t) + 1) % THEMES.length])} title="Cycle theme">{THEME_LABEL[theme]}</button><span className="live"><span className="live-dot" /> SYSTEM LIVE</span><span className="avatar">{authUser?.name?.slice(0, 2).toUpperCase() ?? 'SA'}</span>{authUser && <button className="secondary" onClick={async () => { await api('/auth/logout', { method: 'POST' }); window.location.reload(); }}>Sign out</button>}</div></div>
       <main>
         <div className="page-heading"><div><div className="eyebrow">WEBHOOK RELIABILITY PLATFORM</div><h1>{tab === 'overview' ? 'Good morning' : labels[tab]}</h1><p className="subtitle">{tab === 'overview' ? 'Know when integrations succeed in business—not just in HTTP.' : `Manage and monitor your ${labels[tab].toLowerCase()} across connected services.`}</p></div>{tab === 'overview' && <button className="secondary" onClick={bump}>↻ &nbsp; Refresh data</button>}</div>
         {tab === 'overview' && <Overview refreshKey={refreshKey} command={theme === 'command'} />}
@@ -481,6 +621,7 @@ export default function App() {
         {tab === 'incidents' && <Incidents refreshKey={refreshKey} bump={bump} />}
         {tab === 'drift' && <Drift refreshKey={refreshKey} />}
         {tab === 'events' && <Events refreshKey={refreshKey} />}
+        {tab === 'keys' && <ApiKeys refreshKey={refreshKey} />}
       </main>
       </div>
     </div>

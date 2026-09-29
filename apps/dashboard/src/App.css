@@ -3,6 +3,11 @@
 :root { --ink:#18212b; --muted:#71808d; --line:#e7edf0; --panel:#fff; --canvas:#f5f8f9; --navy:#14232e; --blue:#2674f5; --green:#20a66a; --amber:#c98718; --red:#db5360; --glow-blue:rgba(38,116,245,.08); --glow-green:rgba(49,201,131,.07); }
 * { box-sizing:border-box; }
 body { background:var(--canvas); color:var(--ink); }
+.auth-shell { min-height:100vh; display:grid; place-items:center; padding:24px; background:radial-gradient(700px 420px at 20% 10%,rgba(38,116,245,.13),transparent 70%),radial-gradient(700px 420px at 90% 90%,rgba(49,201,131,.1),transparent 70%),var(--canvas); font-family:'Manrope',sans-serif; }
+.auth-card { width:min(440px,100%); padding:38px; }
+.auth-brand { padding:0 0 30px; color:var(--ink); }
+.auth-card h1 { margin-top:6px; }
+.auth-card button { margin-top:22px; width:100%; }
 @keyframes rise { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
 @keyframes bgdrift { 0%,100% { background-position:0% 0%,100% 100%,50% 50%; } 50% { background-position:100% 30%,20% 80%,80% 20%; } }
 @keyframes pulse-ring { 0% { box-shadow:0 0 0 0 rgba(49,201,131,.45); } 70% { box-shadow:0 0 0 9px rgba(49,201,131,0); } 100% { box-shadow:0 0 0 0 rgba(49,201,131,0); } }

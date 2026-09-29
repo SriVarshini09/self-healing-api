@@ -29,6 +29,12 @@ jobs:
       - name: Typecheck (all workspaces)
         run: pnpm -r typecheck
 
+      - name: Backend lint
+        run: pnpm --filter @shapi/backend lint
+
+      - name: Build backend runtime graph
+        run: pnpm --filter @shapi/backend... build
+
       - name: Unit tests (DB-free)
         run: |
           pnpm --filter @shapi/invariant-engine test

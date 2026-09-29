@@ -1,16 +1,23 @@
-import { PrismaClient, IntegrationType, InvariantStatus } from '@prisma/client';
+import { PrismaClient, IntegrationType, InvariantStatus, TenantRole } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log('🌱 Seeding database...');
 
+  const localTenant = await prisma.tenant.upsert({
+    where: { id: 'tenant-local-dev' },
+    update: { name: 'Local Development', slug: 'local-dev' },
+    create: { id: 'tenant-local-dev', name: 'Local Development', slug: 'local-dev' },
+  });
+
   // Create Stripe integration
   const stripeIntegration = await prisma.integration.upsert({
     where: { id: 'stripe-demo' },
-    update: {},
+    update: { tenantId: localTenant.id },
     create: {
       id: 'stripe-demo',
+      tenantId: localTenant.id,
       name: 'Stripe Payments',
       type: IntegrationType.STRIPE,
       config: {
@@ -27,9 +34,10 @@ async function main() {
   // Create GitHub integration
   const githubIntegration = await prisma.integration.upsert({
     where: { id: 'github-demo' },
-    update: {},
+    update: { tenantId: localTenant.id },
     create: {
       id: 'github-demo',
+      tenantId: localTenant.id,
       name: 'GitHub App',
       type: IntegrationType.GITHUB,
       config: {
@@ -288,12 +296,14 @@ async function main() {
 
   await prisma.aPIKey.upsert({
     where: { keyHash },
-    update: { permissions: ['*'] },
+    update: { tenantId: localTenant.id, permissions: ['*'], role: TenantRole.OWNER },
     create: {
+      tenantId: localTenant.id,
       name: 'Local Dev Key',
       keyHash,
       prefix: 'shapi_',
       permissions: ['*'],
+      role: TenantRole.OWNER,
       expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
     }
   });

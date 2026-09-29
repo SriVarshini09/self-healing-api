@@ -2,10 +2,10 @@
   "name": "@shapi/drift-detection",
   "version": "0.0.1",
   "private": true,
-  "main": "./src/index.ts",
+  "main": "./dist/index.js",
   "types": "./src/index.ts",
   "scripts": {
-    "build": "tsc --noEmit",
+    "build": "tsc --outDir dist --noEmit false",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

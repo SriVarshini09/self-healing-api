@@ -14,8 +14,23 @@ datasource db {
 // Core Models
 // ============================================================================
 
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  integrations  Integration[]
+  apiKeys       APIKey[]
+  trackedEvents TrackedEvent[]
+  users         User[]
+}
+
 model Integration {
   id              String   @id @default(uuid())
+  tenantId        String?
+  tenant          Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   name            String
   type            IntegrationType
   config          Json
@@ -31,6 +46,7 @@ model Integration {
   driftConfig     DriftDetectionConfig?
 
   @@index([type])
+  @@index([tenantId])
 }
 
 enum IntegrationType {
@@ -46,6 +62,7 @@ model WebhookEvent {
   integrationId   String
   integration     Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
   eventType       String
+  providerEventId String?
   payload         Json
   headers         Json
   status          WebhookEventStatus @default(RECEIVED)
@@ -59,6 +76,7 @@ model WebhookEvent {
   @@index([integrationId, receivedAt])
   @@index([correlationId])
   @@index([status])
+  @@unique([integrationId, providerEventId])
 }
 
 enum WebhookEventStatus {
@@ -290,12 +308,52 @@ enum GitHubPRStatus {
   DRAFT
 }
 
+enum TenantRole {
+  OWNER
+  ADMIN
+  OPERATOR
+  VIEWER
+}
+
+model User {
+  id        String     @id @default(uuid())
+  tenantId  String
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  issuer    String
+  subject   String
+  email     String
+  name      String?
+  role      TenantRole @default(OPERATOR)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  sessions AuthSession[]
+
+  @@unique([issuer, subject])
+  @@index([tenantId])
+  @@index([email])
+}
+
+model AuthSession {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionHash String   @unique
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
 // ============================================================================
 // SDK / Analytics Models
 // ============================================================================
 
 model TrackedEvent {
   id              String   @id @default(uuid())
+  tenantId        String?
+  tenant          Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   eventId         String   @unique
   integration     IntegrationType
   type            String
@@ -308,18 +366,23 @@ model TrackedEvent {
   @@index([integration, type, timestamp])
   @@index([correlationId])
   @@index([timestamp])
+  @@index([tenantId, timestamp])
 }
 
 model APIKey {
   id          String   @id @default(uuid())
+  tenantId    String?
+  tenant      Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   name        String
   keyHash     String   @unique
   prefix      String
   permissions String[]
+  role        TenantRole @default(OPERATOR)
   expiresAt   DateTime?
   lastUsedAt  DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@index([prefix])
+  @@index([tenantId])
 }

@@ -1,20 +1,21 @@
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../utils/prisma.js';
-import type { Prisma} from '@prisma/client';
-import { InvariantStatus, WebhookEventStatus, type Invariant } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
+import { InvariantStatus } from '@prisma/client';
 import {
-  evaluatePredicate as sandboxedEvaluate,
   validatePredicate as sandboxValidate,
-  isRelevantEvent,
 } from '@shapi/invariant-engine';
+import { evaluateInvariantWindow } from '../services/invariants.js';
+import { tenantIdFor } from '../utils/auth-context.js';
 
 export async function invariantRoutes(app: FastifyInstance) {
   app.get('/invariants', async (request, reply) => {
+    const tenantId = tenantIdFor(request);
     const q = (request.query ?? {}) as Record<string, unknown>;
     const page = Number(q.page ?? 1) || 1;
     const pageSize = Math.min(Number(q.pageSize ?? 20) || 20, 100);
 
-    const where: Prisma.InvariantWhereInput = {};
+    const where: Prisma.InvariantWhereInput = { integration: { tenantId } };
     if (typeof q.integrationId === 'string') where.integrationId = q.integrationId;
     if (typeof q.status === 'string' && (Object.values(InvariantStatus) as string[]).includes(q.status)) {
       where.status = q.status as InvariantStatus;
@@ -40,11 +41,12 @@ export async function invariantRoutes(app: FastifyInstance) {
   });
 
   app.get('/invariants/:id', async (request, reply) => {
+    const tenantId = tenantIdFor(request);
     const { id } = (request.params ?? {}) as { id: string };
     const invariant = await prisma.invariant.findUnique({
-      where: { id },
+      where: { id, integration: { tenantId } },
       include: {
-        integration: true,
+        integration: { select: { id: true, name: true, type: true, webhookEnabled: true } },
         evaluations: { orderBy: { windowStart: 'desc' }, take: 50 },
         incidents: { orderBy: { detectedAt: 'desc' }, take: 10 },
         driftResults: { orderBy: { detectedAt: 'desc' }, take: 20 },
@@ -55,6 +57,7 @@ export async function invariantRoutes(app: FastifyInstance) {
   });
 
   app.post('/invariants', async (request, reply) => {
+    const tenantId = tenantIdFor(request);
     const data = (request.body ?? {}) as {
       integrationId: string;
       name: string;
@@ -70,6 +73,9 @@ export async function invariantRoutes(app: FastifyInstance) {
     if (!data.integrationId || !data.name || !data.predicateExpression) {
       return reply.code(400).send({ error: 'integrationId, name, predicateExpression required' });
     }
+
+    const integration = await prisma.integration.findFirst({ where: { id: data.integrationId, tenantId } });
+    if (!integration) return reply.code(404).send({ error: 'Integration not found' });
 
     try {
       validatePredicateExpression(data.predicateExpression);
@@ -98,6 +104,7 @@ export async function invariantRoutes(app: FastifyInstance) {
   });
 
   app.patch('/invariants/:id', async (request, reply) => {
+    const tenantId = tenantIdFor(request);
     const { id } = (request.params ?? {}) as { id: string };
     const data = (request.body ?? {}) as Partial<{
       name: string;
@@ -109,6 +116,9 @@ export async function invariantRoutes(app: FastifyInstance) {
       minSamples: number;
       expectedSuccessRate: number;
     }>;
+
+    const existing = await prisma.invariant.findFirst({ where: { id, integration: { tenantId } } });
+    if (!existing) return reply.code(404).send({ error: 'Invariant not found' });
 
     if (data.predicateExpression) {
       try {
@@ -126,16 +136,20 @@ export async function invariantRoutes(app: FastifyInstance) {
   });
 
   app.delete('/invariants/:id', async (request, reply) => {
+    const tenantId = tenantIdFor(request);
     const { id } = (request.params ?? {}) as { id: string };
+    const existing = await prisma.invariant.findFirst({ where: { id, integration: { tenantId } } });
+    if (!existing) return reply.code(404).send({ error: 'Invariant not found' });
     await prisma.invariant.delete({ where: { id } });
     return reply.code(204).send();
   });
 
   app.post('/invariants/:id/evaluate', async (request, reply) => {
+    const tenantId = tenantIdFor(request);
     const { id } = (request.params ?? {}) as { id: string };
     const body = (request.body ?? {}) as { windowStart?: string; windowEnd?: string };
 
-    const invariant = await prisma.invariant.findUnique({ where: { id } });
+    const invariant = await prisma.invariant.findFirst({ where: { id, integration: { tenantId } } });
     if (!invariant) return reply.code(404).send({ error: 'Invariant not found' });
 
     const start = body.windowStart
@@ -148,6 +162,7 @@ export async function invariantRoutes(app: FastifyInstance) {
   });
 
   app.get('/invariants/:id/evaluations', async (request, reply) => {
+    const tenantId = tenantIdFor(request);
     const { id } = (request.params ?? {}) as { id: string };
     const q = (request.query ?? {}) as Record<string, unknown>;
     const page = Number(q.page ?? 1) || 1;
@@ -155,12 +170,12 @@ export async function invariantRoutes(app: FastifyInstance) {
 
     const [evaluations, total] = await Promise.all([
       prisma.invariantEvaluation.findMany({
-        where: { invariantId: id },
+        where: { invariantId: id, invariant: { integration: { tenantId } } },
         orderBy: { windowStart: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
-      prisma.invariantEvaluation.count({ where: { invariantId: id } }),
+      prisma.invariantEvaluation.count({ where: { invariantId: id, invariant: { integration: { tenantId } } } }),
     ]);
 
     return reply.send({
@@ -173,86 +188,4 @@ export async function invariantRoutes(app: FastifyInstance) {
 export function validatePredicateExpression(expression: string): void {
   // Delegates to @shapi/invariant-engine: dangerous-pattern rejection + vm-based syntax check.
   sandboxValidate(expression);
-}
-
-async function evaluateInvariantWindow(
-  invariant: Invariant,
-  windowStart: Date,
-  windowEnd: Date,
-) {
-  const events = (
-    await prisma.webhookEvent.findMany({
-      where: {
-        integrationId: invariant.integrationId,
-        receivedAt: { gte: windowStart, lte: windowEnd },
-        status: WebhookEventStatus.COMPLETED,
-      },
-    })
-    // Only events the predicate scopes to count as samples.
-  ).filter(e => isRelevantEvent(invariant.predicateExpression, e.eventType));
-
-  let passedSamples = 0;
-  for (const event of events) {
-    try {
-      const passed = evaluatePredicate(invariant.predicateExpression, {
-        event: {
-          type: event.eventType,
-          payload: (event.payload ?? {}) as Record<string, unknown>,
-          headers: (event.headers ?? {}) as Record<string, unknown>,
-        },
-      });
-      if (passed) passedSamples++;
-    } catch {
-      // count as failure
-    }
-  }
-
-  const totalSamples = events.length;
-  const successRate = totalSamples > 0 ? passedSamples / totalSamples : 1;
-  const status = determineInvariantStatus(
-    successRate,
-    invariant.expectedSuccessRate,
-    totalSamples,
-    invariant.minSamples,
-  );
-
-  const evaluation = await prisma.invariantEvaluation.create({
-    data: {
-      invariantId: invariant.id,
-      windowStart,
-      windowEnd,
-      totalSamples,
-      passedSamples,
-      successRate,
-      status,
-      details: {} as Prisma.InputJsonValue,
-    },
-  });
-
-  await prisma.invariant.update({
-    where: { id: invariant.id },
-    data: { status, lastEvaluatedAt: new Date() },
-  });
-
-  return evaluation;
-}
-
-function evaluatePredicate(
-  expression: string,
-  context: { event: { type: string; payload: Record<string, unknown>; headers: Record<string, unknown> } },
-): boolean {
-  // Sandboxed evaluation shared with @shapi/invariant-engine (node:vm, 100ms timeout).
-  return sandboxedEvaluate(expression, context.event).passed;
-}
-
-function determineInvariantStatus(
-  successRate: number,
-  expectedRate: number,
-  totalSamples: number,
-  minSamples: number,
-): InvariantStatus {
-  if (totalSamples < minSamples) return InvariantStatus.UNKNOWN;
-  if (successRate >= expectedRate) return InvariantStatus.HEALTHY;
-  if (successRate >= expectedRate * 0.9) return InvariantStatus.DEGRADED;
-  return InvariantStatus.VIOLATED;
 }

@@ -51,4 +51,67 @@ describe('webhook invariant evaluation', () => {
       verifyWebhookSignature('github', integration, {}, payload, raw),
     ).resolves.toBe(false);
   });
+
+  it('rejects unsigned provider webhooks and requires custom secrets', async () => {
+    const integration = { id: 'int-test', webhookSecret: 'secret' };
+    await expect(
+      verifyWebhookSignature('sendgrid', integration, {}, {}, '{}'),
+    ).resolves.toBe(false);
+    await expect(
+      verifyWebhookSignature('sendgrid', integration, { 'x-webhook-secret': 'wrong' }, {}, '{}'),
+    ).resolves.toBe(false);
+    await expect(
+      verifyWebhookSignature('sendgrid', integration, { 'x-webhook-secret': 'secret' }, {}, '{}'),
+    ).resolves.toBe(false);
+    await expect(
+      verifyWebhookSignature('custom', integration, { 'x-webhook-secret': 'secret' }, {}, '{}'),
+    ).resolves.toBe(true);
+  });
+
+  it('verifies Twilio signatures using the full webhook URL and sorted parameters', async () => {
+    const secret = 'twilio-auth-token';
+    const url = 'https://example.test/api/v1/webhooks/twilio';
+    const payload = { CallSid: 'CA123', From: '+15551212' };
+    const material = `${url}CallSidCA123From+15551212`;
+    const signature = crypto.createHmac('sha1', secret).update(material).digest('base64');
+    await expect(
+      verifyWebhookSignature(
+        'twilio',
+        { id: 'int-test', webhookSecret: secret },
+        { 'x-twilio-signature': signature },
+        payload,
+        JSON.stringify(payload),
+        url,
+      ),
+    ).resolves.toBe(true);
+  });
+
+  it('verifies SendGrid signatures with the provider public key and raw body', async () => {
+    const { privateKey, publicKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+    const raw = '[{"event":"delivered","sg_event_id":"evt-1"}]';
+    const timestamp = '1700000000';
+    const signature = crypto.sign(
+      'sha256',
+      Buffer.from(`${timestamp}${raw}`, 'utf8'),
+      privateKey,
+    ).toString('base64');
+    const integration = {
+      id: 'int-sendgrid',
+      webhookSecret: null,
+      config: { sendgridPublicKey: publicKey.export({ type: 'spki', format: 'pem' }).toString() },
+    };
+
+    await expect(
+      verifyWebhookSignature(
+        'sendgrid',
+        integration,
+        {
+          'x-twilio-email-event-webhook-signature': signature,
+          'x-twilio-email-event-webhook-timestamp': timestamp,
+        },
+        JSON.parse(raw) as Record<string, unknown>,
+        raw,
+      ),
+    ).resolves.toBe(true);
+  });
 });

@@ -43,7 +43,7 @@ docker compose up -d
 # 3. env
 Copy-Item .env.example .env   # or edit .env (already has dev defaults)
 
-# 4. database
+# 4. database (db:push is convenient for a brand-new local demo)
 pnpm db:generate
 pnpm db:push
 pnpm db:seed
@@ -51,6 +51,23 @@ pnpm db:seed
 # 5. run everything (backend :3001, dashboard :5173, demo-saas :3000)
 pnpm dev
 ```
+
+## Production containers
+
+The repository includes provider-neutral Docker packaging. Copy `.env.example`
+to `.env`, replace development secrets, set `POSTGRES_USER`,
+`POSTGRES_PASSWORD`, `POSTGRES_DB`, `VITE_API_URL`, and `VITE_SHAPI_API_KEY`,
+set `SHAPI_DASHBOARD_URL` to the dashboard's public URL, then run:
+
+```powershell
+docker compose -f docker-compose.production.yml up --build
+```
+
+The backend applies checked-in Prisma migrations before starting, exposes
+`/ready` for orchestration, and listens on port 3001. The dashboard is served
+by Nginx on port 8080 and receives its API configuration at container startup.
+For multi-replica deployments, run migrations as a separate release job before
+starting application replicas.
 
 Open:
 
@@ -80,8 +97,24 @@ inspect the timeline, replay results, and repair candidates.
 All `/api/v1` routes except third-party webhook receivers require `x-api-key`
 (hashed + expiry-checked against the `APIKey` table). Local dev key lives in
 `.env` as `SHAPI_API_KEY` and is seeded by `pnpm db:seed` — generate a fresh one
-per real environment. The dashboard sends `VITE_SHAPI_API_KEY` (same dev default
-baked in); the SDK sends its configured key.
+per real environment. Tenant operators can create, list, and revoke scoped keys
+through `/api/v1/api-keys`; the raw key is returned only at creation time. New
+deployments can use `POST /api/v1/bootstrap/tenant` with the separate
+`SHAPI_BOOTSTRAP_TOKEN` to create the first tenant and key.
+
+API keys carry a tenant role: `OWNER`, `ADMIN`, `OPERATOR`, or `VIEWER`. Only
+Owner/Admin keys can administer keys, and only the Owner can assign Owner/Admin
+roles. Permissions still provide endpoint-level `read`/`write`/`*` scope.
+
+The dashboard also supports provider-neutral OIDC login. Configure
+`OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`,
+`OIDC_REDIRECT_URI`, and `OIDC_DEFAULT_TENANT_SLUG`; the same flow works with
+Google Workspace, Auth0, Okta, and other standards-compliant providers. The
+first OIDC user for a tenant becomes Owner; subsequent users start as Operators.
+OIDC users use seven-day hashed server sessions in HttpOnly cookies.
+For an OIDC-only dashboard deployment, leave `VITE_SHAPI_API_KEY` empty; the
+production compose file supports this mode and the dashboard will use the
+browser session instead.
 
 ## API surface (all under `/api/v1`)
 
@@ -92,6 +125,7 @@ baked in); the SDK sends its configured key.
 - `GET/PATCH /drift/config/:integrationId`, `GET /drift/results`, `POST /drift/check/:invariantId`, `GET /drift/summary`
 - `POST /github/webhook`, installations, incident PRs, PR verify
 - `POST /sdk/track`, `GET /sdk/events`
+- `GET/POST /api-keys`, `DELETE /api-keys/:id`, `POST /bootstrap/tenant`
 
 ## Tests (all must pass before marking anything complete)
 
@@ -120,21 +154,35 @@ Typechecks: `pnpm -r typecheck`. Builds verified: backend `tsc`, dashboard `tsc 
   against the integration's secret, using raw-body capture (`fastify-raw-body`,
   route opt-in). Local `test`-signature traffic and the dev placeholder secret fall
   back to test mode so simulate scripts work without Stripe keys.
+- SendGrid signed webhooks use the provider's ECDSA signature and raw-body headers;
+  store the SendGrid public key in integration config as `sendgridPublicKey`.
+- Twilio webhooks use `X-Twilio-Signature` HMAC verification over the configured
+  public webhook URL and sorted request parameters.
 - Repair PRs use real Octokit (`openRepairPr`: branch from main → commit files →
   open PR) whenever `GITHUB_TOKEN` is set, and a simulated PR otherwise.
+- The backend runs a scheduled invariant-window evaluator (default every 60 seconds;
+  configure with `INVARIANT_EVALUATION_INTERVAL_SEC`) and uses weighted baseline/current
+  trial counts for drift calculations.
 - `POST /sdk/track` feeds the same invariant engine as webhooks (shared
   `evaluateInvariantsForEvent`). A tracked `provisioning.failed` flips the
   `No Failed Provisioning Invariant` to VIOLATED and opens a deduped HIGH
   incident — so a 200-OK failure becomes a triageable incident with zero manual
   steps. VIOLATED invariants stay in the evaluation set, so recovery back to
   HEALTHY and re-offense after resolve both work.
+- Production deployments should use `pnpm db:migrate:deploy`, which applies the
+  checked-in baseline and production-hardening migrations. Existing databases
+  created with the old `db push` workflow should be reviewed against the
+  baseline and run `pnpm --filter @shapi/backend exec prisma migrate resolve
+  --applied 20260929000000_baseline` once; then deploy the hardening migration
+  so existing rows receive the local tenant.
 - Prisma models `GitHubInstallation` / `GitHubPullRequest` map to client
   `prisma.gitHubInstallation` / `prisma.gitHubPullRequest` (capital H) — code uses `(prisma as any)` accordingly.
 - `DATABASE_URL` uses the `postgresql://` scheme; backend loads repo-root `.env` via `dotenv`.
-- Live-verified 2026-09-18 against local Postgres: `scripts/e2e.ts` (webhook→DB),
-  `scripts/e2e-incident.ts` (drift→incident→diagnose→replay), and demo-saas
-  `scripts/e2e.ts` (200-OK-despite-failure) all pass. Total: 21 unit tests green
-  plus 3 live E2E scripts green.
+- `/health` is a liveness check, `/ready` verifies database connectivity, and
+  `/metrics` exposes Prometheus-compatible request counters.
+- Unit tests, typechecks, backend lint, and the dashboard production build are
+  run in CI/local verification. Live Postgres E2E requires Docker or a configured
+  external database and is intentionally not claimed by the repository docs.
 
 ## Incident lifecycle
 
@@ -147,6 +195,11 @@ Typechecks: `pnpm -r typecheck`. Builds verified: backend `tsc`, dashboard `tsc 
   Without it, `test`-signature traffic uses test mode (local simulate only).
 - GitHub: set `GITHUB_TOKEN` and create a repair PR against a real repo to
   exercise the Octokit path (`openRepairPr`). Without it, PRs are simulated.
+- GitHub App webhooks: set `GITHUB_WEBHOOK_SECRET_APP` and, when more than one
+  GitHub integration exists, set `GITHUB_APP_INTEGRATION_ID` so installation and
+  PR events cannot be assigned across tenants.
 - Multi-tenant predicates: upgrade the `node:vm` sandbox to `isolated-vm`
   before accepting untrusted predicate code.
 - Auth: rotate `SHAPI_API_KEY` per environment; set `VITE_SHAPI_API_KEY` to match.
+- Bootstrap: set a random `SHAPI_BOOTSTRAP_TOKEN` of at least 32 characters only
+  during tenant onboarding, then remove or rotate it.

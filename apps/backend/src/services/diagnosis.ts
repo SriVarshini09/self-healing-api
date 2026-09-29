@@ -1,5 +1,5 @@
 import { prisma } from '../utils/prisma.js';
-import type { Incident, Integration, IntegrationType, Invariant } from '@prisma/client';
+import type { Incident, IntegrationType, Invariant } from '@prisma/client';
 
 export interface DiagnosisResult {
   rootCause: string;
@@ -8,7 +8,9 @@ export interface DiagnosisResult {
   evidence: string[];
 }
 
-export async function diagnoseIncident(incident: Incident & { invariant: Invariant | null; integration: Integration }): Promise<DiagnosisResult> {
+type DiagnosisIntegration = { id: string; type: IntegrationType; tenantId: string | null };
+
+export async function diagnoseIncident(incident: Incident & { invariant: Invariant | null; integration: DiagnosisIntegration }): Promise<DiagnosisResult> {
   const { invariant, integration } = incident;
 
   if (!invariant) {
@@ -56,6 +58,7 @@ export async function diagnoseIncident(incident: Incident & { invariant: Invaria
   // HTTP was 200 everywhere — this is exactly the silent failure SHAPI exists for.
   const failedOutcomes = await prisma.trackedEvent.findMany({
     where: {
+      tenantId: integration.tenantId,
       integration: integration.type as IntegrationType,
       timestamp: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
       OR: [{ type: { endsWith: '.failed' } }, { type: { endsWith: '_failed' } }],

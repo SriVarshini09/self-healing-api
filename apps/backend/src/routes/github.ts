@@ -1,7 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../utils/prisma.js';
-import { GitHubPRStatus, IncidentStatus } from '@prisma/client';
+import { GitHubPRStatus, IncidentStatus, IntegrationType } from '@prisma/client';
 import crypto from 'crypto';
+import { z } from 'zod';
+import { tenantIdFor } from '../utils/auth-context.js';
 
 type JsonRecord = Record<string, unknown>;
 
@@ -12,6 +14,20 @@ function str(value: unknown, fallback = ''): string {
 function obj(value: unknown): JsonRecord {
   return typeof value === 'object' && value !== null ? (value as JsonRecord) : {};
 }
+
+const prSchema = z.object({
+  installationId: z.string().min(1),
+  repository: z.string().regex(/^[^/\s]+\/[^/\s]+$/),
+  branchName: z.string().regex(/^[A-Za-z0-9._/-]+$/).optional(),
+  base: z.string().regex(/^[A-Za-z0-9._/-]+$/).optional(),
+  title: z.string().trim().min(1).max(256),
+  body: z.string().max(100_000).optional(),
+  diff: z.string().max(100_000).optional(),
+  files: z.array(z.string().refine(path =>
+    !path.startsWith('/') && !path.includes('..') && !path.includes('\\') && !path.includes('\0'),
+    'file path must be relative and cannot contain traversal segments',
+  )).max(50).default([]),
+});
 
 export async function githubRoutes(app: FastifyInstance) {
   app.post('/github/webhook', { config: { rawBody: true } }, async (request, reply) => {
@@ -24,8 +40,29 @@ export async function githubRoutes(app: FastifyInstance) {
     const event = headers['x-github-event'];
     const delivery = headers['x-github-delivery'];
 
+    const configuredIntegrationId = process.env.GITHUB_APP_INTEGRATION_ID;
+    const candidates = await prisma.integration.findMany({
+      where: { type: IntegrationType.GITHUB, webhookEnabled: true },
+    });
+    const integration = configuredIntegrationId
+      ? candidates.find(candidate => candidate.id === configuredIntegrationId)
+      : candidates.length === 1 ? candidates[0] : undefined;
+    if (!integration) {
+      return reply.code(503).send({ error: 'GitHub App integration is not configured unambiguously' });
+    }
+
+    const integrationConfig = integration.config && typeof integration.config === 'object'
+      ? integration.config as Record<string, unknown>
+      : {};
+
     const signature = headers['x-hub-signature-256'];
-    const webhookSecret = process.env.GITHUB_WEBHOOK_SECRET_APP;
+    const webhookSecret = process.env.GITHUB_WEBHOOK_SECRET_APP
+      || (typeof integrationConfig.appWebhookSecret === 'string' ? integrationConfig.appWebhookSecret : undefined)
+      || integration.webhookSecret;
+
+    if (!webhookSecret || !signature) {
+      return reply.code(401).send({ error: 'GitHub webhook signature is not configured' });
+    }
 
     if (webhookSecret && signature) {
       try {
@@ -45,16 +82,18 @@ export async function githubRoutes(app: FastifyInstance) {
       }
     }
 
-    if (event === 'installation') await handleInstallationEvent(payload);
-    if (event === 'pull_request') await handlePullRequestEvent(payload);
+    if (event === 'installation') await handleInstallationEvent(payload, integration.id);
+    if (event === 'pull_request') await handlePullRequestEvent(payload, integration.id);
     if (event === 'push') await handlePushEvent(payload);
-    if (event === 'workflow_run') await handleWorkflowRunEvent(payload);
+    if (event === 'workflow_run') await handleWorkflowRunEvent(payload, integration.id);
 
     return reply.send({ received: true, delivery });
   });
 
-  app.get('/github/installations', async (_request, reply) => {
+  app.get('/github/installations', async (request, reply) => {
+    const tenantId = tenantIdFor(request);
     const installations = await prisma.gitHubInstallation.findMany({
+      where: { integration: { tenantId } },
       orderBy: { createdAt: 'desc' },
       include: {
         integration: { select: { id: true, name: true } },
@@ -65,19 +104,24 @@ export async function githubRoutes(app: FastifyInstance) {
   });
 
   app.get('/github/installations/:installationId', async (request, reply) => {
+    const tenantId = tenantIdFor(request);
     const { installationId } = (request.params ?? {}) as { installationId: string };
-    const installation = await prisma.gitHubInstallation.findUnique({
-      where: { id: installationId },
-      include: { integration: true, prs: { orderBy: { createdAt: 'desc' }, take: 20 } },
+    const installation = await prisma.gitHubInstallation.findFirst({
+      where: { id: installationId, integration: { tenantId } },
+      include: {
+        integration: { select: { id: true, name: true, type: true, webhookEnabled: true } },
+        prs: { orderBy: { createdAt: 'desc' }, take: 20 },
+      },
     });
     if (!installation) return reply.code(404).send({ error: 'Installation not found' });
     return reply.send(installation);
   });
 
   app.get('/github/incidents/:incidentId/prs', async (request, reply) => {
+    const tenantId = tenantIdFor(request);
     const { incidentId } = (request.params ?? {}) as { incidentId: string };
     const prs = await prisma.gitHubPullRequest.findMany({
-      where: { incidentId },
+      where: { incidentId, incident: { integration: { tenantId } } },
       orderBy: { createdAt: 'desc' },
       include: { installation: true },
     });
@@ -85,27 +129,26 @@ export async function githubRoutes(app: FastifyInstance) {
   });
 
   app.post('/github/incidents/:incidentId/pr', async (request, reply) => {
+    const tenantId = tenantIdFor(request);
     const { incidentId } = (request.params ?? {}) as { incidentId: string };
-    const { installationId, repository, branchName, base, title, body, diff, files } = (request.body ?? {}) as {
-      installationId: string;
-      repository: string;
-      branchName: string;
-      base?: string;
-      title: string;
-      body: string;
-      diff: string;
-      files: string[];
-    };
+    const parsed = prSchema.safeParse(request.body ?? {});
+    if (!parsed.success) return reply.code(400).send({ error: 'Invalid pull-request payload', details: parsed.error.flatten() });
+    const { installationId, repository, branchName, base, title, body, diff, files } = parsed.data;
 
-    const installation = await prisma.gitHubInstallation.findUnique({
-      where: { id: installationId },
+    const installation = await prisma.gitHubInstallation.findFirst({
+      where: { id: installationId, integration: { tenantId } },
     });
     if (!installation) return reply.code(404).send({ error: 'Installation not found' });
 
     const incident = await prisma.incident.findUnique({
-      where: { id: incidentId },
+      where: { id: incidentId, integration: { tenantId } },
       include: { repairCandidates: { orderBy: { confidence: 'desc' }, take: 1 } },
     });
+    if (!incident) return reply.code(404).send({ error: 'Incident not found' });
+
+    if (process.env.NODE_ENV === 'production' && !process.env.GITHUB_TOKEN) {
+      return reply.code(503).send({ error: 'GITHUB_TOKEN is required to create real repair PRs in production' });
+    }
 
     // Real PR via Octokit when GITHUB_TOKEN is set, else simulated (local demo).
     const { openRepairPr, buildRepairBranch, buildPrBody } = await import('@shapi/github-integration');
@@ -122,6 +165,9 @@ export async function githubRoutes(app: FastifyInstance) {
     const fullRepo = repository.includes('/')
       ? repository
       : `${installation.accountLogin}/${repository}`;
+    if (!installation.repositories.includes(fullRepo)) {
+      return reply.code(403).send({ error: 'Repository is not included in this GitHub installation' });
+    }
     const opened = await openRepairPr({
       repository: fullRepo,
       title,
@@ -148,9 +194,10 @@ export async function githubRoutes(app: FastifyInstance) {
   });
 
   app.post('/github/prs/:prId/verify', async (request, reply) => {
+    const tenantId = tenantIdFor(request);
     const { prId } = (request.params ?? {}) as { prId: string };
-    const pr = await prisma.gitHubPullRequest.findUnique({
-      where: { id: prId },
+    const pr = await prisma.gitHubPullRequest.findFirst({
+      where: { id: prId, incident: { integration: { tenantId } } },
       include: { incident: true, installation: true },
     });
     if (!pr) return reply.code(404).send({ error: 'PR not found' });
@@ -175,7 +222,7 @@ export async function githubRoutes(app: FastifyInstance) {
   });
 }
 
-async function handleInstallationEvent(payload: Record<string, unknown>) {
+async function handleInstallationEvent(payload: Record<string, unknown>, integrationId: string) {
   const action = str(payload.action);
   const installation = obj(payload.installation);
   const account = obj(installation.account);
@@ -183,30 +230,31 @@ async function handleInstallationEvent(payload: Record<string, unknown>) {
     ? (payload.repositories as unknown[]).map(r => str(obj(r).full_name))
     : [];
 
-  if (action === 'created') {
+  const installationId = Number(installation.id);
+  if (action === 'created' && Number.isSafeInteger(installationId) && installationId > 0) {
     await prisma.gitHubInstallation.upsert({
-      where: { githubInstallationId: BigInt(Number(installation.id)) },
+      where: { githubInstallationId: BigInt(installationId) },
       update: {
         accountLogin: str(account.login, 'unknown'),
         accountType: str(account.type, 'Organization'),
         repositories,
       },
       create: {
-        githubInstallationId: BigInt(Number(installation.id ?? Date.now())),
+        githubInstallationId: BigInt(installationId),
         accountLogin: str(account.login, 'unknown'),
         accountType: str(account.type, 'Organization'),
         repositories,
-        integrationId: str(payload.integrationId),
+        integrationId,
       },
     });
-  } else if (action === 'deleted' && installation.id !== undefined) {
+  } else if (action === 'deleted' && Number.isSafeInteger(installationId) && installationId > 0) {
     await prisma.gitHubInstallation.deleteMany({
-      where: { githubInstallationId: BigInt(Number(installation.id)) },
+      where: { githubInstallationId: BigInt(installationId), integrationId },
     });
   }
 }
 
-async function handlePullRequestEvent(payload: Record<string, unknown>) {
+async function handlePullRequestEvent(payload: Record<string, unknown>, integrationId: string) {
   const action = str(payload.action);
   const pr = obj(payload.pull_request);
   const prBase = obj(pr.base);
@@ -215,7 +263,11 @@ async function handlePullRequestEvent(payload: Record<string, unknown>) {
   const merged = pr.merged === true;
 
   const ourPR = await prisma.gitHubPullRequest.findFirst({
-    where: { prNumber: Number(pr.number), repository: String(repoFullName) },
+    where: {
+      prNumber: Number(pr.number),
+      repository: String(repoFullName),
+      installation: { integrationId },
+    },
   });
 
   if (ourPR) {
@@ -242,7 +294,7 @@ async function handlePushEvent(_payload: Record<string, unknown>) {
   // Placeholder: could trigger replay jobs on push
 }
 
-async function handleWorkflowRunEvent(payload: Record<string, unknown>) {
+async function handleWorkflowRunEvent(payload: Record<string, unknown>, integrationId: string) {
   const action = str(payload.action);
   const workflowRun = obj(payload.workflow_run);
   if (action !== 'completed') return;
@@ -260,7 +312,7 @@ async function handleWorkflowRunEvent(payload: Record<string, unknown>) {
     const prNumber = Number(obj(ref).number);
     if (!prNumber) continue;
     const ours = await prisma.gitHubPullRequest.findFirst({
-      where: { prNumber, repository: repoFullName, status: GitHubPRStatus.OPEN },
+      where: { prNumber, repository: repoFullName, status: GitHubPRStatus.OPEN, installation: { integrationId } },
     });
     if (!ours) continue;
 

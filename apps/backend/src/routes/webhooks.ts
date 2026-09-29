@@ -13,6 +13,7 @@ import {
 
 type WebhookRequest = FastifyRequest & { rawBody?: unknown };
 import { evaluatePredicate as sandboxedEvaluate } from '@shapi/invariant-engine';
+import { detectDrift } from '@shapi/drift-detection';
 
 export async function webhookRoutes(app: FastifyInstance) {
   // rawBody: true opts into fastify-raw-body capture for HMAC verification.
@@ -24,11 +25,11 @@ export async function webhookRoutes(app: FastifyInstance) {
     return handleWebhook(request, reply, 'github');
   });
 
-  app.post('/webhooks/sendgrid', async (request, reply) => {
+  app.post('/webhooks/sendgrid', { config: { rawBody: true } }, async (request, reply) => {
     return handleWebhook(request, reply, 'sendgrid');
   });
 
-  app.post('/webhooks/twilio', async (request, reply) => {
+  app.post('/webhooks/twilio', { config: { rawBody: true } }, async (request, reply) => {
     return handleWebhook(request, reply, 'twilio');
   });
 
@@ -72,35 +73,57 @@ async function handleStripeWebhook(request: WebhookRequest, reply: FastifyReply)
       ? request.rawBody
       : JSON.stringify(request.body ?? {});
 
-  // Find candidate integration first (secret needed for verification).
-  const candidate = await prisma.integration.findFirst({
+  // A provider endpoint can serve multiple tenant integrations. Verify against
+  // each configured candidate and only persist the event for the integration
+  // whose secret actually authenticated the request.
+  const candidates = await prisma.integration.findMany({
     where: { type: IntegrationType.STRIPE, webhookEnabled: true },
   });
-  if (!candidate) {
+  if (!candidates.length || !headers['stripe-signature']) {
     return reply.code(401).send({ error: 'Invalid webhook signature' });
   }
+  if (process.env.NODE_ENV === 'production' && headers['stripe-signature'] === 'test') {
+    return reply.code(401).send({ error: 'Test webhook signatures are disabled in production' });
+  }
 
-  // A real STRIPE_WEBHOOK_SECRET in the environment overrides the seeded demo
-  // secret so `stripe listen` traffic verifies without touching the database.
+  // A real STRIPE_WEBHOOK_SECRET in the environment is a convenient
+  // single-integration deployment override. With multiple tenants, each
+  // candidate must be checked against its own stored secret so a global env
+  // secret cannot route an event into the wrong tenant.
   const envSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  const secret = envSecret && !isDevSecret(envSecret) ? envSecret : candidate.webhookSecret ?? undefined;
-
-  let payload: Record<string, unknown>;
-  try {
-    const { verifyStripeWebhook } = await import('../services/stripe.js');
-    const result = verifyStripeWebhook(rawBody, headers['stripe-signature'], secret);
-    payload = result.event as unknown as Record<string, unknown>;
-    if (result.verified) logger.debug('Stripe signature verified via SDK');
-  } catch (err) {
-    logger.warn({ err: err instanceof Error ? err.message : String(err) }, 'Stripe signature verification failed');
+  const { verifyStripeWebhook } = await import('../services/stripe.js');
+  let candidate: (typeof candidates)[number] | undefined;
+  let payload: Record<string, unknown> | undefined;
+  for (const integration of candidates) {
+    const secret = envSecret && !isDevSecret(envSecret) && candidates.length === 1
+      ? envSecret
+      : integration.webhookSecret ?? undefined;
+    try {
+      const result = verifyStripeWebhook(rawBody, headers['stripe-signature'], secret);
+      candidate = integration;
+      payload = result.event as unknown as Record<string, unknown>;
+      if (result.verified) logger.debug({ integrationId: integration.id }, 'Stripe signature verified via SDK');
+      break;
+    } catch (err) {
+      logger.debug({ integrationId: integration.id, err: err instanceof Error ? err.message : String(err) }, 'Stripe candidate did not verify');
+    }
+  }
+  if (!candidate || !payload) {
+    logger.warn('Stripe webhook verification failed for all configured integrations');
     return reply.code(401).send({ error: 'Invalid webhook signature' });
   }
 
   const eventType = (payload.type as string) || 'unknown';
+  const providerEventId = typeof payload.id === 'string' ? payload.id : null;
+  const existing = providerEventId
+    ? await prisma.webhookEvent.findFirst({ where: { integrationId: candidate.id, providerEventId } })
+    : null;
+  if (existing) return reply.code(200).send({ received: true, eventId: existing.id, duplicate: true });
   const webhookEvent = await prisma.webhookEvent.create({
     data: {
       integrationId: candidate.id,
       eventType,
+      providerEventId,
       payload: payload as Prisma.InputJsonValue,
       headers: headers as Prisma.InputJsonValue,
       status: WebhookEventStatus.RECEIVED,
@@ -122,25 +145,33 @@ async function handleWebhook(request: FastifyRequest, reply: FastifyReply, type:
   // JSON would compute a different digest and reject real webhooks.
   const rawBody = (request as WebhookRequest).rawBody;
   const rawBytes = typeof rawBody === 'string' ? rawBody : undefined;
-  const integration = await findIntegrationByTypeAndVerify(type, headers, payload);
+  const webhookUrl = `${process.env.BACKEND_URL || 'http://localhost:3001'}${request.raw.url ?? request.url}`;
+  const candidates = await findIntegrationsByType(type);
+  let integration: (typeof candidates)[number] | undefined;
+  for (const candidate of candidates) {
+    if (await verifyWebhookSignature(type, candidate, headers, payload, rawBytes, webhookUrl)) {
+      integration = candidate;
+      break;
+    }
+  }
 
   if (!integration) {
     logger.warn({ type }, 'Webhook verification failed - integration not found');
     return reply.code(401).send({ error: 'Invalid webhook signature' });
   }
 
-  const verified = await verifyWebhookSignature(type, integration, headers, payload, rawBytes);
-  if (!verified) {
-    logger.warn({ integrationId: integration.id }, 'Webhook signature verification failed');
-    return reply.code(401).send({ error: 'Invalid webhook signature' });
-  }
-
   const eventType = extractEventType(type, headers, payload);
+  const providerEventId = providerEventIdFor(type, headers, payload);
+  const existing = providerEventId
+    ? await prisma.webhookEvent.findFirst({ where: { integrationId: integration.id, providerEventId } })
+    : null;
+  if (existing) return reply.code(200).send({ received: true, eventId: existing.id, duplicate: true });
 
   const webhookEvent = await prisma.webhookEvent.create({
     data: {
       integrationId: integration.id,
       eventType,
+      providerEventId,
       payload: payload as Prisma.InputJsonValue,
       headers: headers as Prisma.InputJsonValue,
       status: WebhookEventStatus.RECEIVED,
@@ -172,17 +203,23 @@ async function handleGenericWebhook(request: FastifyRequest, reply: FastifyReply
     return reply.code(404).send({ error: 'Integration not found or webhook disabled' });
   }
 
-  const providedSecret = headers['x-webhook-secret'];
-  if (integration.webhookSecret && providedSecret !== integration.webhookSecret) {
+  const verified = await verifyWebhookSignature('custom', integration, headers, payload);
+  if (!verified) {
     return reply.code(401).send({ error: 'Invalid webhook secret' });
   }
 
   const eventType = headers['x-event-type'] || 'unknown';
+  const providerEventId = providerEventIdFor('custom', headers, payload);
+  const existing = providerEventId
+    ? await prisma.webhookEvent.findFirst({ where: { integrationId, providerEventId } })
+    : null;
+  if (existing) return reply.code(200).send({ received: true, eventId: existing.id, duplicate: true });
 
   const webhookEvent = await prisma.webhookEvent.create({
     data: {
       integrationId,
       eventType,
+      providerEventId,
       payload: payload as Prisma.InputJsonValue,
       headers: headers as Prisma.InputJsonValue,
       status: WebhookEventStatus.RECEIVED,
@@ -206,37 +243,23 @@ function normalizeHeaders(raw: Record<string, unknown>): Record<string, string> 
   return out;
 }
 
-async function findIntegrationByTypeAndVerify(
+async function findIntegrationsByType(
   type: WebhookKind,
-  headers: Record<string, string>,
-  _payload: Record<string, unknown>,
 ) {
-  if (type === 'stripe') {
-    if (!headers['stripe-signature']) return null;
-    return prisma.integration.findFirst({
-      where: { type: IntegrationType.STRIPE, webhookEnabled: true },
-    });
-  }
-
-  if (type === 'github') {
-    return prisma.integration.findFirst({
-      where: { type: IntegrationType.GITHUB, webhookEnabled: true },
-    });
-  }
-
-  return prisma.integration.findFirst({
+  return prisma.integration.findMany({
     where: { type: toPrismaIntegrationType(type), webhookEnabled: true },
   });
 }
 
 export async function verifyWebhookSignature(
   type: WebhookKind,
-  integration: { webhookSecret: string | null; id: string },
+  integration: { webhookSecret: string | null; id: string; config?: unknown },
   headers: Record<string, string>,
   payload: Record<string, unknown>,
   rawBytes?: string,
+  webhookUrl?: string,
 ): Promise<boolean> {
-  if (!integration.webhookSecret) {
+  if (!integration.webhookSecret && type !== 'sendgrid') {
     logger.warn({ integrationId: integration.id }, 'No webhook secret configured');
     return false;
   }
@@ -247,9 +270,10 @@ export async function verifyWebhookSignature(
     }
     case 'github': {
       const signature = headers['x-hub-signature-256'];
-      if (!signature) return false;
+      const secret = integration.webhookSecret;
+      if (!signature || !secret) return false;
       try {
-        const hmac = crypto.createHmac('sha256', integration.webhookSecret);
+        const hmac = crypto.createHmac('sha256', secret);
         hmac.update(rawBytes ?? JSON.stringify(payload));
         const expected = `sha256=${hmac.digest('hex')}`;
         if (signature.length !== expected.length) return false;
@@ -258,9 +282,61 @@ export async function verifyWebhookSignature(
         return false;
       }
     }
-    default:
-      return true;
+    case 'sendgrid': {
+      const config = integration.config && typeof integration.config === 'object'
+        ? integration.config as Record<string, unknown>
+        : {};
+      const publicKey = typeof config.sendgridPublicKey === 'string'
+        ? config.sendgridPublicKey
+        : typeof config.publicKey === 'string' ? config.publicKey : undefined;
+      const signature = headers['x-twilio-email-event-webhook-signature'];
+      const timestamp = headers['x-twilio-email-event-webhook-timestamp'];
+      if (!publicKey || !signature || !timestamp || !rawBytes) return false;
+      try {
+        return crypto.verify(
+          'sha256',
+          Buffer.from(`${timestamp}${rawBytes}`, 'utf8'),
+          crypto.createPublicKey(publicKey),
+          Buffer.from(signature, 'base64'),
+        );
+      } catch {
+        return false;
+      }
+    }
+    case 'twilio': {
+      const signature = headers['x-twilio-signature'];
+      const secret = integration.webhookSecret;
+      if (!signature || !webhookUrl || !secret) return false;
+      const params = Object.entries(payload)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, value]) => `${key}${String(value)}`)
+        .join('');
+      const expected = crypto.createHmac('sha1', secret)
+        .update(`${webhookUrl}${params}`)
+        .digest('base64');
+      const actual = Buffer.from(signature);
+      const expectedBuffer = Buffer.from(expected);
+      return actual.length === expectedBuffer.length && crypto.timingSafeEqual(actual, expectedBuffer);
+    }
+    case 'custom': {
+      const provided = headers['x-webhook-secret'];
+      const secret = integration.webhookSecret;
+      if (!provided || !secret) return false;
+      const expected = Buffer.from(secret);
+      const actual = Buffer.from(provided);
+      return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+    }
   }
+}
+
+function providerEventIdFor(
+  type: WebhookKind,
+  headers: Record<string, string>,
+  payload: Record<string, unknown>,
+): string | null {
+  if (type === 'github') return headers['x-github-delivery'] || null;
+  if (type === 'stripe') return typeof payload.id === 'string' ? payload.id : null;
+  return headers['x-event-id'] || (typeof payload.id === 'string' ? payload.id : null);
 }
 
 function extractEventType(
@@ -297,7 +373,7 @@ function extractCorrelationId(
   );
 }
 
-async function processWebhookEvent(
+export async function processWebhookEvent(
   webhookEventId: string,
   integrationId: string,
   eventType: string,
@@ -334,6 +410,37 @@ async function processWebhookEvent(
   }
 }
 
+export async function recoverPendingWebhookEvents(): Promise<void> {
+  const staleBefore = new Date(Date.now() - 5 * 60 * 1000);
+  const events = await prisma.webhookEvent.findMany({
+    where: {
+      retryCount: { lt: 5 },
+      OR: [
+        { status: WebhookEventStatus.RECEIVED },
+        { status: WebhookEventStatus.RETRYING },
+        { status: WebhookEventStatus.FAILED },
+        { status: WebhookEventStatus.PROCESSING, processedAt: { lt: staleBefore } },
+      ],
+    },
+    orderBy: { receivedAt: 'asc' },
+    take: 100,
+  });
+
+  for (const event of events) {
+    const claimed = await prisma.webhookEvent.updateMany({
+      where: { id: event.id, status: event.status, retryCount: event.retryCount },
+      data: { status: WebhookEventStatus.RETRYING, retryCount: { increment: 1 } },
+    });
+    if (claimed.count !== 1) continue;
+    await processWebhookEvent(
+      event.id,
+      event.integrationId,
+      event.eventType,
+      (event.payload ?? {}) as Record<string, unknown>,
+    ).catch(error => logger.error({ error, webhookEventId: event.id }, 'Webhook recovery failed'));
+  }
+}
+
 export function evaluatePredicate(
   expression: string,
   context: { event: { type: string; payload: Record<string, unknown>; headers: Record<string, unknown> } },
@@ -342,7 +449,7 @@ export function evaluatePredicate(
   return sandboxedEvaluate(expression, context.event).passed;
 }
 
-async function checkDrift(invariantId: string) {
+export async function checkDrift(invariantId: string) {
   const invariant = await prisma.invariant.findUnique({ where: { id: invariantId } });
   if (!invariant) return;
   const config = await prisma.driftDetectionConfig.findUnique({
@@ -351,49 +458,52 @@ async function checkDrift(invariantId: string) {
 
   if (!config || !config.enabled) return;
 
+  const currentStart = new Date(Date.now() - config.detectionWindowHours * 60 * 60 * 1000);
   const baselineStart = new Date(Date.now() - config.baselineWindowDays * 24 * 60 * 60 * 1000);
   const baselineEvaluations = await prisma.invariantEvaluation.findMany({
-    where: { invariantId, windowStart: { gte: baselineStart } },
+    where: { invariantId, windowStart: { gte: baselineStart, lt: currentStart } },
   });
 
-  if (baselineEvaluations.length < 10) return;
+  const baselineSuccesses = baselineEvaluations.reduce((sum, e) => sum + e.passedSamples, 0);
+  const baselineTrials = baselineEvaluations.reduce((sum, e) => sum + e.totalSamples, 0);
+  if (baselineTrials === 0) return;
 
-  const baselineRate =
-    baselineEvaluations.reduce((sum, e) => sum + e.successRate, 0) / baselineEvaluations.length;
-
-  const currentStart = new Date(Date.now() - config.detectionWindowHours * 60 * 60 * 1000);
   const currentEvaluations = await prisma.invariantEvaluation.findMany({
     where: { invariantId, windowStart: { gte: currentStart } },
   });
 
-  if (currentEvaluations.length < config.minDetectionSamples) return;
+  const currentSuccesses = currentEvaluations.reduce((sum, e) => sum + e.passedSamples, 0);
+  const currentTrials = currentEvaluations.reduce((sum, e) => sum + e.totalSamples, 0);
+  if (currentTrials < config.minDetectionSamples) return;
 
-  const currentRate =
-    currentEvaluations.reduce((sum, e) => sum + e.successRate, 0) / currentEvaluations.length;
-
-  const { pValue, effectSize } = performProportionTest(
-    currentEvaluations.reduce((sum, e) => sum + e.passedSamples, 0),
-    currentEvaluations.reduce((sum, e) => sum + e.totalSamples, 0),
-    baselineRate,
+  const result = detectDrift(
+    { baselineSuccesses, baselineTrials, currentSuccesses, currentTrials },
+    {
+      minDetectionSamples: config.minDetectionSamples,
+      significanceThreshold: config.significanceThreshold,
+      minEffectSize: config.minEffectSize,
+    },
   );
 
-  const detected =
-    pValue < config.significanceThreshold && Math.abs(effectSize) >= config.minEffectSize;
+  const alreadyRecorded = await prisma.driftResult.findFirst({
+    where: { invariantId, detectedAt: { gte: currentStart } },
+  });
+  if (alreadyRecorded) return;
 
   await prisma.driftResult.create({
     data: {
       invariantId,
-      detected,
-      pValue,
-      effectSize,
-      baselineRate,
-      currentRate,
-      sampleSize: currentEvaluations.reduce((sum, e) => sum + e.totalSamples, 0),
+      detected: result.detected,
+      pValue: result.pValue,
+      effectSize: result.effectSize,
+      baselineRate: result.baselineRate,
+      currentRate: result.currentRate,
+      sampleSize: currentTrials,
     },
   });
 
-  if (detected) {
-    await createDriftIncident(invariantId, baselineRate, currentRate, pValue, effectSize);
+  if (result.detected) {
+    await createDriftIncident(invariantId, result.baselineRate, result.currentRate, result.pValue, result.effectSize);
   }
 }
 

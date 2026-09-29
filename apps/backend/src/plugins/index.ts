@@ -2,11 +2,21 @@ import type { FastifyInstance } from 'fastify';
 import { config } from '../config.js';
 import { prisma } from '../utils/prisma.js';
 import { serializeJson } from '../utils/json.js';
+import { incrementCounter, renderPrometheus } from '../utils/metrics.js';
+import { logger } from '../utils/logger.js';
 
 export async function registerPlugins(app: FastifyInstance) {
   // Prisma models carry BigInt columns (e.g. GitHubInstallation.githubInstallationId)
   // which JSON.stringify cannot serialize. Convert safely instead of 500ing.
   app.setReplySerializer(serializeJson);
+
+  app.addHook('onResponse', async (request, reply) => {
+    incrementCounter('shapi_http_requests_total', {
+      method: request.method,
+      route: request.routeOptions.url ?? 'unknown',
+      status_code: reply.statusCode,
+    });
+  });
 
   // Raw body capture for HMAC webhook verification (opt-in per route via config.rawBody).
   await app.register(import('fastify-raw-body'), {
@@ -15,6 +25,10 @@ export async function registerPlugins(app: FastifyInstance) {
     encoding: 'utf8',
     runFirst: true,
   });
+
+  // Twilio sends form-encoded webhook parameters; keep this parser available
+  // before provider signature verification runs.
+  await app.register(import('@fastify/formbody'));
 
   // Helmet for security headers
   await app.register(import('@fastify/helmet'), {
@@ -70,4 +84,18 @@ export async function registerPlugins(app: FastifyInstance) {
 
   // Health check
   app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
+
+  app.get('/ready', async (_request, reply) => {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      return reply.send({ status: 'ready', timestamp: new Date().toISOString() });
+    } catch (error) {
+      logger.error({ error }, 'Readiness check failed');
+      return reply.code(503).send({ status: 'not_ready' });
+    }
+  });
+
+  app.get('/metrics', async (_request, reply) => {
+    return reply.type('text/plain; version=0.0.4').send(renderPrometheus());
+  });
 }

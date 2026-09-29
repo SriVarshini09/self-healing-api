@@ -2,6 +2,18 @@ import type { FastifyInstance } from 'fastify';
 import { prisma } from '../utils/prisma.js';
 import type { Prisma } from '@prisma/client';
 import { IntegrationType } from '@prisma/client';
+import { z } from 'zod';
+import { tenantIdFor } from '../utils/auth-context.js';
+
+const trackSchema = z.object({
+  eventId: z.string().trim().min(1).max(200),
+  integration: z.string().trim().min(1),
+  type: z.string().trim().min(1).max(200),
+  payload: z.record(z.unknown()).default({}),
+  timestamp: z.string().datetime({ offset: true }).optional(),
+  correlationId: z.string().max(200).optional(),
+  metadata: z.record(z.unknown()).optional(),
+});
 
 function parseIntegrationType(input: unknown): IntegrationType {
   const s = String(input ?? '').toUpperCase();
@@ -12,19 +24,10 @@ function parseIntegrationType(input: unknown): IntegrationType {
 export async function sdkRoutes(app: FastifyInstance) {
   // SDK track endpoint - stores TrackedEvent, no auth for local MVP (API key validated loosely)
   app.post('/sdk/track', async (request, reply) => {
-    const body = (request.body ?? {}) as {
-      eventId: string;
-      integration: string;
-      type: string;
-      payload?: Record<string, unknown>;
-      timestamp?: string;
-      correlationId?: string;
-      metadata?: Record<string, unknown>;
-    };
-
-    if (!body.eventId || !body.integration || !body.type) {
-      return reply.code(400).send({ error: 'eventId, integration, type required' });
-    }
+    const tenantId = tenantIdFor(request);
+    const parsed = trackSchema.safeParse(request.body ?? {});
+    if (!parsed.success) return reply.code(400).send({ error: 'Invalid tracked event payload', details: parsed.error.flatten() });
+    const body = parsed.data;
 
     let integrationType: IntegrationType;
     try {
@@ -39,6 +42,7 @@ export async function sdkRoutes(app: FastifyInstance) {
         update: {},
         create: {
           eventId: body.eventId,
+          tenantId,
           integration: integrationType,
           type: body.type,
           payload: (body.payload ?? {}) as Prisma.InputJsonValue,
@@ -52,7 +56,7 @@ export async function sdkRoutes(app: FastifyInstance) {
       // invariant engine as webhooks, so a `provisioning.failed` flips its
       // invariant even though the HTTP layer returned 200 everywhere.
       const integration = await prisma.integration.findFirst({
-        where: { type: integrationType, webhookEnabled: true },
+        where: { type: integrationType, webhookEnabled: true, tenantId },
       });
       if (integration) {
         const { evaluateInvariantsForEvent } = await import('../services/invariants.js');
@@ -71,10 +75,11 @@ export async function sdkRoutes(app: FastifyInstance) {
   });
 
   app.get('/sdk/events', async (request, reply) => {
+    const tenantId = tenantIdFor(request);
     const q = (request.query ?? {}) as Record<string, unknown>;
     const page = Number(q.page ?? 1) || 1;
     const pageSize = Math.min(Number(q.pageSize ?? 20) || 20, 100);
-    const where: Prisma.TrackedEventWhereInput = {};
+    const where: Prisma.TrackedEventWhereInput = { tenantId };
     if (typeof q.integration === 'string') {
       const s = q.integration.toUpperCase();
       if ((Object.values(IntegrationType) as string[]).includes(s)) {
