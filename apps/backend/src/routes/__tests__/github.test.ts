@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
+import { createHmac } from 'node:crypto';
 import { githubRoutes } from '../github.js';
 
 // ---------------------------------------------------------------------------
@@ -34,6 +35,15 @@ function matchesPr(p: FakePr, where: Record<string, unknown>): boolean {
 
 vi.mock('../../utils/prisma.js', () => ({
   prisma: {
+    integration: {
+      findMany: vi.fn(async () => [{
+        id: 'github-demo',
+        type: 'GITHUB',
+        webhookEnabled: true,
+        webhookSecret: 'test-secret',
+        config: {},
+      }]),
+    },
     gitHubPullRequest: {
       findUnique: vi.fn(async ({ where }: any) => db.prs.find(p => p.id === where.id) ?? null),
       findFirst: vi.fn(async ({ where }: any) => db.prs.find(p => matchesPr(p, where)) ?? null),
@@ -80,15 +90,27 @@ let app: FastifyInstance;
 beforeEach(async () => {
   seedDb();
   verifyRepairPrMock.mockReset();
-  delete process.env.GITHUB_WEBHOOK_SECRET_APP;
+  process.env.GITHUB_WEBHOOK_SECRET_APP = 'test-secret';
   app = Fastify();
+  app.addHook('onRequest', async request => {
+    (request as any).shapiAuth = { tenantId: 'tenant-local-dev' };
+  });
   await githubRoutes(app);
   await app.ready();
 });
 
 afterEach(async () => {
   await app.close();
+  delete process.env.GITHUB_WEBHOOK_SECRET_APP;
 });
+
+function signedHeaders(payload: Record<string, unknown>, event: string) {
+  const body = JSON.stringify(payload);
+  return {
+    'x-github-event': event,
+    'x-hub-signature-256': `sha256=${createHmac('sha256', 'test-secret').update(body).digest('hex')}`,
+  };
+}
 
 function pr(id: string): FakePr {
   const found = db.prs.find(p => p.id === id);
@@ -193,7 +215,7 @@ describe('workflow_run webhook scoping', () => {
     return app.inject({
       method: 'POST',
       url: '/github/webhook',
-      headers: { 'x-github-event': 'workflow_run' },
+      headers: signedHeaders(payload, 'workflow_run'),
       payload,
     });
   }
@@ -260,7 +282,11 @@ describe('pull_request merge webhook (sole RESOLVED path)', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/github/webhook',
-      headers: { 'x-github-event': 'pull_request' },
+      headers: signedHeaders({
+        action: 'closed',
+        repository: { full_name: 'acme/demo' },
+        pull_request: { number: 10, merged: true, base: { repo: { full_name: 'acme/demo' } } },
+      }, 'pull_request'),
       payload: {
         action: 'closed',
         repository: { full_name: 'acme/demo' },
