@@ -1,0 +1,161 @@
+import { useEffect, useState, type ComponentType } from "react";
+import { Activity, Bell, Check, ChevronDown, CircleAlert, CircleGauge, Clock3, Command, GitBranch, Globe2, HeartPulse, MapPin, Network, Pause, Play, RefreshCw, Search, Settings2, ShieldCheck, Sparkles, TriangleAlert, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+const reports = [
+  { city: "Frankfurt", region: "eu-central-1", issue: "Payment API latency spike", source: "payments-api", time: "14s", tone: "critical" },
+  { city: "Ashburn", region: "us-east-1", issue: "Upstream timeout errors", source: "inventory-api", time: "31s", tone: "elevated" },
+  { city: "São Paulo", region: "sa-east-1", issue: "Elevated response times", source: "gateway", time: "1m", tone: "elevated" },
+  { city: "Singapore", region: "ap-southeast-1", issue: "Health check recovered", source: "auth-service", time: "2m", tone: "observed" },
+  { city: "Sydney", region: "ap-southeast-2", issue: "Retry rate stabilized", source: "edge-router", time: "4m", tone: "observed" },
+];
+
+const sampleIncidents = [
+  { service: "payments-api", issue: "Latency threshold exceeded", region: "eu-central-1", action: "Traffic rerouted", time: "12s", state: "Healing" },
+  { service: "auth-service", issue: "Memory pressure detected", region: "ap-south-1", action: "Instance recycled", time: "2m", state: "Resolved" },
+  { service: "inventory-api", issue: "Upstream timeout spike", region: "us-east-1", action: "Circuit breaker opened", time: "8m", state: "Resolved" },
+];
+
+const SHAPI_API = import.meta.env.VITE_API_URL || (typeof window !== "undefined" ? "/api/v1" : "http://localhost:3001/api/v1");
+const SHAPI_KEY = import.meta.env.VITE_SHAPI_API_KEY || "";
+
+type LiveSnapshot = {
+  summary: { totalInvariants: number; monitoredIntegrations: number; activeAlerts: number };
+  incidents: Array<{ id: string; title: string; status: string; severity: string; integrationId: string; detectedAt: string }>;
+};
+
+async function fetchShapi<T>(path: string): Promise<T> {
+  const response = await fetch(`${SHAPI_API}/${path}`, {
+    credentials: "include",
+    headers: SHAPI_KEY ? { "x-api-key": SHAPI_KEY } : undefined,
+  });
+  if (!response.ok) throw new Error(`${response.status} ${path}`);
+  return response.json() as Promise<T>;
+}
+
+function Sparkline({ values }: { values: number[] }) {
+  const points = values.map((value, index) => `${(index / (values.length - 1)) * 100},${30 - value}`).join(" ");
+  return <svg viewBox="0 0 100 32" className="h-8 w-[72px] shrink-0 overflow-visible" aria-hidden="true"><polyline points={points} fill="none" stroke="currentColor" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+}
+
+export function HealingDashboard() {
+  const [liveRequests, setLiveRequests] = useState(2174);
+  const [paused, setPaused] = useState(false);
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [diagnosisOpen, setDiagnosisOpen] = useState(false);
+  const [GlobeView, setGlobeView] = useState<ComponentType | null>(null);
+  const [liveSnapshot, setLiveSnapshot] = useState<LiveSnapshot | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    import("@/components/NetworkGlobe").then(({ default: Component }) => { if (active) setGlobeView(() => Component); });
+    return () => { active = false; };
+  }, []);
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const [summary, incidentsResponse] = await Promise.all([
+          fetchShapi<LiveSnapshot["summary"]>("drift/summary"),
+          fetchShapi<{ data: LiveSnapshot["incidents"] }>("incidents?pageSize=20"),
+        ]);
+        if (active) {
+          setLiveSnapshot({ summary, incidents: incidentsResponse.data ?? [] });
+          setApiError(null);
+        }
+      } catch (error) {
+        if (active) setApiError(error instanceof Error ? error.message : "SHAPI API unavailable");
+      }
+    };
+    void load();
+    const timer = window.setInterval(() => { void load(); }, 10000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, []);
+  useEffect(() => {
+    if (paused) return;
+    const timer = window.setInterval(() => setLiveRequests((value) => Math.max(1800, Math.min(2600, value + Math.round((Math.random() - 0.5) * 24)))), 2200);
+    return () => window.clearInterval(timer);
+  }, [paused]);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") { event.preventDefault(); setCommandOpen(true); }
+      if (event.key === "Escape") { setCommandOpen(false); setDiagnosisOpen(false); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const activeIncidentCount = liveSnapshot?.summary.activeAlerts ?? 1;
+  const healingActionCount = liveSnapshot ? liveSnapshot.incidents.length : 18;
+  const metrics = [
+    { label: "API availability", value: "99.94", suffix: "%", badge: "+0.03%", icon: ShieldCheck, tone: "success", data: [17,17,18,17,18,18,19,18,19,19] },
+    { label: "Active incidents", value: String(activeIncidentCount).padStart(2, "0"), suffix: "", badge: liveSnapshot ? `${activeIncidentCount} live` : "connecting", icon: CircleAlert, tone: "critical", data: [10,9,13,8,16,18,13,14,13,13] },
+    { label: "Healing actions", value: String(healingActionCount), suffix: "", badge: liveSnapshot ? "live incidents" : "preview", icon: GitBranch, tone: "warning", data: [8,8,8,10,20,10,15,16,16,16] },
+    { label: "Requests / min", value: liveRequests.toLocaleString(), suffix: "", badge: "+12.8%", icon: Activity, tone: "observed", data: [9,12,11,14,13,16,14,18,20,22] },
+  ];
+
+  return <main className="min-h-screen bg-background text-foreground">
+    <aside className="fixed inset-y-0 left-0 z-30 hidden w-[212px] flex-col border-r border-border bg-sidebar lg:flex">
+      <div className="flex h-16 items-center gap-2.5 border-b border-border px-4">
+        <span className="grid size-8 place-items-center rounded bg-primary/10 text-primary"><HeartPulse className="size-[18px]" /></span>
+        <div className="leading-tight"><div className="text-[13px] font-bold uppercase">Pulseguard</div><div className="font-mono text-[9px] uppercase text-muted-foreground">API assurance platform</div></div>
+      </div>
+      <div className="px-3 pt-4"><div className="flex h-9 items-center justify-between rounded border border-border bg-secondary/55 px-3 text-xs"><span className="flex items-center gap-2"><i className={`size-1.5 rounded-full ${liveSnapshot ? "bg-success" : "bg-warning"}`} />{liveSnapshot ? "Live SHAPI API" : "Connecting"}</span><ChevronDown className="size-3 text-muted-foreground" /></div></div>
+      <nav aria-label="Main navigation" className="mt-4 space-y-1 px-3">
+        <a className="nav-item nav-item-active" href="#overview"><CircleGauge />Command center</a>
+        <a className="nav-item" href="#incidents"><CircleAlert />Incidents & triage<span className="ml-auto rounded bg-critical/15 px-1.5 text-[10px] text-critical">1</span></a>
+        <a className="nav-item" href="#traffic"><Globe2 />Global traffic</a>
+        <a className="nav-item" href="#healing"><GitBranch />Healing activity<span className="ml-auto rounded bg-warning/15 px-1.5 text-[10px] text-warning">2</span></a>
+        <a className="nav-item" href="#incidents"><Network />Service events</a>
+      </nav>
+      <div className="mt-auto px-3 pb-3"><div className="rounded border border-border bg-secondary/50 p-3"><div className="flex items-center gap-2 text-xs font-medium"><span className={`size-2 rounded-full ${liveSnapshot ? "bg-success" : "bg-warning"}`} />{liveSnapshot ? "SHAPI systems online" : "Waiting for SHAPI"}</div><div className="mt-2 font-mono text-[10px] text-muted-foreground">{liveSnapshot?.summary.monitoredIntegrations ?? 0} INTEGRATIONS <span className="float-right">{liveSnapshot ? "LIVE" : "CONNECTING"}</span></div></div></div>
+      <div className="flex items-center gap-2 border-t border-border px-4 py-3"><div className="grid size-7 place-items-center rounded bg-secondary text-[10px] font-semibold">PG</div><div className="min-w-0"><p className="text-xs font-medium">Pulseguard</p><p className="text-[10px] text-muted-foreground">Dashboard preview</p></div><Settings2 className="ml-auto size-4 text-muted-foreground" /></div>
+    </aside>
+
+    <div className="min-w-0 lg:ml-[212px]">
+      <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border bg-background/95 px-4 backdrop-blur md:px-5">
+        <div className="flex min-w-0 items-center gap-2 text-xs"><span className="font-semibold lg:hidden">Pulseguard</span><span className="hidden text-muted-foreground lg:inline">PULSEGUARD</span><span className="hidden text-muted-foreground lg:inline">›</span><span className="truncate">Command center</span></div>
+        <div className="ml-auto flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setCommandOpen(true)} className="hidden w-56 justify-start text-muted-foreground sm:inline-flex"><Search className="size-3.5" /><span className="truncate">Search signals, events...</span><kbd className="ml-auto font-mono text-[10px]">⌘K</kbd></Button>
+          <Button variant="ghost" size="icon" onClick={() => setCommandOpen(true)} aria-label="Search" className="sm:hidden"><Search /></Button>
+          <Button variant="ghost" size="icon" onClick={() => setDiagnosisOpen(true)} aria-label="View alerts" title="View alerts"><Bell className="size-4" /></Button>
+        </div>
+      </header>
+      <section id="overview" className="mx-auto max-w-[1600px] px-4 pb-12 pt-5 md:px-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><div><h1 className="text-lg font-semibold">Command center</h1><p className="text-xs text-muted-foreground">{liveSnapshot ? `Live SHAPI telemetry · ${liveSnapshot.summary.monitoredIntegrations} integrations · refreshes every 10s` : apiError ? `SHAPI API connection failed · ${apiError}` : "Connecting to live SHAPI telemetry…"}</p></div><Button variant="outline" size="sm" onClick={() => setDiagnosisOpen(true)}><Sparkles className="size-3.5" />Run diagnosis</Button></div>
+        <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+          {metrics.map((metric) => <article key={metric.label} className="min-w-0 rounded-md border border-border bg-card p-3.5 md:p-4">
+            <div className="flex items-start justify-between gap-1"><span className="grid size-7 place-items-center rounded border border-border bg-secondary/50 text-muted-foreground"><metric.icon className="size-3.5" /></span><span className={`metric-badge metric-${metric.tone}`}>● {metric.badge}</span></div>
+            <p className="mt-4 text-[10px] font-semibold uppercase text-muted-foreground">{metric.label}</p>
+            <div className="mt-1 flex items-end justify-between gap-1"><p className="min-w-0 text-xl font-bold tabular-nums md:text-2xl">{metric.value}<span className="ml-0.5 text-sm">{metric.suffix}</span></p><div className={`spark-${metric.tone}`}><Sparkline values={metric.data} /></div></div>
+          </article>)}
+        </div>
+
+        <section id="traffic" className="mt-3.5 overflow-hidden rounded-md border border-border bg-card">
+          <div className="flex min-h-[58px] flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2.5"><div><h2 className="flex items-center gap-2 text-sm font-semibold"><Globe2 className="size-4 text-observed" />Global API issue radar</h2><p className="mt-0.5 text-[11px] text-muted-foreground">Live-style regional signals · 5 active locations · simulated</p></div><div className="flex items-center gap-2"><span className="rounded bg-critical/15 px-2 py-1 text-[10px] text-critical">● Sample issues</span><Button variant="outline" size="sm" onClick={() => setPaused(!paused)}>{paused ? <Play /> : <Pause />}{paused ? "Resume" : "Pause"}</Button></div></div>
+          <div className="grid lg:grid-cols-[minmax(0,1.45fr)_minmax(300px,1fr)]">
+            <div className="relative h-[390px] overflow-hidden bg-globe sm:h-[480px] lg:h-[520px]">
+              <div className="absolute left-3 top-3 z-10 rounded border border-border bg-background/85 px-2 py-2 font-mono text-[9px] leading-relaxed text-muted-foreground"><div>GLOBAL SIGNAL GRAPH</div><div className="text-success">● 9 REGIONS · SIMULATED</div></div>
+              <div className="absolute right-3 top-3 z-10 rounded border border-border bg-background/85 px-2 py-2 font-mono text-[9px] leading-relaxed text-observed">AUTO CORRELATION<br />CONFIDENCE 94.7%</div>
+              {GlobeView ? <GlobeView /> : <div className="grid h-full place-items-center"><RefreshCw className="size-5 animate-spin text-observed" /></div>}
+              <div className="pointer-events-none absolute bottom-3 left-3 z-10 flex gap-3 font-mono text-[9px] text-muted-foreground"><span><i className="mr-1 inline-block size-1.5 rounded-full bg-critical" />CRITICAL</span><span><i className="mr-1 inline-block size-1.5 rounded-full bg-warning" />ELEVATED</span><span><i className="mr-1 inline-block size-1.5 rounded-full bg-observed" />OBSERVED</span></div>
+              <div className="pointer-events-none absolute bottom-3 right-3 z-10 hidden font-mono text-[9px] text-muted-foreground sm:block">DRAG TO ROTATE<br />SCROLL TO ZOOM</div>
+            </div>
+            <div className="border-t border-border lg:border-l lg:border-t-0">
+              <div className="flex h-10 items-center justify-between border-b border-border px-3.5 font-mono text-[10px] uppercase text-muted-foreground"><span>Reported now</span><span>{paused ? "Paused" : "Preview · 5s"}</span></div>
+              <div className="divide-y divide-border">{reports.map((report) => <div key={report.city} className="flex min-h-[77px] gap-2.5 px-3.5 py-3 transition-colors hover:bg-secondary/40"><span className={`mt-1.5 size-1.5 shrink-0 rounded-full ${report.tone === "critical" ? "bg-critical" : report.tone === "elevated" ? "bg-warning" : "bg-observed"}`} /><div className="min-w-0 flex-1"><p className="truncate text-xs font-medium">{report.city}<span className="font-normal text-muted-foreground"> · {report.region}</span></p><p className="mt-1 truncate text-[11px]">{report.issue}</p><p className="mt-1 font-mono text-[9px] uppercase text-muted-foreground">{report.source} · illustrative</p></div><div className="flex shrink-0 flex-col items-end gap-2"><time className="font-mono text-[9px] text-muted-foreground">{report.time}</time><MapPin className="size-3 text-muted-foreground" /></div></div>)}</div>
+              <div className="m-3 rounded border border-warning/30 bg-warning/10 p-3 text-[11px] leading-relaxed text-warning"><TriangleAlert className="mr-1.5 inline-block size-3" /><strong>Cross-region correlation:</strong> Example latency pattern detected across payment endpoints.</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="healing" className="mt-4 grid gap-4 xl:grid-cols-[1fr_1fr]"><div className="rounded-md border border-border bg-card"><div className="border-b border-border px-4 py-3"><h2 className="text-sm font-semibold">Healing activity</h2><p className="text-[11px] text-muted-foreground">Simulated autonomous actions</p></div><div className="divide-y divide-border text-xs"><div className="flex items-center gap-3 px-4 py-3"><Check className="size-4 text-success" /><div><p>Rollback completed</p><p className="font-mono text-[10px] text-muted-foreground">payments-api · v2.4.18 → v2.4.17</p></div><time className="ml-auto text-[10px] text-muted-foreground">now</time></div><div className="flex items-center gap-3 px-4 py-3"><TriangleAlert className="size-4 text-warning" /><div><p>Anomaly confirmed</p><p className="font-mono text-[10px] text-muted-foreground">p99 latency +182% · Frankfurt</p></div><time className="ml-auto text-[10px] text-muted-foreground">24s</time></div></div></div><div className="rounded-md border border-border bg-card"><div className="border-b border-border px-4 py-3"><h2 className="text-sm font-semibold">System posture</h2><p className="text-[11px] text-muted-foreground">Example fleet · 24 services across 9 regions</p></div><div className="grid grid-cols-3 divide-x divide-border py-5 text-center"><div><p className="text-xl font-semibold text-success">23</p><p className="text-[10px] text-muted-foreground">Healthy</p></div><div><p className="text-xl font-semibold text-warning">01</p><p className="text-[10px] text-muted-foreground">Healing</p></div><div><p className="text-xl font-semibold text-observed">18</p><p className="text-[10px] text-muted-foreground">Recovered</p></div></div></div></section>
+        <section id="incidents" className="mt-4 overflow-hidden rounded-md border border-border bg-card"><div className="border-b border-border px-4 py-3"><h2 className="text-sm font-semibold">Recent interventions</h2><p className="text-[11px] text-muted-foreground">{liveSnapshot ? "Live incidents from SHAPI" : "Preview data while SHAPI connects"}</p></div><div className="overflow-x-auto"><table className="w-full min-w-[700px] text-left text-xs"><thead className="bg-secondary/40 font-mono text-[10px] uppercase text-muted-foreground"><tr><th className="px-4 py-3 font-medium">Service</th><th className="px-4 py-3 font-medium">Detection</th><th className="px-4 py-3 font-medium">Region</th><th className="px-4 py-3 font-medium">Action</th><th className="px-4 py-3 font-medium">State</th></tr></thead><tbody className="divide-y divide-border">{(liveSnapshot?.incidents.length ? liveSnapshot.incidents.map((item) => ({ service: item.integrationId, issue: item.title, region: "SHAPI", action: item.severity, time: item.detectedAt, state: item.status })) : sampleIncidents).map((item) => <tr key={`${item.service}-${item.issue}`}><td className="px-4 py-3 font-mono">{item.service}</td><td className="px-4 py-3 text-muted-foreground">{item.issue}</td><td className="px-4 py-3 font-mono text-muted-foreground">{item.region}</td><td className="px-4 py-3">{item.action}</td><td className="px-4 py-3"><span className={item.state === "Healing" || item.state === "REPLAYING" ? "status-healing" : "status-resolved"}>{item.state}</span></td></tr>)}</tbody></table></div></section>
+      </section>
+    </div>
+    {commandOpen && <div className="fixed inset-0 z-50 flex justify-center bg-overlay px-4 pt-[16vh]" onClick={() => setCommandOpen(false)}><div className="h-fit w-full max-w-lg rounded-md border border-border bg-popover shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="flex items-center gap-3 border-b border-border px-4"><Command className="size-4 text-primary" /><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search services, signals, regions..." className="h-12 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" /><Button variant="ghost" size="icon" aria-label="Close search" onClick={() => setCommandOpen(false)}><X /></Button></div><div className="p-3">{[...reports.map((report) => `${report.city} · ${report.issue}`), ...sampleIncidents.map((item) => `${item.service} · ${item.action}`)].filter((item) => item.toLowerCase().includes(query.toLowerCase())).map((item) => <div key={item} className="border-b border-border px-2 py-2.5 text-xs last:border-0">{item}</div>)}</div></div></div>}
+    {diagnosisOpen && <div className="fixed inset-0 z-50 grid place-items-center bg-overlay p-4" onClick={() => setDiagnosisOpen(false)}><div role="dialog" aria-label="Fleet diagnosis" className="w-full max-w-md rounded-md border border-border bg-popover p-5" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between"><ShieldCheck className="size-5 text-success" /><Button variant="ghost" size="icon" aria-label="Close diagnosis" onClick={() => setDiagnosisOpen(false)}><X /></Button></div><h2 className="mt-3 text-lg font-semibold">Fleet diagnosis preview</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">This is a simulated view of 24 services across 9 regions. One sample intervention is healing; no live diagnosis has been run.</p><p className="mt-4 border-l-2 border-warning pl-3 font-mono text-xs text-warning">payments-api · eu-central-1 · traffic rerouted</p><Button className="mt-5 w-full" onClick={() => setDiagnosisOpen(false)}>Done</Button></div></div>}
+  </main>;
+}
