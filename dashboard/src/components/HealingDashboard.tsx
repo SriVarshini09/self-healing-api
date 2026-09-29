@@ -24,10 +24,11 @@ type LiveSnapshot = {
   incidents: Array<{ id: string; title: string; status: string; severity: string; integrationId: string; detectedAt: string }>;
 };
 
-async function fetchShapi<T>(path: string): Promise<T> {
+async function fetchShapi<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${SHAPI_API}/${path}`, {
+    ...init,
     credentials: "include",
-    headers: SHAPI_KEY ? { "x-api-key": SHAPI_KEY } : undefined,
+    headers: { ...(SHAPI_KEY ? { "x-api-key": SHAPI_KEY } : {}), ...(init.headers ?? {}) },
   });
   if (!response.ok) throw new Error(`${response.status} ${path}`);
   return response.json() as Promise<T>;
@@ -44,6 +45,10 @@ export function HealingDashboard() {
   const [commandOpen, setCommandOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [diagnosisOpen, setDiagnosisOpen] = useState(false);
+  const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
+  const [diagnosing, setDiagnosing] = useState(false);
+  const [diagnosisResult, setDiagnosisResult] = useState<{ rootCause: string; suggestedFix: string; confidence: number; evidence: string[] } | null>(null);
+  const [diagnosisError, setDiagnosisError] = useState<string | null>(null);
   const [GlobeView, setGlobeView] = useState<ComponentType | null>(null);
   const [liveSnapshot, setLiveSnapshot] = useState<LiveSnapshot | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -53,6 +58,27 @@ export function HealingDashboard() {
     import("@/components/NetworkGlobe").then(({ default: Component }) => { if (active) setGlobeView(() => Component); });
     return () => { active = false; };
   }, []);
+
+  const openDiagnosis = () => {
+    setSelectedIncidentId(liveSnapshot?.incidents[0]?.id ?? null);
+    setDiagnosisResult(null);
+    setDiagnosisError(null);
+    setDiagnosisOpen(true);
+  };
+
+  const runLiveDiagnosis = async () => {
+    if (!selectedIncidentId) return;
+    setDiagnosing(true);
+    setDiagnosisError(null);
+    try {
+      const response = await fetchShapi<{ diagnosis: { rootCause: string; suggestedFix: string; confidence: number; evidence: string[] } }>(`incidents/${selectedIncidentId}/diagnose`, { method: "POST" });
+      setDiagnosisResult(response.diagnosis);
+    } catch (error) {
+      setDiagnosisError(error instanceof Error ? error.message : "Diagnosis failed");
+    } finally {
+      setDiagnosing(false);
+    }
+  };
   useEffect(() => {
     let active = true;
     const load = async () => {
@@ -120,11 +146,11 @@ export function HealingDashboard() {
         <div className="ml-auto flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setCommandOpen(true)} className="hidden w-56 justify-start text-muted-foreground sm:inline-flex"><Search className="size-3.5" /><span className="truncate">Search signals, events...</span><kbd className="ml-auto font-mono text-[10px]">⌘K</kbd></Button>
           <Button variant="ghost" size="icon" onClick={() => setCommandOpen(true)} aria-label="Search" className="sm:hidden"><Search /></Button>
-          <Button variant="ghost" size="icon" onClick={() => setDiagnosisOpen(true)} aria-label="View alerts" title="View alerts"><Bell className="size-4" /></Button>
+          <Button variant="ghost" size="icon" onClick={openDiagnosis} aria-label="View alerts" title="View alerts"><Bell className="size-4" /></Button>
         </div>
       </header>
       <section id="overview" className="mx-auto max-w-[1600px] px-4 pb-12 pt-5 md:px-5">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><div><h1 className="text-lg font-semibold">Command center</h1><p className="text-xs text-muted-foreground">{liveSnapshot ? `Live SHAPI telemetry · ${liveSnapshot.summary.monitoredIntegrations} integrations · refreshes every 10s` : apiError ? `SHAPI API connection failed · ${apiError}` : "Connecting to live SHAPI telemetry…"}</p></div><Button variant="outline" size="sm" onClick={() => setDiagnosisOpen(true)}><Sparkles className="size-3.5" />Run diagnosis</Button></div>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><div><h1 className="text-lg font-semibold">Command center</h1><p className="text-xs text-muted-foreground">{liveSnapshot ? `Live SHAPI telemetry · ${liveSnapshot.summary.monitoredIntegrations} integrations · refreshes every 10s` : apiError ? `SHAPI API connection failed · ${apiError}` : "Connecting to live SHAPI telemetry…"}</p></div><Button variant="outline" size="sm" onClick={openDiagnosis}><Sparkles className="size-3.5" />Run diagnosis</Button></div>
         <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
           {metrics.map((metric) => <article key={metric.label} className="min-w-0 rounded-md border border-border bg-card p-3.5 md:p-4">
             <div className="flex items-start justify-between gap-1"><span className="grid size-7 place-items-center rounded border border-border bg-secondary/50 text-muted-foreground"><metric.icon className="size-3.5" /></span><span className={`metric-badge metric-${metric.tone}`}>● {metric.badge}</span></div>
@@ -156,6 +182,6 @@ export function HealingDashboard() {
       </section>
     </div>
     {commandOpen && <div className="fixed inset-0 z-50 flex justify-center bg-overlay px-4 pt-[16vh]" onClick={() => setCommandOpen(false)}><div className="h-fit w-full max-w-lg rounded-md border border-border bg-popover shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="flex items-center gap-3 border-b border-border px-4"><Command className="size-4 text-primary" /><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search services, signals, regions..." className="h-12 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" /><Button variant="ghost" size="icon" aria-label="Close search" onClick={() => setCommandOpen(false)}><X /></Button></div><div className="p-3">{[...reports.map((report) => `${report.city} · ${report.issue}`), ...sampleIncidents.map((item) => `${item.service} · ${item.action}`)].filter((item) => item.toLowerCase().includes(query.toLowerCase())).map((item) => <div key={item} className="border-b border-border px-2 py-2.5 text-xs last:border-0">{item}</div>)}</div></div></div>}
-    {diagnosisOpen && <div className="fixed inset-0 z-50 grid place-items-center bg-overlay p-4" onClick={() => setDiagnosisOpen(false)}><div role="dialog" aria-label="Fleet diagnosis" className="w-full max-w-md rounded-md border border-border bg-popover p-5" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between"><ShieldCheck className="size-5 text-success" /><Button variant="ghost" size="icon" aria-label="Close diagnosis" onClick={() => setDiagnosisOpen(false)}><X /></Button></div><h2 className="mt-3 text-lg font-semibold">Fleet diagnosis preview</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">This is a simulated view of 24 services across 9 regions. One sample intervention is healing; no live diagnosis has been run.</p><p className="mt-4 border-l-2 border-warning pl-3 font-mono text-xs text-warning">payments-api · eu-central-1 · traffic rerouted</p><Button className="mt-5 w-full" onClick={() => setDiagnosisOpen(false)}>Done</Button></div></div>}
+    {diagnosisOpen && <div className="fixed inset-0 z-50 grid place-items-center bg-overlay p-4" onClick={() => setDiagnosisOpen(false)}><div role="dialog" aria-label="Fleet diagnosis" className="w-full max-w-md rounded-md border border-border bg-popover p-5" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between"><ShieldCheck className="size-5 text-success" /><Button variant="ghost" size="icon" aria-label="Close diagnosis" onClick={() => setDiagnosisOpen(false)}><X /></Button></div>{diagnosisResult ? <><h2 className="mt-3 text-lg font-semibold">Live diagnosis complete</h2><p className="mt-2 text-sm text-muted-foreground">Confidence: <span className="font-mono text-foreground">{Math.round(diagnosisResult.confidence * 100)}%</span></p><p className="mt-4 border-l-2 border-warning pl-3 text-sm text-warning">{diagnosisResult.rootCause}</p><p className="mt-4 text-sm leading-relaxed text-muted-foreground">{diagnosisResult.suggestedFix}</p><div className="mt-4 space-y-1 text-xs text-muted-foreground">{diagnosisResult.evidence.map((item) => <p key={item}>• {item}</p>)}</div></> : selectedIncidentId ? <><h2 className="mt-3 text-lg font-semibold">Live incident diagnosis</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">SHAPI has an active incident ready for automated root-cause analysis and repair suggestions.</p>{diagnosisError && <p className="mt-3 text-xs text-critical">{diagnosisError}</p>}<Button className="mt-5 w-full" onClick={() => void runLiveDiagnosis()} disabled={diagnosing}>{diagnosing ? "Diagnosing…" : "Diagnose live incident"}</Button></> : <><h2 className="mt-3 text-lg font-semibold">Fleet diagnosis preview</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">No live incident is currently active. This preview demonstrates the operator workflow for 24 services across 9 regions.</p><p className="mt-4 border-l-2 border-warning pl-3 font-mono text-xs text-warning">payments-api · eu-central-1 · sample intervention</p></>}<Button variant={diagnosisResult || !selectedIncidentId ? "default" : "outline"} className="mt-5 w-full" onClick={() => setDiagnosisOpen(false)}>Done</Button></div></div>}
   </main>;
 }
