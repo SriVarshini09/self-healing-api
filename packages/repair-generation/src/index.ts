@@ -1,10 +1,15 @@
 // @shapi/repair-generation - suggest fixes from diagnosis
+import type { RepairChange } from './changes.js';
+export * from './changes.js';
+
 export interface Repair {
   type: 'CODE_CHANGE' | 'CONFIG_CHANGE' | 'WEBHOOK_RETRY' | 'MANUAL';
   description: string;
   diff: string | null;
   files: string[];
   confidence: number;
+  /** structured, machine-applicable form of the fix; diff/files stay as the human-readable form */
+  changes?: RepairChange[] | null;
 }
 
 export function suggestRepairs(opts: {
@@ -25,6 +30,7 @@ export function suggestRepairs(opts: {
       diff: `- ${predicateExpression}\n+ ${fixed}`,
       files: [`invariants/${invariantName}.ts`],
       confidence: 0.7,
+      changes: [{ kind: 'replace', path: `invariants/${invariantName}.ts`, before: predicateExpression, after: fixed }],
     });
   }
   if (!hasRetryConfig) {

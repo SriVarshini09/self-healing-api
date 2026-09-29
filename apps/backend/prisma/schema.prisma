@@ -234,6 +234,7 @@ model RepairCandidate {
   description String   @db.Text
   diff        String?  @db.Text
   files       String[]
+  changes     Json?
   confidence  Float    @default(0.5)
   verified    Boolean  @default(false)
   createdAt   DateTime @default(now())

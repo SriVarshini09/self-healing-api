@@ -1,5 +1,5 @@
 import { prisma } from '../utils/prisma.js';
-import type { Incident, Integration, Invariant } from '@prisma/client';
+import type { Incident, Integration, Invariant, Prisma } from '@prisma/client';
 import type { DiagnosisResult } from './diagnosis.js';
 
 export interface RepairCandidate {
@@ -8,6 +8,8 @@ export interface RepairCandidate {
   diff: string | null;
   files: string[];
   confidence: number;
+  /** structured changes, persisted to RepairCandidate.changes as JSON; diff/files stay as-is */
+  changes?: Prisma.JsonValue | null;
 }
 
 type IncidentWithRelations = Incident & { invariant: Invariant | null; integration: Integration };
@@ -60,6 +62,7 @@ function generatePredicateFix(
       diff: `- ${predicate}\n+ ${modified}`,
       files: [`invariants/${invariant.name}.ts`],
       confidence: 0.7,
+      changes: [{ kind: 'replace', path: `invariants/${invariant.name}.ts`, before: predicate, after: modified }],
     };
   }
 

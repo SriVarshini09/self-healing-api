@@ -179,6 +179,7 @@ export async function incidentRoutes(app: FastifyInstance) {
           description: candidate.description,
           diff: candidate.diff,
           files: candidate.files,
+          ...(candidate.changes ? { changes: candidate.changes as Prisma.InputJsonValue } : {}),
           confidence: candidate.confidence,
         },
       });
