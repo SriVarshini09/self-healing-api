@@ -24,6 +24,14 @@ type LiveSnapshot = {
   incidents: Array<{ id: string; title: string; status: string; severity: string; integrationId: string; detectedAt: string }>;
 };
 
+type LiveDiagnosis = {
+  rootCause: string;
+  suggestedFix: string;
+  confidence: number;
+  evidence: string[];
+  candidates: Array<{ type: string; description: string; confidence: number; files: string[]; diff: string | null }>;
+};
+
 async function fetchShapi<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${SHAPI_API}/${path}`, {
     ...init,
@@ -47,7 +55,7 @@ export function HealingDashboard() {
   const [diagnosisOpen, setDiagnosisOpen] = useState(false);
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
   const [diagnosing, setDiagnosing] = useState(false);
-  const [diagnosisResult, setDiagnosisResult] = useState<{ rootCause: string; suggestedFix: string; confidence: number; evidence: string[] } | null>(null);
+  const [diagnosisResult, setDiagnosisResult] = useState<LiveDiagnosis | null>(null);
   const [diagnosisError, setDiagnosisError] = useState<string | null>(null);
   const [GlobeView, setGlobeView] = useState<ComponentType | null>(null);
   const [liveSnapshot, setLiveSnapshot] = useState<LiveSnapshot | null>(null);
@@ -71,8 +79,8 @@ export function HealingDashboard() {
     setDiagnosing(true);
     setDiagnosisError(null);
     try {
-      const response = await fetchShapi<{ diagnosis: { rootCause: string; suggestedFix: string; confidence: number; evidence: string[] } }>(`incidents/${selectedIncidentId}/diagnose`, { method: "POST" });
-      setDiagnosisResult(response.diagnosis);
+      const response = await fetchShapi<{ diagnosis: Omit<LiveDiagnosis, "candidates">; candidates: LiveDiagnosis["candidates"] }>(`incidents/${selectedIncidentId}/diagnose`, { method: "POST" });
+      setDiagnosisResult({ ...response.diagnosis, candidates: response.candidates ?? [] });
     } catch (error) {
       setDiagnosisError(error instanceof Error ? error.message : "Diagnosis failed");
     } finally {
@@ -182,6 +190,6 @@ export function HealingDashboard() {
       </section>
     </div>
     {commandOpen && <div className="fixed inset-0 z-50 flex justify-center bg-overlay px-4 pt-[16vh]" onClick={() => setCommandOpen(false)}><div className="h-fit w-full max-w-lg rounded-md border border-border bg-popover shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="flex items-center gap-3 border-b border-border px-4"><Command className="size-4 text-primary" /><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search services, signals, regions..." className="h-12 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" /><Button variant="ghost" size="icon" aria-label="Close search" onClick={() => setCommandOpen(false)}><X /></Button></div><div className="p-3">{[...reports.map((report) => `${report.city} · ${report.issue}`), ...sampleIncidents.map((item) => `${item.service} · ${item.action}`)].filter((item) => item.toLowerCase().includes(query.toLowerCase())).map((item) => <div key={item} className="border-b border-border px-2 py-2.5 text-xs last:border-0">{item}</div>)}</div></div></div>}
-    {diagnosisOpen && <div className="fixed inset-0 z-50 grid place-items-center bg-overlay p-4" onClick={() => setDiagnosisOpen(false)}><div role="dialog" aria-label="Fleet diagnosis" className="w-full max-w-md rounded-md border border-border bg-popover p-5" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between"><ShieldCheck className="size-5 text-success" /><Button variant="ghost" size="icon" aria-label="Close diagnosis" onClick={() => setDiagnosisOpen(false)}><X /></Button></div>{diagnosisResult ? <><h2 className="mt-3 text-lg font-semibold">Live diagnosis complete</h2><p className="mt-2 text-sm text-muted-foreground">Confidence: <span className="font-mono text-foreground">{Math.round(diagnosisResult.confidence * 100)}%</span></p><p className="mt-4 border-l-2 border-warning pl-3 text-sm text-warning">{diagnosisResult.rootCause}</p><p className="mt-4 text-sm leading-relaxed text-muted-foreground">{diagnosisResult.suggestedFix}</p><div className="mt-4 space-y-1 text-xs text-muted-foreground">{diagnosisResult.evidence.map((item) => <p key={item}>• {item}</p>)}</div></> : selectedIncidentId ? <><h2 className="mt-3 text-lg font-semibold">Live incident diagnosis</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">SHAPI has an active incident ready for automated root-cause analysis and repair suggestions.</p>{diagnosisError && <p className="mt-3 text-xs text-critical">{diagnosisError}</p>}<Button className="mt-5 w-full" onClick={() => void runLiveDiagnosis()} disabled={diagnosing}>{diagnosing ? "Diagnosing…" : "Diagnose live incident"}</Button></> : <><h2 className="mt-3 text-lg font-semibold">Fleet diagnosis preview</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">No live incident is currently active. This preview demonstrates the operator workflow for 24 services across 9 regions.</p><p className="mt-4 border-l-2 border-warning pl-3 font-mono text-xs text-warning">payments-api · eu-central-1 · sample intervention</p></>}<Button variant={diagnosisResult || !selectedIncidentId ? "default" : "outline"} className="mt-5 w-full" onClick={() => setDiagnosisOpen(false)}>Done</Button></div></div>}
+    {diagnosisOpen && <div className="fixed inset-0 z-50 grid place-items-center bg-overlay p-4" onClick={() => setDiagnosisOpen(false)}><div role="dialog" aria-label="Fleet diagnosis" className="w-full max-w-md rounded-md border border-border bg-popover p-5" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between"><ShieldCheck className="size-5 text-success" /><Button variant="ghost" size="icon" aria-label="Close diagnosis" onClick={() => setDiagnosisOpen(false)}><X /></Button></div>{diagnosisResult ? <><h2 className="mt-3 text-lg font-semibold">Live diagnosis complete</h2><p className="mt-2 text-sm text-muted-foreground">Confidence: <span className="font-mono text-foreground">{Math.round(diagnosisResult.confidence * 100)}%</span></p><p className="mt-4 border-l-2 border-warning pl-3 text-sm text-warning">{diagnosisResult.rootCause}</p><p className="mt-4 text-sm leading-relaxed text-muted-foreground">{diagnosisResult.suggestedFix}</p><div className="mt-4 space-y-1 text-xs text-muted-foreground">{diagnosisResult.evidence.map((item) => <p key={item}>• {item}</p>)}</div><div className="mt-4 border-t border-border pt-3"><p className="text-[10px] font-semibold uppercase text-muted-foreground">Repair candidates</p><div className="mt-2 space-y-2">{diagnosisResult.candidates.map((candidate) => <div key={`${candidate.type}-${candidate.description}`} className="rounded border border-border bg-secondary/30 p-2 text-xs"><div className="flex items-center justify-between gap-2"><span>{candidate.description}</span><span className="font-mono text-success">{Math.round(candidate.confidence * 100)}%</span></div><p className="mt-1 font-mono text-[10px] text-muted-foreground">{candidate.type} · {candidate.files.join(", ") || "manual review"}</p></div>)}</div></div></> : selectedIncidentId ? <><h2 className="mt-3 text-lg font-semibold">Live incident diagnosis</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">SHAPI has an active incident ready for automated root-cause analysis and repair suggestions.</p>{diagnosisError && <p className="mt-3 text-xs text-critical">{diagnosisError}</p>}<Button className="mt-5 w-full" onClick={() => void runLiveDiagnosis()} disabled={diagnosing}>{diagnosing ? "Diagnosing…" : "Diagnose live incident"}</Button></> : <><h2 className="mt-3 text-lg font-semibold">Fleet diagnosis preview</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">No live incident is currently active. This preview demonstrates the operator workflow for 24 services across 9 regions.</p><p className="mt-4 border-l-2 border-warning pl-3 font-mono text-xs text-warning">payments-api · eu-central-1 · sample intervention</p></>}<Button variant={diagnosisResult || !selectedIncidentId ? "default" : "outline"} className="mt-5 w-full" onClick={() => setDiagnosisOpen(false)}>Done</Button></div></div>}
   </main>;
 }
