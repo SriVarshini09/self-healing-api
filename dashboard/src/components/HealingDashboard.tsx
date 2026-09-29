@@ -16,8 +16,10 @@ const sampleIncidents = [
   { service: "inventory-api", issue: "Upstream timeout spike", region: "us-east-1", action: "Circuit breaker opened", time: "8m", state: "Resolved" },
 ];
 
-const SHAPI_API = import.meta.env.VITE_API_URL || (typeof window !== "undefined" ? "/api/v1" : "http://localhost:3001/api/v1");
-const SHAPI_KEY = import.meta.env.VITE_SHAPI_API_KEY || "";
+const runtimeConfig = (globalThis as { __SHAPI_CONFIG__?: { apiUrl?: string; apiKey?: string } }).__SHAPI_CONFIG__ ?? {};
+const SHAPI_API = runtimeConfig.apiUrl || import.meta.env.VITE_API_URL || (typeof window !== "undefined" ? "/api/v1" : "http://localhost:3001/api/v1");
+const isLocalhost = typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname);
+const SHAPI_KEY = runtimeConfig.apiKey || import.meta.env.VITE_SHAPI_API_KEY || (isLocalhost ? "shapi_demo_local_d3v_k3y_9f2c" : "");
 
 type LiveSnapshot = {
   summary: { totalInvariants: number; monitoredIntegrations: number; activeAlerts: number };
