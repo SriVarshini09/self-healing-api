@@ -67,6 +67,8 @@ export function HealingDashboard() {
   const [prBusy, setPrBusy] = useState(false);
   const [prMessage, setPrMessage] = useState<string | null>(null);
   const [githubInstallations, setGithubInstallations] = useState<GitHubInstallation[]>([]);
+  const [githubLoading, setGithubLoading] = useState(false);
+  const [githubLoadError, setGithubLoadError] = useState<string | null>(null);
   const [GlobeView, setGlobeView] = useState<ComponentType<{ activeIncidentCount: number; isLive: boolean }> | null>(null);
   const [liveSnapshot, setLiveSnapshot] = useState<LiveSnapshot | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -84,7 +86,15 @@ export function HealingDashboard() {
     setReplayCandidate("");
     setReplayMessage(null);
     setPrMessage(null);
-    void fetchShapi<GitHubInstallation[]>("github/installations").then(setGithubInstallations).catch(() => setGithubInstallations([]));
+    setGithubLoading(true);
+    setGithubLoadError(null);
+    void fetchShapi<GitHubInstallation[]>("github/installations")
+      .then(setGithubInstallations)
+      .catch(() => {
+        setGithubInstallations([]);
+        setGithubLoadError("SHAPI could not read GitHub App installations. Check the API key and backend configuration.");
+      })
+      .finally(() => setGithubLoading(false));
     setDiagnosisOpen(true);
   };
 
@@ -133,8 +143,8 @@ export function HealingDashboard() {
     const incident = liveSnapshot?.incidents.find(item => item.id === selectedIncidentId);
     const installation = githubInstallations[0];
     const repository = installation?.repositories[0];
-    if (!incident || !installation || !repository) {
-      setPrMessage("Configure a GitHub App installation and repository first");
+    if (!incident || githubLoading || !installation || !repository) {
+      setPrMessage(githubLoadError ?? "No GitHub App installation is connected. Configure the App and repository before creating repair PRs.");
       return;
     }
     setPrBusy(true);
