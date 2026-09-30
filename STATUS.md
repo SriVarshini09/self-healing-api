@@ -7,8 +7,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 - The local production Docker stack runs PostgreSQL, the backend, and the
   dashboard. On 2026-09-30, `/health`, `/ready`, and the dashboard returned 200.
-- GitHub Actions CI on `master` passed for commit `87998cb`:
-  [run 36785136267](https://github.com/SriVarshini09/self-healing-api/actions/runs/36785136267).
+- GitHub Actions CI on `master` passed for commit `9ed42a4`:
+  [run 36786686064](https://github.com/SriVarshini09/self-healing-api/actions/runs/36786686064).
   CI checks workspace types, backend lint, package/backend unit tests, backend
   and dashboard builds, and Prisma schema validation.
 - Webhook and SDK events feed behavioral invariants; drift detection and
@@ -41,8 +41,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
    is generated only for a mapped target. Existing invariants remain unmapped
    until configured. Most other repair types are suggestions only. The API
    supports a read-only patch preview, and the production dashboard displays
-   its pinned source excerpts before a PR can be opened. Dashboard controls
-   for editing the mapping are still missing.
+   its pinned source excerpts before a PR can be opened. The dashboard also
+   edits and saves the explicit repository/file mapping.
 3. **End-to-end repair proof.** Replay currently tests a user-entered event
    transformation; it does not execute a proposed code patch against the
    target application's tests. Passing replay is not yet a prerequisite for
@@ -56,8 +56,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Next engineering priority
 
-Add dashboard controls for the invariant's repository-file mapping. Then add
-end-to-end repair proof without claiming a replay-verified fix prematurely.
+Add end-to-end repair proof: execute the proposed patch against the target
+application's tests before presenting a repair as verified. Do not claim a
+replay-verified fix prematurely.
 
 ## Local checks
 
