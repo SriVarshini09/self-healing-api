@@ -163,9 +163,11 @@ Typechecks: `pnpm -r typecheck`. Builds verified: backend `tsc`, dashboard `tsc 
   store the SendGrid public key in integration config as `sendgridPublicKey`.
 - Twilio webhooks use `X-Twilio-Signature` HMAC verification over the configured
   public webhook URL and sorted request parameters.
-- Repair PRs use real Octokit (`openRepairPr`: branch from the repository default
-  branch → commit files → open PR) whenever App or token credentials are set,
-  and a simulated PR otherwise.
+- Repair PRs require real App or token credentials and a persisted repair
+  candidate with structured file changes. SHAPI reads the target files from the
+  repository base branch, checks exact replacement preconditions, then commits
+  the resulting content through Octokit. Candidates with only a suggested diff
+  remain manual review items; a diff is never written as file content.
 - When `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, and a real GitHub App
   installation are configured, PR creation and CI verification use a short-lived
   installation token. The explicit `GITHUB_TOKEN` mode remains available for

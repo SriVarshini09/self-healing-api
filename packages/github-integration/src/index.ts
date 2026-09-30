@@ -2,6 +2,8 @@
 import crypto from 'crypto';
 import { createAppAuth } from '@octokit/auth-app';
 import { Octokit } from '@octokit/rest';
+import { applyRepairChanges, RepairChangeError, validateRepairChanges, type RepairChange } from '@shapi/repair-generation';
+export { RepairChangeError } from '@shapi/repair-generation';
 
 type InstallationId = number | string;
 
@@ -61,7 +63,7 @@ export function buildPrBody(opts: {
   replayPassRate?: number;
 }): string {
   return [
-    `## SHAPI Verified Repair`,
+    `## SHAPI Proposed Repair`,
     ``,
     `**Incident:** ${opts.incidentTitle}`,
     ``,
@@ -74,7 +76,7 @@ export function buildPrBody(opts: {
       ? `**Replay pass rate:** ${(opts.replayPassRate * 100).toFixed(1)}%`
       : ``,
     ``,
-    `> A 200 OK does not prove success. This PR was generated from a behavioral invariant violation and verified via replay.`,
+    `> A 200 OK does not prove success. This proposed repair came from a behavioral invariant violation. Review and test the change before merging.`,
   ].join('\n');
 }
 
@@ -95,6 +97,8 @@ export interface OpenRepairPrOptions {
   branch: string;
   files: RepairFile[];
   base?: string;
+  baseSha?: string;
+  allowExistingBranch?: boolean;
 }
 
 export interface OpenRepairPrResult {
@@ -148,9 +152,10 @@ export async function verifyPullRequest(
 }
 
 /**
- * Open a repair PR on GitHub. Uses a real Octokit client when `token` (or
- * GITHUB_TOKEN) is set; otherwise returns a simulated PR so local demos work
- * without credentials. Accepts an injected `client` for tests.
+ * Open a repair PR on GitHub. Lower-level helper retained for callers that
+ * already have complete file contents; the incident route uses
+ * `openRepairPrFromChanges` to verify and apply persisted changes first.
+ * Without credentials this helper returns a simulated PR for local demos.
  */
 export async function openRepairPr(
   opts: OpenRepairPrOptions,
@@ -170,8 +175,7 @@ export async function openRepairPr(
   // unless the caller pinned one explicitly.
   const base = opts.base ?? (await octokit.rest.repos.get({ owner, repo })).data.default_branch;
 
-  const { data: baseRef } = await octokit.rest.git.getRef({ owner, repo, ref: `heads/${base}` });
-  const baseSha = baseRef.object.sha;
+  const baseSha = opts.baseSha ?? (await octokit.rest.git.getRef({ owner, repo, ref: `heads/${base}` })).data.object.sha;
 
   try {
     await octokit.rest.git.createRef({
@@ -181,7 +185,10 @@ export async function openRepairPr(
       sha: baseSha,
     });
   } catch (e: any) {
-    if (e?.status !== 422) throw e; // 422 = branch already exists, reuse it
+    if (e?.status !== 422) throw e;
+    if (opts.allowExistingBranch === false) {
+      throw new RepairChangeError('invalid-change', -1, `repair branch already exists: ${opts.branch}`);
+    }
   }
 
   for (const file of opts.files) {
@@ -217,6 +224,56 @@ export async function openRepairPr(
     base,
   });
   return { prNumber: pr.number, prUrl: pr.html_url, real: true };
+}
+
+/** Resolve an exact stored change set against the target repository before opening a PR. */
+export async function openRepairPrFromChanges(
+  opts: Omit<OpenRepairPrOptions, 'files'> & { changes: RepairChange[] },
+  token?: string,
+  client?: Pick<Octokit, 'rest'>,
+  installationId?: InstallationId,
+): Promise<OpenRepairPrResult> {
+  validateRepairChanges(opts.changes);
+  const octokit = client ?? createGitHubClient(token, installationId);
+  if (!octokit) throw new Error('GitHub credentials are required to apply repair changes');
+  const [owner, repo] = opts.repository.split('/');
+  if (!owner || !repo) throw new Error(`Invalid repository "${opts.repository}" (want owner/repo)`);
+  const base = opts.base ?? (await octokit.rest.repos.get({ owner, repo })).data.default_branch;
+  const baseSha = (await octokit.rest.git.getRef({ owner, repo, ref: `heads/${base}` })).data.object.sha;
+  const originals: Record<string, string> = Object.create(null) as Record<string, string>;
+
+  for (const [index, change] of opts.changes.entries()) {
+    try {
+      const { data } = await octokit.rest.repos.getContent({ owner, repo, path: change.path, ref: baseSha });
+      if (Array.isArray(data) || data.type !== 'file' || data.encoding !== 'base64' || typeof data.content !== 'string') {
+        throw new RepairChangeError('invalid-change', index, `cannot read UTF-8 file: ${change.path}`);
+      }
+      const content = Buffer.from(data.content.replace(/\s/g, ''), 'base64');
+      const decoded = content.toString('utf8');
+      if (!content.equals(Buffer.from(decoded, 'utf8'))) {
+        throw new RepairChangeError('invalid-change', index, `file is not UTF-8 text: ${change.path}`);
+      }
+      originals[change.path] = decoded;
+    } catch (error) {
+      if (typeof error === 'object' && error !== null && 'status' in error && error.status === 404) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  const updated = applyRepairChanges(originals, opts.changes);
+  const files = opts.changes.map(change => ({ path: change.path, content: updated[change.path] }));
+  return openRepairPr({
+    repository: opts.repository,
+    title: opts.title,
+    body: opts.body,
+    branch: opts.branch,
+    base,
+    baseSha,
+    allowExistingBranch: false,
+    files,
+  }, token, octokit, installationId);
 }
 
 export interface VerifyRepairPrResult {

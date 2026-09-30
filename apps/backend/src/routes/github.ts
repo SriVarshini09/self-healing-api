@@ -40,16 +40,17 @@ async function ensureTokenInstallation(tenantId: string, integrationId: string) 
 const prSchema = z.object({
   installationId: z.string().min(1),
   repository: z.string().regex(/^[^/\s]+\/[^/\s]+$/),
+  candidateId: z.string().uuid(),
   branchName: z.string().regex(/^[A-Za-z0-9._/-]+$/).optional(),
   base: z.string().regex(/^[A-Za-z0-9._/-]+$/).optional(),
   title: z.string().trim().min(1).max(256),
   body: z.string().max(100_000).optional(),
-  diff: z.string().max(100_000).optional(),
-  files: z.array(z.string().refine(path =>
-    !path.startsWith('/') && !path.includes('..') && !path.includes('\\') && !path.includes('\0'),
-    'file path must be relative and cannot contain traversal segments',
-  )).max(50).default([]),
-});
+}).strict();
+
+const repairChangesSchema = z.array(z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('replace'), path: z.string().min(1).max(400), before: z.string().min(1), after: z.string() }).strict(),
+  z.object({ kind: z.literal('create'), path: z.string().min(1).max(400), content: z.string() }).strict(),
+])).min(1).max(50);
 
 export async function githubRoutes(app: FastifyInstance) {
   app.post('/github/webhook', { config: { rawBody: true } }, async (request, reply) => {
@@ -214,7 +215,7 @@ export async function githubRoutes(app: FastifyInstance) {
     const { incidentId } = (request.params ?? {}) as { incidentId: string };
     const parsed = prSchema.safeParse(request.body ?? {});
     if (!parsed.success) return reply.code(400).send({ error: 'Invalid pull-request payload', details: parsed.error.flatten() });
-    const { installationId, repository, branchName, base, title, body, diff, files } = parsed.data;
+    const { installationId, repository, candidateId, branchName, base, title, body } = parsed.data;
 
     let installation = await prisma.gitHubInstallation.findFirst({
       where: { id: installationId, integration: { tenantId } },
@@ -227,31 +228,32 @@ export async function githubRoutes(app: FastifyInstance) {
 
     const incident = await prisma.incident.findUnique({
       where: { id: incidentId, integration: { tenantId } },
-      include: { repairCandidates: { orderBy: { confidence: 'desc' }, take: 1 } },
+      include: { repairCandidates: { where: { id: candidateId }, take: 1 } },
     });
     if (!incident) return reply.code(404).send({ error: 'Incident not found' });
+    const candidate = incident.repairCandidates[0];
+    if (!candidate) return reply.code(404).send({ error: 'Repair candidate not found for this incident' });
+    const changes = repairChangesSchema.safeParse(candidate.changes);
+    if (!changes.success) return reply.code(409).send({ error: 'Selected repair candidate has no applicable file changes; review it manually' });
 
     const hasAppAuth = Boolean(
       process.env.GITHUB_APP_ID &&
       process.env.GITHUB_APP_PRIVATE_KEY &&
       Number(installation.githubInstallationId) > 0,
     );
-    if (process.env.NODE_ENV === 'production' && !process.env.GITHUB_TOKEN && !hasAppAuth) {
+    if (!process.env.GITHUB_TOKEN && !hasAppAuth) {
       return reply.code(503).send({ error: 'GitHub token or App installation credentials are required to create real repair PRs' });
     }
 
-    // Real PR via App installation credentials or GITHUB_TOKEN; otherwise
-    // local development can still receive a simulated PR.
-    const { openRepairPr, buildRepairBranch, buildPrBody } = await import('@shapi/github-integration');
-    const branch = branchName || buildRepairBranch(incidentId);
-    const top = incident?.repairCandidates?.[0];
+    const { openRepairPrFromChanges, buildRepairBranch, buildPrBody, RepairChangeError } = await import('@shapi/github-integration');
+    const branch = branchName || `${buildRepairBranch(incidentId)}-${candidateId.slice(0, 8)}`;
     const prBody =
       body ||
       buildPrBody({
-        incidentTitle: incident?.title ?? title,
-        rootCause: incident?.rootCause ?? 'pending diagnosis',
-        suggestedFix: incident?.suggestedFix ?? top?.description ?? '',
-        confidence: top?.confidence ?? 0.5,
+        incidentTitle: incident.title,
+        rootCause: incident.rootCause ?? 'pending diagnosis',
+        suggestedFix: candidate.description,
+        confidence: candidate.confidence,
       });
     const fullRepo = repository.includes('/')
       ? repository
@@ -259,17 +261,20 @@ export async function githubRoutes(app: FastifyInstance) {
     if (!installation.repositories.includes(fullRepo)) {
       return reply.code(403).send({ error: 'Repository is not included in this GitHub installation' });
     }
-    const opened = await openRepairPr({
-      repository: fullRepo,
-      title,
-      body: `${prBody}\n\n${diff ? `\`\`\`diff\n${diff}\n\`\`\`` : ''}`,
-      branch,
-      ...(base ? { base } : {}),
-      files: (files ?? []).map(f => ({
-        path: f,
-        content: top?.diff ?? `// SHAPI repair for incident ${incidentId}\n// ${top?.description ?? title}\n`,
-      })),
-    }, undefined, undefined, Number(installation.githubInstallationId));
+    let opened;
+    try {
+      opened = await openRepairPrFromChanges({
+        repository: fullRepo,
+        title,
+        body: `${prBody}${candidate.diff ? `\n\nProposed change:\n\`\`\`diff\n${candidate.diff}\n\`\`\`` : ''}`,
+        branch,
+        ...(base ? { base } : {}),
+        changes: changes.data,
+      }, undefined, undefined, Number(installation.githubInstallationId));
+    } catch (error) {
+      if (error instanceof RepairChangeError) return reply.code(409).send({ error: error.message });
+      return reply.code(502).send({ error: error instanceof Error ? error.message : 'GitHub PR creation failed' });
+    }
     const { prNumber, prUrl } = opened;
 
     const pr = await prisma.gitHubPullRequest.create({

@@ -197,6 +197,9 @@ importers:
       '@octokit/rest':
         specifier: ^22.0.1
         version: 22.0.1
+      '@shapi/repair-generation':
+        specifier: workspace:*
+        version: link:../repair-generation
     devDependencies:
       typescript:
         specifier: ^5.3.3

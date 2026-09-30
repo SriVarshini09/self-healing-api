@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import crypto from 'crypto';
-import { verifyWebhookSignature, buildPrBody, shouldAutoMerge, openRepairPr, verifyPullRequest, verifyRepairPr, hasGitHubAppCredentials } from './index.js';
+import { verifyWebhookSignature, buildPrBody, shouldAutoMerge, openRepairPr, openRepairPrFromChanges, verifyPullRequest, verifyRepairPr, hasGitHubAppCredentials } from './index.js';
 
 afterEach(() => {
   delete process.env.GITHUB_TOKEN;
@@ -31,6 +31,7 @@ describe('github-integration', () => {
 
   it('builds PR body + automerge gate', () => {
     const body = buildPrBody({ incidentTitle: 'drift', rootCause: 'x', suggestedFix: 'y', confidence: 0.9, replayPassRate: 1 });
+    expect(body).toContain('Proposed Repair');
     expect(body).toContain('200 OK does not prove success');
     expect(shouldAutoMerge({ verified: true, ciPassed: true })).toBe(true);
     expect(shouldAutoMerge({ verified: true, ciPassed: false })).toBe(false);
@@ -46,6 +47,108 @@ describe('github-integration', () => {
     });
     expect(r.real).toBe(false);
     expect(r.prUrl).toContain('github.com/acme/demo/pull/');
+  });
+
+  it('applies a selected replacement to the real base file before opening a PR', async () => {
+    const calls: string[] = [];
+    const original = 'export const retry = 1;\n';
+    const fake = {
+      rest: {
+        repos: {
+          get: vi.fn(async () => ({ data: { default_branch: 'master' } })),
+          getContent: vi.fn(async (args: { ref: string }) => {
+            calls.push(`read:${args.ref}`);
+            return { data: { type: 'file', encoding: 'base64', content: Buffer.from(original).toString('base64'), sha: 'file-sha' } };
+          }),
+          createOrUpdateFileContents: vi.fn(async (_args: { content: string; sha: string }) => { calls.push('write'); return {}; }),
+        },
+        git: {
+          getRef: vi.fn(async () => { calls.push('getRef'); return { data: { object: { sha: 'base-sha' } } }; }),
+          createRef: vi.fn(async () => { calls.push('createRef'); return {}; }),
+        },
+        pulls: { create: vi.fn(async () => ({ data: { number: 12, html_url: 'https://github.com/acme/demo/pull/12' } })) },
+      },
+    };
+    const result = await openRepairPrFromChanges({
+      repository: 'acme/demo', title: 'Repair', body: 'Review this patch', branch: 'shapi/fix-12',
+      changes: [{ kind: 'replace', path: 'src/retry.ts', before: 'retry = 1', after: 'retry = 3' }],
+    }, 'fake-token', fake as any);
+
+    expect(result.real).toBe(true);
+    expect(calls).toEqual(['getRef', 'read:base-sha', 'createRef', 'read:shapi/fix-12', 'write']);
+    const write = fake.rest.repos.createOrUpdateFileContents.mock.calls[0][0] as { content: string; sha: string };
+    expect(Buffer.from(write.content, 'base64').toString('utf8')).toBe('export const retry = 3;\n');
+    expect(write.sha).toBe('file-sha');
+  });
+
+  it('rejects an inapplicable change before creating a branch', async () => {
+    const fake = {
+      rest: {
+        repos: {
+          get: vi.fn(async () => ({ data: { default_branch: 'master' } })),
+          getContent: vi.fn(async () => ({ data: { type: 'file', encoding: 'base64', content: Buffer.from('const x = 1;').toString('base64'), sha: 'sha' } })),
+        },
+        git: {
+          getRef: vi.fn(async () => ({ data: { object: { sha: 'base-sha' } } })),
+          createRef: vi.fn(),
+        },
+      },
+    };
+    await expect(openRepairPrFromChanges({
+      repository: 'acme/demo', title: 'Repair', body: 'b', branch: 'shapi/fix-12',
+      changes: [{ kind: 'replace', path: 'src/x.ts', before: 'missing text', after: 'new text' }],
+    }, 'fake-token', fake as any)).rejects.toThrow(/missing-before/);
+    expect(fake.rest.git.createRef).not.toHaveBeenCalled();
+  });
+
+  it('creates a missing file using its complete stored content', async () => {
+    const fake = {
+      rest: {
+        repos: {
+          get: vi.fn(async () => ({ data: { default_branch: 'master' } })),
+          getContent: vi.fn(async ({ ref }: { ref: string }) => {
+            if (ref === 'base-sha') throw { status: 404 };
+            throw { status: 404 };
+          }),
+          createOrUpdateFileContents: vi.fn(async (_args: { content: string; sha?: string }) => ({})),
+        },
+        git: {
+          getRef: vi.fn(async () => ({ data: { object: { sha: 'base-sha' } } })),
+          createRef: vi.fn(async () => ({})),
+        },
+        pulls: { create: vi.fn(async () => ({ data: { number: 13, html_url: 'https://github.com/acme/demo/pull/13' } })) },
+      },
+    };
+    await openRepairPrFromChanges({
+      repository: 'acme/demo', title: 'Repair', body: 'Review', branch: 'shapi/fix-13',
+      changes: [{ kind: 'create', path: 'src/new.ts', content: 'export const n = 1;\n' }],
+    }, 'fake-token', fake as any);
+    const write = fake.rest.repos.createOrUpdateFileContents.mock.calls[0][0] as { content: string; sha?: string };
+    expect(Buffer.from(write.content, 'base64').toString('utf8')).toBe('export const n = 1;\n');
+    expect(write.sha).toBeUndefined();
+  });
+
+  it('does not write into an existing repair branch', async () => {
+    const fake = {
+      rest: {
+        repos: {
+          get: vi.fn(async () => ({ data: { default_branch: 'master' } })),
+          getContent: vi.fn(async () => ({ data: { type: 'file', encoding: 'base64', content: Buffer.from('before').toString('base64') } })),
+          createOrUpdateFileContents: vi.fn(),
+        },
+        git: {
+          getRef: vi.fn(async () => ({ data: { object: { sha: 'base-sha' } } })),
+          createRef: vi.fn(async () => { throw { status: 422 }; }),
+        },
+        pulls: { create: vi.fn() },
+      },
+    };
+    await expect(openRepairPrFromChanges({
+      repository: 'acme/demo', title: 'Repair', body: 'Review', branch: 'shapi/fix-14',
+      changes: [{ kind: 'replace', path: 'src/x.ts', before: 'before', after: 'after' }],
+    }, 'fake-token', fake as any)).rejects.toThrow(/already exists/);
+    expect(fake.rest.repos.createOrUpdateFileContents).not.toHaveBeenCalled();
+    expect(fake.rest.pulls.create).not.toHaveBeenCalled();
   });
 
   it('discovers the default branch instead of assuming main', async () => {

@@ -1,4 +1,3 @@
-import { prisma } from '../utils/prisma.js';
 import type { Incident, Integration, Invariant, Prisma } from '@prisma/client';
 import type { DiagnosisResult } from './diagnosis.js';
 
@@ -43,7 +42,7 @@ export async function generateRepairCandidates(
   const configFix = generateConfigFix(integration, diagnosis);
   if (configFix) candidates.push(configFix);
 
-  const codeFix = generateCodeFix(invariant, integration, diagnosis);
+  const codeFix = generateCodeFix(integration, diagnosis);
   if (codeFix) candidates.push(codeFix);
 
   return candidates.sort((a, b) => b.confidence - a.confidence);
@@ -64,17 +63,6 @@ function generatePredicateFix(
       files: [`invariants/${invariant.name}.ts`],
       confidence: 0.7,
       changes: [{ kind: 'replace', path: `invariants/${invariant.name}.ts`, before: predicate, after: modified }],
-    };
-  }
-
-  if (predicate.includes('===')) {
-    const modified = predicate.replace(/===/g, '==');
-    return {
-      type: 'CODE_CHANGE',
-      description: 'Relax strict equality to handle type coercion from third-party API',
-      diff: `- ${predicate}\n+ ${modified}`,
-      files: [`invariants/${invariant.name}.ts`],
-      confidence: 0.6,
     };
   }
 
@@ -136,20 +124,9 @@ function generateConfigFix(integration: RepairIntegration, diagnosis: DiagnosisR
 }
 
 function generateCodeFix(
-  invariant: Invariant,
   integration: RepairIntegration,
   diagnosis: DiagnosisResult,
 ): RepairCandidate | null {
-  if (diagnosis.suggestedFix.includes('predicate')) {
-    return {
-      type: 'CODE_CHANGE',
-      description: 'Update invariant predicate to handle new event format',
-      diff: `- const predicate = ${invariant.predicateExpression};\n+ const predicate = ${invariant.predicateExpression.replace('===', '==')};`,
-      files: [`src/invariants/${invariant.name.toLowerCase().replace(/\s+/g, '-')}.ts`],
-      confidence: 0.65,
-    };
-  }
-
   if (diagnosis.suggestedFix.includes('event handling')) {
     const safeType = String(integration?.type ?? 'custom').toLowerCase();
     return {
@@ -162,21 +139,4 @@ function generateCodeFix(
   }
 
   return null;
-}
-
-export async function createRepairPR(
-  incidentId: string,
-  candidate: RepairCandidate,
-  _installationId: string,
-  repository: string,
-): Promise<{ prUrl: string; prNumber: number }> {
-  const prNumber = Math.floor(Math.random() * 10000) + 1;
-  const prUrl = `https://github.com/${repository}/pull/${prNumber}`;
-
-  await prisma.repairCandidate.updateMany({
-    where: { incidentId, description: candidate.description },
-    data: { verified: true },
-  });
-
-  return { prUrl, prNumber };
 }

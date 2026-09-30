@@ -192,8 +192,8 @@ export async function incidentRoutes(app: FastifyInstance) {
     const { generateRepairCandidates } = await import('../services/repair.js');
     const candidates = await generateRepairCandidates(incident, diagnosis);
 
-    for (const candidate of candidates) {
-      await prisma.repairCandidate.create({
+    const persistedCandidates = await Promise.all(candidates.map(candidate =>
+      prisma.repairCandidate.create({
         data: {
           incidentId: id,
           type: candidate.type as RepairType,
@@ -203,10 +203,10 @@ export async function incidentRoutes(app: FastifyInstance) {
           ...(candidate.changes ? { changes: candidate.changes as Prisma.InputJsonValue } : {}),
           confidence: candidate.confidence,
         },
-      });
-    }
+      }),
+    ));
 
-    return reply.send({ incident: updated, diagnosis, candidates });
+    return reply.send({ incident: updated, diagnosis, candidates: persistedCandidates });
   });
 
   app.post('/incidents/:id/replay', async (request, reply) => {

@@ -23,13 +23,26 @@ interface FakeIncident {
   id: string;
   status: string;
   resolvedAt: Date | null;
+  title: string;
+  rootCause: string;
+  suggestedFix: string;
+  githubPrUrl?: string;
+}
+
+interface FakeCandidate {
+  id: string;
+  incidentId: string;
+  description: string;
+  diff: string | null;
+  confidence: number;
+  changes: unknown;
 }
 
 type FakePrWhere = { id?: string; prNumber?: number; repository?: string; status?: string };
 type FakePrUpdateArgs = { where: { id: string }; data: Partial<FakePr> };
-type FakeIncidentUpdateArgs = { where: { id: string }; data: Partial<Pick<FakeIncident, 'status' | 'resolvedAt'>> };
+type FakeIncidentUpdateArgs = { where: { id: string }; data: Partial<FakeIncident> };
 
-const db = { prs: [] as FakePr[], incidents: [] as FakeIncident[] };
+const db = { prs: [] as FakePr[], incidents: [] as FakeIncident[], candidates: [] as FakeCandidate[] };
 
 function matchesPr(p: FakePr, where: Record<string, unknown>): boolean {
   if (where.id !== undefined && p.id !== where.id) return false;
@@ -50,6 +63,13 @@ vi.mock('../../utils/prisma.js', () => ({
         config: {},
       }]),
     },
+    gitHubInstallation: {
+      findFirst: vi.fn(async ({ where }: { where: { id: string } }) =>
+        where.id === 'install-1' ? {
+          id: 'install-1', githubInstallationId: BigInt(-1),
+          accountLogin: 'acme', repositories: ['acme/demo'],
+        } : null),
+    },
     gitHubPullRequest: {
       findUnique: vi.fn(async ({ where }: { where: { id: string } }) => db.prs.find(p => p.id === where.id) ?? null),
       findFirst: vi.fn(async ({ where }: { where: FakePrWhere }) => {
@@ -62,8 +82,23 @@ vi.mock('../../utils/prisma.js', () => ({
         Object.assign(pr, data);
         return pr;
       }),
+      create: vi.fn(async ({ data }: { data: Omit<FakePr, 'id' | 'verified'> & { prUrl: string } }) => {
+        const created = { ...data, id: 'new-pr', verified: false };
+        db.prs.push(created);
+        return created;
+      }),
     },
     incident: {
+      findUnique: vi.fn(async ({ where, include }: {
+        where: { id: string };
+        include: { repairCandidates: { where: { id: string } } };
+      }) => {
+        const incident = db.incidents.find(i => i.id === where.id);
+        return incident ? {
+          ...incident,
+          repairCandidates: db.candidates.filter(c => c.incidentId === incident.id && c.id === include.repairCandidates.where.id),
+        } : null;
+      }),
       update: vi.fn(async ({ where, data }: FakeIncidentUpdateArgs) => {
         const inc = db.incidents.find(i => i.id === where.id);
         if (!inc) throw new Error('Incident not found');
@@ -75,12 +110,15 @@ vi.mock('../../utils/prisma.js', () => ({
 }));
 
 const verifyRepairPrMock = vi.fn();
+const openRepairPrFromChangesMock = vi.fn();
 
 vi.mock('@shapi/github-integration', () => ({
   verifyRepairPr: (...args: unknown[]) => verifyRepairPrMock(...args),
+  openRepairPrFromChanges: (...args: unknown[]) => openRepairPrFromChangesMock(...args),
   openRepairPr: vi.fn(),
-  buildRepairBranch: vi.fn(),
-  buildPrBody: vi.fn(),
+  buildRepairBranch: vi.fn((id: string) => `shapi/fix-${id.slice(0, 8)}`),
+  buildPrBody: vi.fn(() => 'Generated PR body'),
+  RepairChangeError: class extends Error {},
 }));
 
 function seedDb() {
@@ -89,9 +127,10 @@ function seedDb() {
     { id: 'pr-2', prNumber: 11, repository: 'acme/demo', status: 'OPEN', verified: false, incidentId: 'inc-2' },
   ];
   db.incidents = [
-    { id: 'inc-1', status: 'REPAIRED', resolvedAt: null },
-    { id: 'inc-2', status: 'REPAIRED', resolvedAt: null },
+    { id: 'inc-1', status: 'REPAIRED', resolvedAt: null, title: 'Incident one', rootCause: 'cause', suggestedFix: 'fix' },
+    { id: 'inc-2', status: 'REPAIRED', resolvedAt: null, title: 'Incident two', rootCause: 'cause', suggestedFix: 'fix' },
   ];
+  db.candidates = [];
 }
 
 let app: FastifyInstance;
@@ -99,7 +138,9 @@ let app: FastifyInstance;
 beforeEach(async () => {
   seedDb();
   verifyRepairPrMock.mockReset();
+  openRepairPrFromChangesMock.mockReset();
   process.env.GITHUB_WEBHOOK_SECRET_APP = 'test-secret';
+  process.env.GITHUB_TOKEN = 'test-token';
   app = Fastify();
   app.addHook('onRequest', async request => {
     (request as AuthenticatedRequest).shapiAuth = {
@@ -117,6 +158,7 @@ beforeEach(async () => {
 afterEach(async () => {
   await app.close();
   delete process.env.GITHUB_WEBHOOK_SECRET_APP;
+  delete process.env.GITHUB_TOKEN;
 });
 
 function signedHeaders(payload: Record<string, unknown>, event: string) {
@@ -174,6 +216,47 @@ const closedPr = {
   headSha: 'abc123',
   checksTotal: 2,
 };
+
+const candidateA = '11111111-1111-4111-8111-111111111111';
+const candidateB = '22222222-2222-4222-8222-222222222222';
+
+describe('POST /github/incidents/:incidentId/pr', () => {
+  const payload = { installationId: 'install-1', repository: 'acme/demo', candidateId: candidateB, title: 'Repair' };
+
+  it('applies only the selected persisted candidate', async () => {
+    const selectedChanges = [{ kind: 'replace', path: 'src/selected.ts', before: 'old', after: 'new' }];
+    db.candidates = [
+      { id: candidateA, incidentId: 'inc-1', description: 'Other', diff: 'other diff', confidence: 0.9, changes: null },
+      { id: candidateB, incidentId: 'inc-1', description: 'Selected', diff: 'selected diff', confidence: 0.7, changes: selectedChanges },
+    ];
+    openRepairPrFromChangesMock.mockResolvedValue({ prNumber: 42, prUrl: 'https://github.com/acme/demo/pull/42', real: true });
+
+    const res = await app.inject({ method: 'POST', url: '/github/incidents/inc-1/pr', payload });
+    expect(res.statusCode).toBe(201);
+    expect(openRepairPrFromChangesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        changes: selectedChanges,
+        branch: 'shapi/fix-inc-1-22222222',
+        body: expect.stringContaining('selected diff'),
+      }), undefined, undefined, -1,
+    );
+    expect(res.json()).toMatchObject({ prNumber: 42, status: 'OPEN' });
+  });
+
+  it('rejects a suggestion with no applicable file changes', async () => {
+    db.candidates = [{ id: candidateB, incidentId: 'inc-1', description: 'Manual', diff: '+ proposed', confidence: 0.8, changes: null }];
+    const res = await app.inject({ method: 'POST', url: '/github/incidents/inc-1/pr', payload });
+    expect(res.statusCode).toBe(409);
+    expect(openRepairPrFromChangesMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects client supplied files and changes', async () => {
+    db.candidates = [{ id: candidateB, incidentId: 'inc-1', description: 'Selected', diff: null, confidence: 0.7, changes: [{ kind: 'create', path: 'safe.txt', content: 'safe' }] }];
+    const res = await app.inject({ method: 'POST', url: '/github/incidents/inc-1/pr', payload: { ...payload, files: ['unsafe.txt'] } });
+    expect(res.statusCode).toBe(400);
+    expect(openRepairPrFromChangesMock).not.toHaveBeenCalled();
+  });
+});
 
 describe('POST /github/prs/:prId/verify', () => {
   it('passing CI marks verified without touching status or incident', async () => {

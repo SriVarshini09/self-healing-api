@@ -54,12 +54,36 @@ function assertSafePath(path: unknown, index: number): asserts path is string {
     throw new RepairChangeError('unsafe-path', index, `absolute paths are rejected: ${path}`);
   }
   const segments = path.split('/');
-  if (segments.some(s => s === '..')) {
+  if (segments.some(s => s === '..' || s === '__proto__')) {
     throw new RepairChangeError('unsafe-path', index, `path traversal is rejected: ${path}`);
   }
   if (segments.some(s => s === '.' || s === '')) {
     throw new RepairChangeError('unsafe-path', index, `path is not canonical: ${path}`);
   }
+}
+
+/** Validate a stored change set before reading or writing repository files. */
+export function validateRepairChanges(changes: RepairChange[]): void {
+  if (!Array.isArray(changes) || changes.length === 0) {
+    throw new RepairChangeError('invalid-change', -1, 'at least one change is required');
+  }
+  const seen = new Set<string>();
+  changes.forEach((change, index) => {
+    if (!change || (change.kind !== 'replace' && change.kind !== 'create')) {
+      throw new RepairChangeError('invalid-change', index, 'change must have kind "replace" or "create"');
+    }
+    assertSafePath(change.path, index);
+    if (seen.has(change.path)) {
+      throw new RepairChangeError('duplicate-path', index, `conflicting duplicate change for: ${change.path}`);
+    }
+    seen.add(change.path);
+    if (change.kind === 'replace' && (typeof change.before !== 'string' || change.before === '' || typeof change.after !== 'string')) {
+      throw new RepairChangeError('invalid-change', index, 'replace requires non-empty before text and after text');
+    }
+    if (change.kind === 'create' && typeof change.content !== 'string') {
+      throw new RepairChangeError('invalid-change', index, 'create requires file content');
+    }
+  });
 }
 
 /**
@@ -71,29 +95,13 @@ export function applyRepairChanges(
   files: Record<string, string>,
   changes: RepairChange[],
 ): Record<string, string> {
-  if (!Array.isArray(changes)) {
-    throw new RepairChangeError('invalid-change', -1, 'changes must be an array');
-  }
-
-  // Pass 1 — validate everything (paths, duplicates, preconditions).
-  const seen = new Set<string>();
+  validateRepairChanges(changes);
+  // Pass 1 — validate file preconditions.
   changes.forEach((change, index) => {
-    if (!change || (change.kind !== 'replace' && change.kind !== 'create')) {
-      throw new RepairChangeError('invalid-change', index, 'change must have kind "replace" or "create"');
-    }
-    assertSafePath(change.path, index);
-    if (seen.has(change.path)) {
-      throw new RepairChangeError('duplicate-path', index, `conflicting duplicate change for: ${change.path}`);
-    }
-    seen.add(change.path);
-
     if (change.kind === 'replace') {
       const current = files[change.path];
       if (current === undefined) {
         throw new RepairChangeError('missing-file', index, `replace target does not exist: ${change.path}`);
-      }
-      if (change.before === '') {
-        throw new RepairChangeError('invalid-change', index, 'replace "before" must not be empty');
       }
       const occurrences = current.split(change.before).length - 1;
       if (occurrences === 0) {
