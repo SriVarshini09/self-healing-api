@@ -1,0 +1,3 @@
++ "retryAttempts": 3
++ "retryDelay": 1000
++ "retryBackoff": "exponential"
