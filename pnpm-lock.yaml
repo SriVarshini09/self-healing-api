@@ -201,6 +201,9 @@ importers:
         specifier: workspace:*
         version: link:../repair-generation
     devDependencies:
+      '@types/node':
+        specifier: ^20.10.6
+        version: 20.19.43
       typescript:
         specifier: ^5.3.3
         version: 5.9.3

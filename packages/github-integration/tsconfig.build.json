@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "rootDir": "src",
+    "outDir": "dist",
+    "paths": {
+      "@shapi/repair-generation": ["packages/repair-generation/dist/index.d.ts"]
+    }
+  },
+  "exclude": ["src/**/*.test.ts"]
+}

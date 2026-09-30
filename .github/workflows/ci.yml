@@ -33,7 +33,9 @@ jobs:
         run: pnpm --filter @shapi/backend lint
 
       - name: Build backend runtime graph
-        run: pnpm --filter @shapi/backend... build
+        run: |
+          pnpm --filter @shapi/backend... build
+          pnpm --filter @shapi/backend exec node -e "require('@shapi/github-integration')"
 
       - name: Unit tests (DB-free)
         run: |
