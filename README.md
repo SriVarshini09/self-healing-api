@@ -176,9 +176,11 @@ Typechecks: `pnpm -r typecheck`. Builds verified: backend `tsc`, dashboard `tsc 
   invariants continue to produce manual-review suggestions; SHAPI never
   guesses a repository file path.
 - `POST /github/incidents/:id/pr/preview` performs no writes. It returns the
-  repository base SHA plus bounded source/result excerpts only after the
-  candidate applies cleanly at that pinned revision. Opening the actual PR
-  independently repeats the validation to protect against repository changes.
+  repository base SHA, bounded source/result excerpts, and a short-lived
+  signed approval token only after the candidate applies cleanly at that
+  pinned revision. `POST /github/incidents/:id/pr` requires that token and
+  independently verifies the target branch still resolves to the reviewed
+  commit before it creates a PR.
 - When `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, and a real GitHub App
   installation are configured, PR creation and CI verification use a short-lived
   installation token. The explicit `GITHUB_TOKEN` mode remains available for

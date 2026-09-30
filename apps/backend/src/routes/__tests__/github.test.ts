@@ -224,6 +224,19 @@ const closedPr = {
 const candidateA = '11111111-1111-4111-8111-111111111111';
 const candidateB = '22222222-2222-4222-8222-222222222222';
 
+async function previewTokenFor(candidateId = candidateB): Promise<string> {
+  previewRepairPrChangesMock.mockResolvedValue({
+    base: 'master', baseSha: 'base-sha',
+    files: [{ path: 'src/selected.ts', kind: 'replace', original: 'const value = old;\n', content: 'const value = new;\n' }],
+  });
+  const response = await app.inject({
+    method: 'POST', url: '/github/incidents/inc-1/pr/preview',
+    payload: { installationId: 'install-1', repository: 'acme/demo', candidateId },
+  });
+  expect(response.statusCode).toBe(200);
+  return (response.json() as { previewToken: string }).previewToken;
+}
+
 describe('POST /github/incidents/:incidentId/pr/preview', () => {
   it('returns bounded source and result excerpts without opening a PR', async () => {
     const changes = [{ kind: 'replace', path: 'src/selected.ts', before: 'old', after: 'new' }];
@@ -241,6 +254,7 @@ describe('POST /github/incidents/:incidentId/pr/preview', () => {
       repository: 'acme/demo', base: 'master', baseSha: 'base-sha',
       changes: [{ path: 'src/selected.ts', before: { text: 'const value = old;\n' }, after: { text: 'const value = new;\n' } }],
     });
+    expect((res.json() as { previewToken: string }).previewToken).toEqual(expect.any(String));
     expect(openRepairPrFromChangesMock).not.toHaveBeenCalled();
     expect(db.prs).toHaveLength(2);
   });
@@ -257,7 +271,10 @@ describe('POST /github/incidents/:incidentId/pr', () => {
     ];
     openRepairPrFromChangesMock.mockResolvedValue({ prNumber: 42, prUrl: 'https://github.com/acme/demo/pull/42', real: true });
 
-    const res = await app.inject({ method: 'POST', url: '/github/incidents/inc-1/pr', payload });
+    const res = await app.inject({
+      method: 'POST', url: '/github/incidents/inc-1/pr',
+      payload: { ...payload, previewToken: await previewTokenFor(candidateB) },
+    });
     expect(res.statusCode).toBe(201);
     expect(openRepairPrFromChangesMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -267,6 +284,13 @@ describe('POST /github/incidents/:incidentId/pr', () => {
       }), undefined, undefined, -1,
     );
     expect(res.json()).toMatchObject({ prNumber: 42, status: 'OPEN' });
+  });
+
+  it('requires a current preview approval before a PR can be created', async () => {
+    db.candidates = [{ id: candidateB, incidentId: 'inc-1', description: 'Selected', diff: null, confidence: 0.7, changes: [{ kind: 'create', path: 'safe.txt', content: 'safe' }], repository: 'acme/demo' }];
+    const res = await app.inject({ method: 'POST', url: '/github/incidents/inc-1/pr', payload });
+    expect(res.statusCode).toBe(409);
+    expect(openRepairPrFromChangesMock).not.toHaveBeenCalled();
   });
 
   it('rejects a suggestion with no applicable file changes', async () => {

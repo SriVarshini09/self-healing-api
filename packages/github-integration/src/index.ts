@@ -234,7 +234,7 @@ export interface RepairChangePreview {
 
 /** Read and validate stored changes against one pinned base commit, without writing to GitHub. */
 export async function previewRepairPrChanges(
-  opts: { repository: string; base?: string; changes: RepairChange[] },
+  opts: { repository: string; base?: string; expectedBaseSha?: string; changes: RepairChange[] },
   token?: string,
   client?: Pick<Octokit, 'rest'>,
   installationId?: InstallationId,
@@ -246,6 +246,13 @@ export async function previewRepairPrChanges(
   if (!owner || !repo) throw new Error(`Invalid repository "${opts.repository}" (want owner/repo)`);
   const base = opts.base ?? (await octokit.rest.repos.get({ owner, repo })).data.default_branch;
   const baseSha = (await octokit.rest.git.getRef({ owner, repo, ref: `heads/${base}` })).data.object.sha;
+  if (opts.expectedBaseSha && opts.expectedBaseSha !== baseSha) {
+    throw new RepairChangeError(
+      'invalid-change',
+      -1,
+      'repair preview is stale because the target branch changed; preview the patch again'
+    );
+  }
   const originals: Record<string, string> = Object.create(null) as Record<string, string>;
 
   for (const [index, change] of opts.changes.entries()) {
@@ -283,7 +290,7 @@ export async function previewRepairPrChanges(
 
 /** Resolve an exact stored change set against the target repository before opening a PR. */
 export async function openRepairPrFromChanges(
-  opts: Omit<OpenRepairPrOptions, 'files'> & { changes: RepairChange[] },
+  opts: Omit<OpenRepairPrOptions, 'files'> & { changes: RepairChange[]; expectedBaseSha?: string },
   token?: string,
   client?: Pick<Octokit, 'rest'>,
   installationId?: InstallationId,
@@ -293,6 +300,7 @@ export async function openRepairPrFromChanges(
   const preview = await previewRepairPrChanges({
     repository: opts.repository,
     ...(opts.base ? { base: opts.base } : {}),
+    ...(opts.expectedBaseSha ? { expectedBaseSha: opts.expectedBaseSha } : {}),
     changes: opts.changes,
   }, token, octokit, installationId);
   return openRepairPr({

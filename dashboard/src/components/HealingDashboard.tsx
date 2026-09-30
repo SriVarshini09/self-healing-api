@@ -164,6 +164,7 @@ type RepairPreview = {
   repository: string;
   base: string;
   baseSha: string;
+  previewToken: string;
   changes: Array<{
     path: string;
     kind: 'replace' | 'create';
@@ -454,6 +455,7 @@ export function HealingDashboard() {
           installationId: installation.id,
           repository,
           candidateId: candidate.id,
+          previewToken: repairPreview?.candidateId === candidate.id ? repairPreview.result.previewToken : undefined,
           title: `SHAPI repair: ${candidate.description}`,
           body: diagnosisResult?.suggestedFix ?? candidate.description,
         }),

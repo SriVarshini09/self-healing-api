@@ -45,8 +45,54 @@ const prSchema = z.object({
   base: z.string().regex(/^[A-Za-z0-9._/-]+$/).optional(),
   title: z.string().trim().min(1).max(256),
   body: z.string().max(100_000).optional(),
+  previewToken: z.string().min(1).max(4096).optional(),
 }).strict();
 const prPreviewSchema = prSchema.pick({ installationId: true, repository: true, candidateId: true, base: true }).strict();
+
+const repairPreviewApprovalSchema = z.object({
+  tenantId: z.string().min(1),
+  incidentId: z.string().min(1),
+  candidateId: z.string().uuid(),
+  installationId: z.string().min(1),
+  repository: z.string().regex(/^[^/\s]+\/[^/\s]+$/),
+  base: z.string().regex(/^[A-Za-z0-9._/-]+$/),
+  baseSha: z.string().min(1).max(200),
+  expiresAt: z.number().int().positive(),
+}).strict();
+type RepairPreviewApproval = z.infer<typeof repairPreviewApprovalSchema>;
+const REPAIR_PREVIEW_APPROVAL_TTL_SECONDS = 5 * 60;
+
+function sameSecret(left: string, right: string): boolean {
+  const a = Buffer.from(left);
+  const b = Buffer.from(right);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+function signRepairPreview(encoded: string): string {
+  // Application startup requires JWT_SECRET. The webhook fallback keeps this
+  // pure route module testable without loading process-validating config.
+  const secret = process.env.JWT_SECRET || process.env.GITHUB_WEBHOOK_SECRET_APP || '';
+  return crypto.createHmac('sha256', secret).update(`repair-preview-v1.${encoded}`).digest('base64url');
+}
+
+function issueRepairPreviewToken(approval: Omit<RepairPreviewApproval, 'expiresAt'>): string {
+  const encoded = Buffer.from(JSON.stringify({
+    ...approval,
+    expiresAt: Math.floor(Date.now() / 1000) + REPAIR_PREVIEW_APPROVAL_TTL_SECONDS,
+  })).toString('base64url');
+  return `${encoded}.${signRepairPreview(encoded)}`;
+}
+
+function readRepairPreviewToken(token: string): RepairPreviewApproval | null {
+  const [encoded, signature, extra] = token.split('.');
+  if (!encoded || !signature || extra || !sameSecret(signature, signRepairPreview(encoded))) return null;
+  try {
+    const parsed = repairPreviewApprovalSchema.safeParse(JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')));
+    return parsed.success && parsed.data.expiresAt >= Math.floor(Date.now() / 1000) ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
 
 const repairChangesSchema = z.array(z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('replace'), path: z.string().min(1).max(400), before: z.string().min(1).max(100_000), after: z.string().max(100_000) }).strict(),
@@ -264,6 +310,15 @@ export async function githubRoutes(app: FastifyInstance) {
         repository: fullRepo,
         base: preview.base,
         baseSha: preview.baseSha,
+        previewToken: issueRepairPreviewToken({
+          tenantId,
+          incidentId,
+          candidateId,
+          installationId: installation.id,
+          repository: fullRepo,
+          base: preview.base,
+          baseSha: preview.baseSha,
+        }),
         changes: preview.files.map((file, index) => {
           const change = changes.data[index];
           if (change.kind === 'create') {
@@ -290,7 +345,7 @@ export async function githubRoutes(app: FastifyInstance) {
     const { incidentId } = (request.params ?? {}) as { incidentId: string };
     const parsed = prSchema.safeParse(request.body ?? {});
     if (!parsed.success) return reply.code(400).send({ error: 'Invalid pull-request payload', details: parsed.error.flatten() });
-    const { installationId, repository, candidateId, branchName, base, title, body } = parsed.data;
+    const { installationId, repository, candidateId, branchName, base, title, body, previewToken } = parsed.data;
 
     let installation = await prisma.gitHubInstallation.findFirst({
       where: { id: installationId, integration: { tenantId } },
@@ -342,6 +397,20 @@ export async function githubRoutes(app: FastifyInstance) {
     if (!installation.repositories.includes(fullRepo)) {
       return reply.code(403).send({ error: 'Repository is not included in this GitHub installation' });
     }
+    const approval = previewToken ? readRepairPreviewToken(previewToken) : null;
+    if (!approval) {
+      return reply.code(409).send({ error: 'A current repair preview approval is required before creating a PR' });
+    }
+    if (
+      approval.tenantId !== tenantId ||
+      approval.incidentId !== incidentId ||
+      approval.candidateId !== candidateId ||
+      approval.installationId !== installation.id ||
+      approval.repository !== fullRepo ||
+      approval.base !== (base ?? approval.base)
+    ) {
+      return reply.code(409).send({ error: 'Repair preview approval does not match this PR request' });
+    }
     let opened;
     try {
       opened = await openRepairPrFromChanges({
@@ -349,7 +418,8 @@ export async function githubRoutes(app: FastifyInstance) {
         title,
         body: `${prBody}${candidate.diff ? `\n\nProposed change:\n\`\`\`diff\n${candidate.diff}\n\`\`\`` : ''}`,
         branch,
-        ...(base ? { base } : {}),
+        base: approval.base,
+        expectedBaseSha: approval.baseSha,
         changes: changes.data,
       }, undefined, undefined, Number(installation.githubInstallationId));
     } catch (error) {

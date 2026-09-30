@@ -26,7 +26,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   returns bounded before/after source excerpts without creating any GitHub
   branch, file, or pull request. The production dashboard requires an
   operator to preview and explicitly confirm that exact patch before enabling
-  its Create PR action.
+  its Create PR action; the API requires a short-lived signed approval for
+  the same incident, candidate, repository, branch, and commit.
 
 ## Not complete
 
@@ -55,9 +56,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Next engineering priority
 
-Add dashboard controls for the invariant's repository-file mapping. Then make
-the preview acknowledgement a server-enforced approval step, without claiming
-a replay-verified fix.
+Add dashboard controls for the invariant's repository-file mapping. Then add
+end-to-end repair proof without claiming a replay-verified fix prematurely.
 
 ## Local checks
 
