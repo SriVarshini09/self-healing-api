@@ -21,7 +21,7 @@
 | Premium dashboard (6-tab ops console) | ✅ Done, live-verified |
 | Demo SaaS with simulated silent-provisioning bug | ✅ Done |
 | Instrumentation SDK (`track` + `webhookReporter`) | ✅ Done |
-| Behavioral invariant engine (vm-sandboxed predicates) | ✅ Done |
+| Behavioral invariant engine (isolated-vm predicates) | ✅ Done |
 | Statistical drift detection (z-test + effect size) | ✅ Done |
 | Incident lifecycle (DETECTED → TRIAGED → REPLAYING → REPAIRED → RESOLVED) | ✅ Done |
 | Diagnosis engine + repair candidates + replay verification | ✅ Done, live-verified |
@@ -147,7 +147,7 @@ Every category stops at the transport/response boundary. **Nobody owns the sente
 4. Reseed clean + record a 3-minute demo video (success → failure → incident → diagnose → PR).
 
 ### Phase 2 — Harden for others (1–2 months)
-5. Multi-tenant auth hardening: per-customer API keys + scopes (exists), rate limits per key, `isolated-vm` sandbox upgrade.
+5. Multi-tenant auth hardening: per-customer API keys + scopes (exists), rate limits per key, per-tenant predicate quotas around `isolated-vm`.
 6. Hosted onboarding: one-command Docker Compose + cloud seed; Stripe/GitHub OAuth instead of pasted tokens.
 7. Notifications: Slack/email on TRIAGED incidents (currently dashboard-only).
 8. Pricing skeleton: free (1 integration) → team ($/events) → enterprise (SSO, audit export).

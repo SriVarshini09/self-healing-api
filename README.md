@@ -149,11 +149,12 @@ Typechecks: `pnpm -r typecheck`. Builds verified: backend `tsc`, dashboard `tsc 
 
 ## Important implementation notes
 
-- Invariant predicates execute as **plain JavaScript** inside a `node:vm` sandbox
-  (minimal `event` global, deep-cloned input, 100ms timeout) shared via
-  `@shapi/invariant-engine`. Do **not** use TypeScript syntax (`as any`) in
-  predicates — validators reject it. For untrusted multi-tenant input, upgrade to
-  `isolated-vm`.
+- Invariant predicates execute as **plain JavaScript** inside an `isolated-vm`
+  V8 isolate (minimal `event` global, 32 MB memory cap, deep-cloned input,
+  100ms timeout) shared via `@shapi/invariant-engine`. Do **not** use TypeScript
+  syntax (`as any`) in predicates — validators reject it. The native dependency
+  is optional so local Windows development can fall back to `node:vm`; production
+  fails closed if `isolated-vm` cannot load.
 - Stripe webhooks are verified with the real `stripe.webhooks.constructEvent` SDK
   against the integration's secret, using raw-body capture (`fastify-raw-body`,
   route opt-in). Local `test`-signature traffic and the dev placeholder secret fall
@@ -202,8 +203,8 @@ Typechecks: `pnpm -r typecheck`. Builds verified: backend `tsc`, dashboard `tsc 
 - GitHub App webhooks: set `GITHUB_WEBHOOK_SECRET_APP` and, when more than one
   GitHub integration exists, set `GITHUB_APP_INTEGRATION_ID` so installation and
   PR events cannot be assigned across tenants.
-- Multi-tenant predicates: upgrade the `node:vm` sandbox to `isolated-vm`
-  before accepting untrusted predicate code.
+- Multi-tenant predicates: add per-tenant predicate quotas and isolate recycling
+  around the existing `isolated-vm` runtime.
 - Auth: rotate `SHAPI_API_KEY` per environment; set `VITE_SHAPI_API_KEY` to match.
 - Bootstrap: set a random `SHAPI_BOOTSTRAP_TOKEN` of at least 32 characters only
   during tenant onboarding, then remove or rotate it.

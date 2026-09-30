@@ -12,6 +12,9 @@
   "dependencies": {
     "@shapi/shared": "workspace:*"
   },
+  "optionalDependencies": {
+    "isolated-vm": "5.0.4"
+  },
   "devDependencies": {
     "typescript": "^5.3.3",
     "vitest": "^1.2.0"

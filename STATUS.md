@@ -16,7 +16,7 @@
 | 4 | Demo SaaS App | ✅ Done | Express receiver + in-memory users + failure-mode toggle; `tsc` green, contract test passes |
 | 5 | Stripe Webhook Flow | ✅ Done | `demo-saas/scripts/simulate.ts` (success/failure/drift); backend `POST /api/v1/webhooks/stripe` ingests + evaluates invariants; **real `stripe.webhooks.constructEvent` HMAC verification** via `services/stripe.ts` with raw-body capture (`fastify-raw-body` v4, route opt-in), test-mode fallback for local simulate; 4 verification tests |
 | 6 | Instrumentation SDK | ✅ Done | `@shapi/sdk` track + webhookReporter; 3 tests pass |
-| 7 | Invariant Engine | ✅ Done | `@shapi/invariant-engine` validate/evaluate/window/health; 8 tests pass; TS-`as`-cast bug found by test and fixed; predicates run in **node:vm sandbox** (minimal `event` global, 100ms timeout, deep-cloned input) — zero `new Function` in codebase; backend routes/services share it; **event-type relevance scoping** (`extractPredicateEventTypes`/`isRelevantEvent`) so webhooks only evaluate invariants that scope to their type — no false violations across event types |
+| 7 | Invariant Engine | ✅ Done | `@shapi/invariant-engine` validate/evaluate/window/health; 8 tests pass; predicates run in **isolated-vm** (minimal `event` global, 32 MB isolate cap, 100ms timeout, deep-cloned input) — zero `new Function` in codebase; backend routes/services share it; **event-type relevance scoping** (`extractPredicateEventTypes`/`isRelevantEvent`) so webhooks only evaluate invariants that scope to their type — no false violations across event types |
 | 8 | Drift Detection | ✅ Done | `@shapi/drift-detection` z-test + effect size + package tests (3 pass); backend check + incident creation implemented |
 | 9 | Incident UI | ✅ Done | Dashboard incidents tab: list/detail/diagnose/timeline/repair candidates |
 | 10 | GitHub Integration | ✅ Done | Webhook verify, installation/PR handlers, `(prisma as any).gitHub*` naming fixed; **real Octokit PR creation** (`openRepairPr`: branch from main, commit files, open PR) with simulation fallback when `GITHUB_TOKEN` unset; `@shapi/github-integration` 5 tests pass |
@@ -69,7 +69,7 @@
 - **Demo SaaS**: Express (not Next.js — lighter for MVP, documented in README) + Stripe-style webhooks
 - **SDK**: TypeScript, framework-agnostic
 - **Testing**: Vitest (unit, no DB required)
-- **Predicates**: plain JavaScript only (validators reject TS `as` casts); sandbox with `new Function` for MVP, `isolated-vm` recommended for prod
+- **Predicates**: plain JavaScript only (validators reject TS `as` casts); production evaluation uses `isolated-vm` with a memory and CPU budget
 
 ---
 
@@ -91,7 +91,7 @@ DETECTED → TRIAGED → REPLAYING → REPAIRED → RESOLVED (DISMISSED escape h
 1. ~~`pnpm dev`, run simulate success/failure/drift, verify dashboard incidents visually~~ — done live (6 invariants, 2 integrations, drift + incidents + repairs verified in premium UI)
 2. ~~Set `STRIPE_WEBHOOK_SECRET` to a real `whsec_...` + point Stripe CLI at `/api/v1/webhooks/stripe` for a true end-to-end signature check~~ — done 2026-09-28: real `stripe.webhooks.constructEvent` HMAC verified a live `invoice.payment_succeeded` from Stripe CLI (event COMPLETED; also fixed route to honor the env secret over the seeded demo secret)
 3. Set `GITHUB_TOKEN` and create a repair PR against a real repo to exercise the Octokit path
-4. For untrusted multi-tenant predicates, upgrade the node:vm sandbox to isolated-vm
+4. Add per-tenant predicate quotas and isolate recycling around isolated-vm
 
 ## CI
 

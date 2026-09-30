@@ -445,7 +445,7 @@ export function evaluatePredicate(
   expression: string,
   context: { event: { type: string; payload: Record<string, unknown>; headers: Record<string, unknown> } },
 ): boolean {
-  // Sandboxed evaluation shared with @shapi/invariant-engine (node:vm, 100ms timeout).
+  // Sandboxed evaluation shared with @shapi/invariant-engine (isolated-vm, 100ms timeout).
   return sandboxedEvaluate(expression, context.event).passed;
 }
 
