@@ -6,7 +6,8 @@ integration looks technically healthy but fails to produce the expected
 
 Core abstraction: **behavioral invariants** — executable predicates over webhook
 events, evaluated over time windows, with statistical **drift detection**,
-**incidents**, **diagnosis**, **replay-verified repairs**, and a **verified PR workflow**.
+**incidents**, **diagnosis**, **replay testing**, and a GitHub repair-PR workflow.
+See [current product status](STATUS.md) for verified capabilities and remaining work.
 
 ## Monorepo layout
 
