@@ -67,7 +67,7 @@ export function HealingDashboard() {
   const [prBusy, setPrBusy] = useState(false);
   const [prMessage, setPrMessage] = useState<string | null>(null);
   const [githubInstallations, setGithubInstallations] = useState<GitHubInstallation[]>([]);
-  const [GlobeView, setGlobeView] = useState<ComponentType | null>(null);
+  const [GlobeView, setGlobeView] = useState<ComponentType<{ activeIncidentCount: number; isLive: boolean }> | null>(null);
   const [liveSnapshot, setLiveSnapshot] = useState<LiveSnapshot | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
 
@@ -240,17 +240,17 @@ export function HealingDashboard() {
         </div>
 
         <section id="traffic" className="mt-3.5 overflow-hidden rounded-md border border-border bg-card">
-          <div className="flex min-h-[58px] flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2.5"><div><h2 className="flex items-center gap-2 text-sm font-semibold"><Globe2 className="size-4 text-observed" />Global API issue radar</h2><p className="mt-0.5 text-[11px] text-muted-foreground">Live-style regional signals · 5 active locations · simulated</p></div><div className="flex items-center gap-2"><span className="rounded bg-critical/15 px-2 py-1 text-[10px] text-critical">● Sample issues</span><Button variant="outline" size="sm" onClick={() => setPaused(!paused)}>{paused ? <Play /> : <Pause />}{paused ? "Resume" : "Pause"}</Button></div></div>
+          <div className="flex min-h-[58px] flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2.5"><div><h2 className="flex items-center gap-2 text-sm font-semibold"><Globe2 className="size-4 text-observed" />Global API issue radar</h2><p className="mt-0.5 text-[11px] text-muted-foreground">{liveSnapshot ? "Live incident state · reference coordinates" : "Reference regions while SHAPI connects"}</p></div><div className="flex items-center gap-2"><span className="rounded bg-critical/15 px-2 py-1 text-[10px] text-critical">● {liveSnapshot ? `${activeIncidentCount} active incident${activeIncidentCount === 1 ? "" : "s"}` : "Preview signals"}</span><Button variant="outline" size="sm" onClick={() => setPaused(!paused)}>{paused ? <Play /> : <Pause />}{paused ? "Resume" : "Pause"}</Button></div></div>
           <div className="grid lg:grid-cols-[minmax(0,1.45fr)_minmax(300px,1fr)]">
             <div className="relative h-[390px] overflow-hidden bg-globe sm:h-[480px] lg:h-[520px]">
-              <div className="absolute left-3 top-3 z-10 rounded border border-border bg-background/85 px-2 py-2 font-mono text-[9px] leading-relaxed text-muted-foreground"><div>GLOBAL SIGNAL GRAPH</div><div className="text-success">● 9 REGIONS · SIMULATED</div></div>
+              <div className="absolute left-3 top-3 z-10 rounded border border-border bg-background/85 px-2 py-2 font-mono text-[9px] leading-relaxed text-muted-foreground"><div>GLOBAL SIGNAL GRAPH</div><div className="text-success">● 9 REFERENCE REGIONS</div></div>
               <div className="absolute right-3 top-3 z-10 rounded border border-border bg-background/85 px-2 py-2 font-mono text-[9px] leading-relaxed text-observed">AUTO CORRELATION<br />CONFIDENCE 94.7%</div>
-              {GlobeView ? <GlobeView /> : <div className="grid h-full place-items-center"><RefreshCw className="size-5 animate-spin text-observed" /></div>}
+              {GlobeView ? <GlobeView activeIncidentCount={activeIncidentCount} isLive={Boolean(liveSnapshot)} /> : <div className="grid h-full place-items-center"><RefreshCw className="size-5 animate-spin text-observed" /></div>}
               <div className="pointer-events-none absolute bottom-3 left-3 z-10 flex gap-3 font-mono text-[9px] text-muted-foreground"><span><i className="mr-1 inline-block size-1.5 rounded-full bg-critical" />CRITICAL</span><span><i className="mr-1 inline-block size-1.5 rounded-full bg-warning" />ELEVATED</span><span><i className="mr-1 inline-block size-1.5 rounded-full bg-observed" />OBSERVED</span></div>
               <div className="pointer-events-none absolute bottom-3 right-3 z-10 hidden font-mono text-[9px] text-muted-foreground sm:block">DRAG TO ROTATE<br />SCROLL TO ZOOM</div>
             </div>
             <div className="border-t border-border lg:border-l lg:border-t-0">
-              <div className="flex h-10 items-center justify-between border-b border-border px-3.5 font-mono text-[10px] uppercase text-muted-foreground"><span>Reported now</span><span>{paused ? "Paused" : "Preview · 5s"}</span></div>
+              <div className="flex h-10 items-center justify-between border-b border-border px-3.5 font-mono text-[10px] uppercase text-muted-foreground"><span>Regional context</span><span>{paused ? "Paused" : liveSnapshot ? "SHAPI · 10s" : "Preview · 5s"}</span></div>
               <div className="divide-y divide-border">{reports.map((report) => <div key={report.city} className="flex min-h-[77px] gap-2.5 px-3.5 py-3 transition-colors hover:bg-secondary/40"><span className={`mt-1.5 size-1.5 shrink-0 rounded-full ${report.tone === "critical" ? "bg-critical" : report.tone === "elevated" ? "bg-warning" : "bg-observed"}`} /><div className="min-w-0 flex-1"><p className="truncate text-xs font-medium">{report.city}<span className="font-normal text-muted-foreground"> · {report.region}</span></p><p className="mt-1 truncate text-[11px]">{report.issue}</p><p className="mt-1 font-mono text-[9px] uppercase text-muted-foreground">{report.source} · illustrative</p></div><div className="flex shrink-0 flex-col items-end gap-2"><time className="font-mono text-[9px] text-muted-foreground">{report.time}</time><MapPin className="size-3 text-muted-foreground" /></div></div>)}</div>
               <div className="m-3 rounded border border-warning/30 bg-warning/10 p-3 text-[11px] leading-relaxed text-warning"><TriangleAlert className="mr-1.5 inline-block size-3" /><strong>Cross-region correlation:</strong> Example latency pattern detected across payment endpoints.</div>
             </div>

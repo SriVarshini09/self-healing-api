@@ -9,16 +9,16 @@ type GlobePoint = {
   status: "healthy" | "healing";
 };
 
-const points: GlobePoint[] = [
-  { lat: 40.71, lng: -74, size: 0.34, label: "US East · healthy", status: "healthy" },
-  { lat: 37.77, lng: -122.41, size: 0.3, label: "US West · healthy", status: "healthy" },
-  { lat: 51.5, lng: -0.12, size: 0.28, label: "London · healthy", status: "healthy" },
-  { lat: 52.52, lng: 13.4, size: 0.26, label: "Frankfurt · healing", status: "healing" },
-  { lat: 19.07, lng: 72.87, size: 0.32, label: "Mumbai · healthy", status: "healthy" },
-  { lat: 1.35, lng: 103.81, size: 0.3, label: "Singapore · healthy", status: "healthy" },
-  { lat: 35.67, lng: 139.65, size: 0.27, label: "Tokyo · healthy", status: "healthy" },
-  { lat: -33.86, lng: 151.2, size: 0.26, label: "Sydney · healthy", status: "healthy" },
-  { lat: -23.55, lng: -46.63, size: 0.24, label: "São Paulo · healthy", status: "healthy" },
+const basePoints: GlobePoint[] = [
+  { lat: 40.71, lng: -74, size: 0.34, label: "US East · reference", status: "healthy" },
+  { lat: 37.77, lng: -122.41, size: 0.3, label: "US West · reference", status: "healthy" },
+  { lat: 51.5, lng: -0.12, size: 0.28, label: "London · reference", status: "healthy" },
+  { lat: 52.52, lng: 13.4, size: 0.26, label: "Frankfurt · reference", status: "healthy" },
+  { lat: 19.07, lng: 72.87, size: 0.32, label: "Mumbai · reference", status: "healthy" },
+  { lat: 1.35, lng: 103.81, size: 0.3, label: "Singapore · reference", status: "healthy" },
+  { lat: 35.67, lng: 139.65, size: 0.27, label: "Tokyo · reference", status: "healthy" },
+  { lat: -33.86, lng: 151.2, size: 0.26, label: "Sydney · reference", status: "healthy" },
+  { lat: -23.55, lng: -46.63, size: 0.24, label: "São Paulo · reference", status: "healthy" },
 ];
 
 const arcs = [
@@ -34,11 +34,26 @@ const arcs = [
   { startLat: 52.52, startLng: 13.4, endLat: 35.67, endLng: 139.65, order: 10 },
 ];
 
-export default function NetworkGlobe() {
+type NetworkGlobeProps = { activeIncidentCount: number; isLive: boolean };
+
+export default function NetworkGlobe({ activeIncidentCount, isLive }: NetworkGlobeProps) {
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 640, height: 520 });
-  const rings = useMemo(() => points, []);
+  const points = useMemo<GlobePoint[]>(() => {
+    if (!isLive || activeIncidentCount === 0) return basePoints;
+    return [
+      ...basePoints,
+      {
+        lat: 52.52,
+        lng: 13.4,
+        size: Math.min(0.54, 0.3 + activeIncidentCount * 0.04),
+        label: `SHAPI fleet · ${activeIncidentCount} active incident${activeIncidentCount === 1 ? "" : "s"}`,
+        status: "healing",
+      },
+    ];
+  }, [activeIncidentCount, isLive]);
+  const rings = useMemo(() => points, [points]);
 
   useEffect(() => {
     const wrapper = wrapperRef.current;
