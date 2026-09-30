@@ -1,29 +1,125 @@
-import { useEffect, useState, type ComponentType } from "react";
-import { Activity, Bell, Check, ChevronDown, CircleAlert, CircleGauge, Clock3, Command, GitBranch, Globe2, HeartPulse, MapPin, Network, Pause, Play, RefreshCw, Search, Settings2, ShieldCheck, Sparkles, TriangleAlert, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useEffect, useState, type ComponentType } from 'react';
+import {
+  Activity,
+  Bell,
+  Check,
+  ChevronDown,
+  CircleAlert,
+  CircleGauge,
+  Clock3,
+  Command,
+  GitBranch,
+  Globe2,
+  HeartPulse,
+  MapPin,
+  Network,
+  Pause,
+  Play,
+  RefreshCw,
+  Search,
+  Settings2,
+  ShieldCheck,
+  Sparkles,
+  TriangleAlert,
+  X,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const reports = [
-  { city: "Frankfurt", region: "eu-central-1", issue: "Payment API latency spike", source: "payments-api", time: "14s", tone: "critical" },
-  { city: "Ashburn", region: "us-east-1", issue: "Upstream timeout errors", source: "inventory-api", time: "31s", tone: "elevated" },
-  { city: "São Paulo", region: "sa-east-1", issue: "Elevated response times", source: "gateway", time: "1m", tone: "elevated" },
-  { city: "Singapore", region: "ap-southeast-1", issue: "Health check recovered", source: "auth-service", time: "2m", tone: "observed" },
-  { city: "Sydney", region: "ap-southeast-2", issue: "Retry rate stabilized", source: "edge-router", time: "4m", tone: "observed" },
+  {
+    city: 'Frankfurt',
+    region: 'eu-central-1',
+    issue: 'Payment API latency spike',
+    source: 'payments-api',
+    time: '14s',
+    tone: 'critical',
+  },
+  {
+    city: 'Ashburn',
+    region: 'us-east-1',
+    issue: 'Upstream timeout errors',
+    source: 'inventory-api',
+    time: '31s',
+    tone: 'elevated',
+  },
+  {
+    city: 'São Paulo',
+    region: 'sa-east-1',
+    issue: 'Elevated response times',
+    source: 'gateway',
+    time: '1m',
+    tone: 'elevated',
+  },
+  {
+    city: 'Singapore',
+    region: 'ap-southeast-1',
+    issue: 'Health check recovered',
+    source: 'auth-service',
+    time: '2m',
+    tone: 'observed',
+  },
+  {
+    city: 'Sydney',
+    region: 'ap-southeast-2',
+    issue: 'Retry rate stabilized',
+    source: 'edge-router',
+    time: '4m',
+    tone: 'observed',
+  },
 ];
 
 const sampleIncidents = [
-  { service: "payments-api", issue: "Latency threshold exceeded", region: "eu-central-1", action: "Traffic rerouted", time: "12s", state: "Healing" },
-  { service: "auth-service", issue: "Memory pressure detected", region: "ap-south-1", action: "Instance recycled", time: "2m", state: "Resolved" },
-  { service: "inventory-api", issue: "Upstream timeout spike", region: "us-east-1", action: "Circuit breaker opened", time: "8m", state: "Resolved" },
+  {
+    service: 'payments-api',
+    issue: 'Latency threshold exceeded',
+    region: 'eu-central-1',
+    action: 'Traffic rerouted',
+    time: '12s',
+    state: 'Healing',
+  },
+  {
+    service: 'auth-service',
+    issue: 'Memory pressure detected',
+    region: 'ap-south-1',
+    action: 'Instance recycled',
+    time: '2m',
+    state: 'Resolved',
+  },
+  {
+    service: 'inventory-api',
+    issue: 'Upstream timeout spike',
+    region: 'us-east-1',
+    action: 'Circuit breaker opened',
+    time: '8m',
+    state: 'Resolved',
+  },
 ];
 
-const runtimeConfig = (globalThis as { __SHAPI_CONFIG__?: { apiUrl?: string; apiKey?: string } }).__SHAPI_CONFIG__ ?? {};
-const SHAPI_API = runtimeConfig.apiUrl || import.meta.env.VITE_API_URL || (typeof window !== "undefined" ? "/api/v1" : "http://localhost:3001/api/v1");
-const isLocalhost = typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname);
-const SHAPI_KEY = runtimeConfig.apiKey || import.meta.env.VITE_SHAPI_API_KEY || (isLocalhost ? "shapi_demo_local_d3v_k3y_9f2c" : "");
+const runtimeConfig =
+  (globalThis as { __SHAPI_CONFIG__?: { apiUrl?: string; apiKey?: string } }).__SHAPI_CONFIG__ ??
+  {};
+const SHAPI_API =
+  runtimeConfig.apiUrl ||
+  import.meta.env.VITE_API_URL ||
+  (typeof window !== 'undefined' ? '/api/v1' : 'http://localhost:3001/api/v1');
+const isLocalhost =
+  typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const SHAPI_KEY =
+  runtimeConfig.apiKey ||
+  import.meta.env.VITE_SHAPI_API_KEY ||
+  (isLocalhost ? 'shapi_demo_local_d3v_k3y_9f2c' : '');
 
 type LiveSnapshot = {
   summary: { totalInvariants: number; monitoredIntegrations: number; activeAlerts: number };
-  incidents: Array<{ id: string; title: string; status: string; severity: string; integrationId: string; detectedAt: string; replayJobs?: Array<{ id: string; status: string; result?: string | null }> }>;
+  incidents: Array<{
+    id: string;
+    title: string;
+    status: string;
+    severity: string;
+    integrationId: string;
+    detectedAt: string;
+    replayJobs?: Array<{ id: string; status: string; result?: string | null }>;
+  }>;
 };
 
 type LiveDiagnosis = {
@@ -31,13 +127,31 @@ type LiveDiagnosis = {
   suggestedFix: string;
   confidence: number;
   evidence: string[];
-  candidates: Array<{ id: string; type: string; description: string; confidence: number; files: string[]; diff: string | null; repository: string | null; changes: unknown[] | null }>;
+  candidates: Array<{
+    id: string;
+    type: string;
+    description: string;
+    confidence: number;
+    files: string[];
+    diff: string | null;
+    repository: string | null;
+    changes: unknown[] | null;
+  }>;
 };
 
 type GitHubInstallation = { id: string; accountLogin: string; repositories: string[] };
-type GitHubPr = { id: string; prNumber: number; repository: string; prUrl: string; title: string; status: string; verified: boolean; createdAt: string };
+type GitHubPr = {
+  id: string;
+  prNumber: number;
+  repository: string;
+  prUrl: string;
+  title: string;
+  status: string;
+  verified: boolean;
+  createdAt: string;
+};
 type GitHubStatus = {
-  mode: "app" | "token" | "simulated" | "unconfigured";
+  mode: 'app' | 'token' | 'simulated' | 'unconfigured';
   message: string;
   appCredentialsConfigured: boolean;
   tokenConfigured: boolean;
@@ -46,45 +160,111 @@ type GitHubStatus = {
   installationCount: number;
   repositoryCount: number;
 };
+type RepairPreview = {
+  repository: string;
+  base: string;
+  baseSha: string;
+  changes: Array<{
+    path: string;
+    kind: 'replace' | 'create';
+    before: { text: string; truncated: boolean } | null;
+    after: { text: string; truncated: boolean };
+  }>;
+};
 
 async function fetchShapi<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${SHAPI_API}/${path}`, {
     ...init,
-    credentials: "include",
-    headers: { ...(SHAPI_KEY ? { "x-api-key": SHAPI_KEY } : {}), ...(init.headers ?? {}) },
+    credentials: 'include',
+    headers: { ...(SHAPI_KEY ? { 'x-api-key': SHAPI_KEY } : {}), ...(init.headers ?? {}) },
   });
   if (!response.ok) {
-    const failure = await response.json().catch(() => null) as { error?: unknown } | null;
-    throw new Error(typeof failure?.error === 'string' ? `${response.status}: ${failure.error}` : `${response.status} ${path}`);
+    const failure = (await response.json().catch(() => null)) as { error?: unknown } | null;
+    throw new Error(
+      typeof failure?.error === 'string'
+        ? `${response.status}: ${failure.error}`
+        : `${response.status} ${path}`
+    );
   }
   return response.json() as Promise<T>;
 }
 
 function GitHubSetupGuide({ status }: { status: GitHubStatus | null }) {
-  if (!status || status.mode === "app") return null;
-  return <div className="mt-4 rounded border border-warning/30 bg-warning/5 p-3 text-xs"><div className="flex items-center justify-between gap-2"><span className="font-semibold">Production GitHub App setup</span><span className="font-mono text-[10px] text-warning">{status.realInstallations} installed</span></div><p className="mt-1 text-muted-foreground">{status.mode === "token" ? "Operator token mode is active for local testing. Use an installed GitHub App for multi-tenant production access." : "Configure GitHub credentials before creating real repair PRs."}</p><ol className="mt-2 list-decimal space-y-1 pl-4 text-[10px] text-muted-foreground"><li>Set <code className="text-foreground">GITHUB_APP_ID</code> and <code className="text-foreground">GITHUB_APP_PRIVATE_KEY</code>.</li><li>Install the App on the target repository with Contents and Pull requests read/write permissions.</li><li>Set the App webhook secret and point the webhook to <code className="text-foreground">/api/v1/github/webhook</code>.</li><li>Refresh this diagnosis until the mode changes to <code className="text-success">app</code>.</li></ol></div>;
+  if (!status || status.mode === 'app') return null;
+  return (
+    <div className="mt-4 rounded border border-warning/30 bg-warning/5 p-3 text-xs">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-semibold">Production GitHub App setup</span>
+        <span className="font-mono text-[10px] text-warning">
+          {status.realInstallations} installed
+        </span>
+      </div>
+      <p className="mt-1 text-muted-foreground">
+        {status.mode === 'token'
+          ? 'Operator token mode is active for local testing. Use an installed GitHub App for multi-tenant production access.'
+          : 'Configure GitHub credentials before creating real repair PRs.'}
+      </p>
+      <ol className="mt-2 list-decimal space-y-1 pl-4 text-[10px] text-muted-foreground">
+        <li>
+          Set <code className="text-foreground">GITHUB_APP_ID</code> and{' '}
+          <code className="text-foreground">GITHUB_APP_PRIVATE_KEY</code>.
+        </li>
+        <li>
+          Install the App on the target repository with Contents and Pull requests read/write
+          permissions.
+        </li>
+        <li>
+          Set the App webhook secret and point the webhook to{' '}
+          <code className="text-foreground">/api/v1/github/webhook</code>.
+        </li>
+        <li>
+          Refresh this diagnosis until the mode changes to <code className="text-success">app</code>
+          .
+        </li>
+      </ol>
+    </div>
+  );
 }
 
 function Sparkline({ values }: { values: number[] }) {
-  const points = values.map((value, index) => `${(index / (values.length - 1)) * 100},${30 - value}`).join(" ");
-  return <svg viewBox="0 0 100 32" className="h-8 w-[72px] shrink-0 overflow-visible" aria-hidden="true"><polyline points={points} fill="none" stroke="currentColor" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+  const points = values
+    .map((value, index) => `${(index / (values.length - 1)) * 100},${30 - value}`)
+    .join(' ');
+  return (
+    <svg viewBox="0 0 100 32" className="h-8 w-[72px] shrink-0 overflow-visible" aria-hidden="true">
+      <polyline
+        points={points}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        vectorEffect="non-scaling-stroke"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
 }
 
 export function HealingDashboard() {
   const [liveRequests, setLiveRequests] = useState(2174);
   const [paused, setPaused] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState('');
   const [diagnosisOpen, setDiagnosisOpen] = useState(false);
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
   const [diagnosing, setDiagnosing] = useState(false);
   const [diagnosisResult, setDiagnosisResult] = useState<LiveDiagnosis | null>(null);
   const [diagnosisError, setDiagnosisError] = useState<string | null>(null);
-  const [replayCandidate, setReplayCandidate] = useState("");
+  const [replayCandidate, setReplayCandidate] = useState('');
   const [replayBusy, setReplayBusy] = useState(false);
   const [replayMessage, setReplayMessage] = useState<string | null>(null);
   const [prBusy, setPrBusy] = useState(false);
   const [prMessage, setPrMessage] = useState<string | null>(null);
+  const [previewBusy, setPreviewBusy] = useState<string | null>(null);
+  const [repairPreview, setRepairPreview] = useState<{
+    candidateId: string;
+    result: RepairPreview;
+  } | null>(null);
   const [githubInstallations, setGithubInstallations] = useState<GitHubInstallation[]>([]);
   const [githubStatus, setGithubStatus] = useState<GitHubStatus | null>(null);
   const [githubPrs, setGithubPrs] = useState<GitHubPr[]>([]);
@@ -93,46 +273,71 @@ export function HealingDashboard() {
   const [githubPrVerifyBusy, setGithubPrVerifyBusy] = useState<string | null>(null);
   const [githubLoading, setGithubLoading] = useState(false);
   const [githubLoadError, setGithubLoadError] = useState<string | null>(null);
-  const [GlobeView, setGlobeView] = useState<ComponentType<{ activeIncidentCount: number; isLive: boolean }> | null>(null);
+  const [GlobeView, setGlobeView] = useState<ComponentType<{
+    activeIncidentCount: number;
+    isLive: boolean;
+  }> | null>(null);
   const [liveSnapshot, setLiveSnapshot] = useState<LiveSnapshot | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    import("@/components/NetworkGlobe").then(({ default: Component }) => { if (active) setGlobeView(() => Component); });
-    return () => { active = false; };
+    import('@/components/NetworkGlobe').then(({ default: Component }) => {
+      if (active) setGlobeView(() => Component);
+    });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const openDiagnosis = () => {
-    const selected = liveSnapshot?.incidents.find(item => item.status !== "RESOLVED" && item.status !== "DISMISSED");
+    const selected = liveSnapshot?.incidents.find(
+      item => item.status !== 'RESOLVED' && item.status !== 'DISMISSED'
+    );
     const incidentId = selected?.id ?? null;
     setSelectedIncidentId(incidentId);
     setDiagnosisResult(null);
     setDiagnosisError(null);
-    setReplayCandidate("");
+    setReplayCandidate('');
     setReplayMessage(null);
     setPrMessage(null);
+    setRepairPreview(null);
     setGithubLoading(true);
     setGithubLoadError(null);
     setGithubPrLoading(Boolean(incidentId));
     setGithubPrError(null);
-    if (selected && selected.status !== "DETECTED") {
+    if (selected && selected.status !== 'DETECTED') {
       setDiagnosing(true);
-      void fetchShapi<{ rootCause: string | null; suggestedFix: string | null; repairCandidates: LiveDiagnosis["candidates"] }>(`incidents/${incidentId}`)
-        .then(detail => setDiagnosisResult({
-          rootCause: detail.rootCause ?? "Diagnosis not recorded",
-          suggestedFix: detail.suggestedFix ?? "Review this incident manually",
-          confidence: Math.max(0, ...detail.repairCandidates.map(candidate => candidate.confidence)),
-          evidence: [],
-          candidates: detail.repairCandidates,
-        }))
-        .catch(error => setDiagnosisError(error instanceof Error ? error.message : "Could not load saved diagnosis"))
+      void fetchShapi<{
+        rootCause: string | null;
+        suggestedFix: string | null;
+        repairCandidates: LiveDiagnosis['candidates'];
+      }>(`incidents/${incidentId}`)
+        .then(detail =>
+          setDiagnosisResult({
+            rootCause: detail.rootCause ?? 'Diagnosis not recorded',
+            suggestedFix: detail.suggestedFix ?? 'Review this incident manually',
+            confidence: Math.max(
+              0,
+              ...detail.repairCandidates.map(candidate => candidate.confidence)
+            ),
+            evidence: [],
+            candidates: detail.repairCandidates,
+          })
+        )
+        .catch(error =>
+          setDiagnosisError(
+            error instanceof Error ? error.message : 'Could not load saved diagnosis'
+          )
+        )
         .finally(() => setDiagnosing(false));
     }
     void Promise.all([
-      fetchShapi<GitHubInstallation[]>("github/installations"),
-      fetchShapi<GitHubStatus>("github/status"),
-      incidentId ? fetchShapi<GitHubPr[]>(`github/incidents/${incidentId}/prs`) : Promise.resolve([] as GitHubPr[]),
+      fetchShapi<GitHubInstallation[]>('github/installations'),
+      fetchShapi<GitHubStatus>('github/status'),
+      incidentId
+        ? fetchShapi<GitHubPr[]>(`github/incidents/${incidentId}/prs`)
+        : Promise.resolve([] as GitHubPr[]),
     ])
       .then(([installations, status, prs]) => {
         setGithubInstallations(installations);
@@ -143,32 +348,44 @@ export function HealingDashboard() {
         setGithubInstallations([]);
         setGithubStatus(null);
         setGithubPrs([]);
-        setGithubLoadError("SHAPI could not read GitHub App installations. Check the API key and backend configuration.");
-        setGithubPrError("SHAPI could not load repair PRs for this incident.");
+        setGithubLoadError(
+          'SHAPI could not read GitHub App installations. Check the API key and backend configuration.'
+        );
+        setGithubPrError('SHAPI could not load repair PRs for this incident.');
       })
-      .finally(() => { setGithubLoading(false); setGithubPrLoading(false); });
+      .finally(() => {
+        setGithubLoading(false);
+        setGithubPrLoading(false);
+      });
     setDiagnosisOpen(true);
   };
 
   const runLiveDiagnosis = async () => {
     if (!selectedIncidentId) return;
-    if (liveSnapshot?.incidents.find(item => item.id === selectedIncidentId)?.status !== "DETECTED") {
-      setDiagnosisError("This incident has already been diagnosed. Open a newly detected incident to run diagnosis.");
+    if (
+      liveSnapshot?.incidents.find(item => item.id === selectedIncidentId)?.status !== 'DETECTED'
+    ) {
+      setDiagnosisError(
+        'This incident has already been diagnosed. Open a newly detected incident to run diagnosis.'
+      );
       return;
     }
     setDiagnosing(true);
     setDiagnosisError(null);
     try {
-      const response = await fetchShapi<{ diagnosis: Omit<LiveDiagnosis, "candidates">; candidates: LiveDiagnosis["candidates"] }>(`incidents/${selectedIncidentId}/diagnose`, { method: "POST" });
+      const response = await fetchShapi<{
+        diagnosis: Omit<LiveDiagnosis, 'candidates'>;
+        candidates: LiveDiagnosis['candidates'];
+      }>(`incidents/${selectedIncidentId}/diagnose`, { method: 'POST' });
       setDiagnosisResult({ ...response.diagnosis, candidates: response.candidates ?? [] });
     } catch (error) {
-      setDiagnosisError(error instanceof Error ? error.message : "Diagnosis failed");
+      setDiagnosisError(error instanceof Error ? error.message : 'Diagnosis failed');
     } finally {
       setDiagnosing(false);
     }
   };
 
-  const runReplay = async (candidate: LiveDiagnosis["candidates"][number]) => {
+  const runReplay = async (candidate: LiveDiagnosis['candidates'][number]) => {
     const incident = liveSnapshot?.incidents.find(item => item.id === selectedIncidentId);
     if (!incident) return;
     const fixCandidate = replayCandidate.trim();
@@ -179,40 +396,54 @@ export function HealingDashboard() {
     setReplayBusy(true);
     setReplayMessage(null);
     try {
-      const events = await fetchShapi<{ data: Array<{ id: string }> }>(`integrations/${incident.integrationId}/webhook-events?pageSize=1&status=COMPLETED`);
+      const events = await fetchShapi<{ data: Array<{ id: string }> }>(
+        `integrations/${incident.integrationId}/webhook-events?pageSize=1&status=COMPLETED`
+      );
       const event = events.data?.[0];
-      if (!event) throw new Error("No completed webhook event is available for replay");
-      const job = await fetchShapi<{ status: string; result?: string | null }>(`incidents/${incident.id}/replay`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ webhookEventId: event.id, fixCandidate }),
-      });
-      setReplayMessage(`Replay ${job.status.toLowerCase()}${job.result ? ` · ${job.result.toLowerCase()}` : ""}`);
+      if (!event) throw new Error('No completed webhook event is available for replay');
+      const job = await fetchShapi<{ status: string; result?: string | null }>(
+        `incidents/${incident.id}/replay`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ webhookEventId: event.id, fixCandidate }),
+        }
+      );
+      setReplayMessage(
+        `Replay ${job.status.toLowerCase()}${job.result ? ` · ${job.result.toLowerCase()}` : ''}`
+      );
     } catch (error) {
-      setReplayMessage(error instanceof Error ? error.message : "Replay request failed");
+      setReplayMessage(error instanceof Error ? error.message : 'Replay request failed');
     } finally {
       setReplayBusy(false);
     }
   };
 
-  const createRepairPr = async (candidate: LiveDiagnosis["candidates"][number]) => {
+  const createRepairPr = async (candidate: LiveDiagnosis['candidates'][number]) => {
     const incident = liveSnapshot?.incidents.find(item => item.id === selectedIncidentId);
     const repository = candidate.repository;
-    const installation = githubInstallations.find(item => repository && item.repositories.includes(repository));
+    const installation = githubInstallations.find(
+      item => repository && item.repositories.includes(repository)
+    );
     if (!incident || githubLoading || !installation || !repository) {
-      setPrMessage(githubLoadError ?? "This candidate needs a mapped repository connected to GitHub before a PR can be created.");
+      setPrMessage(
+        githubLoadError ??
+          'This candidate needs a mapped repository connected to GitHub before a PR can be created.'
+      );
       return;
     }
     if (!candidate.id || !Array.isArray(candidate.changes) || candidate.changes.length === 0) {
-      setPrMessage('This candidate needs manual review; no applicable repository patch is available.');
+      setPrMessage(
+        'This candidate needs manual review; no applicable repository patch is available.'
+      );
       return;
     }
     setPrBusy(true);
     setPrMessage(null);
     try {
       const pr = await fetchShapi<GitHubPr>(`github/incidents/${incident.id}/pr`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           installationId: installation.id,
           repository,
@@ -221,23 +452,76 @@ export function HealingDashboard() {
           body: diagnosisResult?.suggestedFix ?? candidate.description,
         }),
       });
-      setGithubPrs((current) => [pr, ...current.filter((item) => item.id !== pr.id)]);
+      setGithubPrs(current => [pr, ...current.filter(item => item.id !== pr.id)]);
       setPrMessage(`PR #${pr.prNumber} created · ${pr.prUrl}`);
     } catch (error) {
-      setPrMessage(error instanceof Error ? error.message : "Repair PR creation failed");
+      setPrMessage(error instanceof Error ? error.message : 'Repair PR creation failed');
     } finally {
       setPrBusy(false);
+    }
+  };
+  const previewRepairPr = async (candidate: LiveDiagnosis['candidates'][number]) => {
+    const incident = liveSnapshot?.incidents.find(item => item.id === selectedIncidentId);
+    const repository = candidate.repository;
+    const installation = githubInstallations.find(
+      item => repository && item.repositories.includes(repository)
+    );
+    if (!incident || githubLoading || !installation || !repository) {
+      setPrMessage(
+        githubLoadError ??
+          'This candidate needs a mapped repository connected to GitHub before it can be previewed.'
+      );
+      return;
+    }
+    if (!candidate.id || !Array.isArray(candidate.changes) || candidate.changes.length === 0) {
+      setPrMessage('This candidate needs manual review; no applicable repository patch is available.');
+      return;
+    }
+    setPreviewBusy(candidate.id);
+    setPrMessage(null);
+    try {
+      const result = await fetchShapi<RepairPreview>(`github/incidents/${incident.id}/pr/preview`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ installationId: installation.id, repository, candidateId: candidate.id }),
+      });
+      setRepairPreview({ candidateId: candidate.id, result });
+      setPrMessage(`Previewed ${result.changes.length} file${result.changes.length === 1 ? '' : 's'} at ${result.base}@${result.baseSha.slice(0, 8)}. Review it before creating a PR.`);
+    } catch (error) {
+      setRepairPreview(null);
+      setPrMessage(error instanceof Error ? error.message : 'Repair preview failed');
+    } finally {
+      setPreviewBusy(null);
     }
   };
   const verifyRepairPr = async (pr: GitHubPr) => {
     setGithubPrVerifyBusy(pr.id);
     setGithubPrError(null);
     try {
-      const result = await fetchShapi<{ verified: boolean; ciPassed: boolean; merged: boolean; closed: boolean; pr: GitHubPr }>(`github/prs/${pr.id}/verify`, { method: "POST" });
-      setGithubPrs((current) => current.map((item) => item.id === pr.id ? { ...item, ...result.pr, status: result.merged ? "MERGED" : result.closed ? "CLOSED" : result.pr.status, verified: result.verified } : item));
-      setPrMessage(`PR #${pr.prNumber} checked · ${result.merged ? "merged" : result.closed ? "closed" : result.ciPassed ? "CI passed" : "CI pending"}`);
+      const result = await fetchShapi<{
+        verified: boolean;
+        ciPassed: boolean;
+        merged: boolean;
+        closed: boolean;
+        pr: GitHubPr;
+      }>(`github/prs/${pr.id}/verify`, { method: 'POST' });
+      setGithubPrs(current =>
+        current.map(item =>
+          item.id === pr.id
+            ? {
+                ...item,
+                ...result.pr,
+                status: result.merged ? 'MERGED' : result.closed ? 'CLOSED' : result.pr.status,
+                verified: result.verified,
+              }
+            : item
+        )
+      );
+      setPrMessage(
+        `PR #${pr.prNumber} checked · ${result.merged ? 'merged' : result.closed ? 'closed' : result.ciPassed ? 'CI passed' : 'CI pending'}`
+      );
     } catch (error) {
-      setGithubPrError(error instanceof Error ? error.message : "GitHub PR verification failed");
+      setGithubPrError(error instanceof Error ? error.message : 'GitHub PR verification failed');
     } finally {
       setGithubPrVerifyBusy(null);
     }
@@ -249,7 +533,7 @@ export function HealingDashboard() {
     try {
       setGithubPrs(await fetchShapi<GitHubPr[]>(`github/incidents/${selectedIncidentId}/prs`));
     } catch (error) {
-      setGithubPrError(error instanceof Error ? error.message : "GitHub PR refresh failed");
+      setGithubPrError(error instanceof Error ? error.message : 'GitHub PR refresh failed');
     } finally {
       setGithubPrLoading(false);
     }
@@ -265,115 +549,854 @@ export function HealingDashboard() {
           setGithubPrError(null);
         }
       } catch (error) {
-        if (active) setGithubPrError(error instanceof Error ? error.message : "GitHub PR refresh failed");
+        if (active)
+          setGithubPrError(error instanceof Error ? error.message : 'GitHub PR refresh failed');
       }
     };
-    const timer = window.setInterval(() => { void refresh(); }, 10000);
-    return () => { active = false; window.clearInterval(timer); };
+    const timer = window.setInterval(() => {
+      void refresh();
+    }, 10000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
   }, [diagnosisOpen, selectedIncidentId]);
   useEffect(() => {
     let active = true;
     const load = async () => {
       try {
         const [summary, incidentsResponse] = await Promise.all([
-          fetchShapi<LiveSnapshot["summary"]>("drift/summary"),
-          fetchShapi<{ data: LiveSnapshot["incidents"] }>("incidents?pageSize=20"),
+          fetchShapi<LiveSnapshot['summary']>('drift/summary'),
+          fetchShapi<{ data: LiveSnapshot['incidents'] }>('incidents?pageSize=20'),
         ]);
         if (active) {
           setLiveSnapshot({ summary, incidents: incidentsResponse.data ?? [] });
           setApiError(null);
         }
       } catch (error) {
-        if (active) setApiError(error instanceof Error ? error.message : "SHAPI API unavailable");
+        if (active) setApiError(error instanceof Error ? error.message : 'SHAPI API unavailable');
       }
     };
     void load();
-    const timer = window.setInterval(() => { void load(); }, 10000);
-    return () => { active = false; window.clearInterval(timer); };
+    const timer = window.setInterval(() => {
+      void load();
+    }, 10000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
   }, []);
   useEffect(() => {
     if (paused) return;
-    const timer = window.setInterval(() => setLiveRequests((value) => Math.max(1800, Math.min(2600, value + Math.round((Math.random() - 0.5) * 24)))), 2200);
+    const timer = window.setInterval(
+      () =>
+        setLiveRequests(value =>
+          Math.max(1800, Math.min(2600, value + Math.round((Math.random() - 0.5) * 24)))
+        ),
+      2200
+    );
     return () => window.clearInterval(timer);
   }, [paused]);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") { event.preventDefault(); setCommandOpen(true); }
-      if (event.key === "Escape") { setCommandOpen(false); setDiagnosisOpen(false); }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setCommandOpen(true);
+      }
+      if (event.key === 'Escape') {
+        setCommandOpen(false);
+        setDiagnosisOpen(false);
+      }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, []);
 
   const activeIncidentCount = liveSnapshot?.summary.activeAlerts ?? 0;
   const healingActionCount = liveSnapshot ? liveSnapshot.incidents.length : 0;
   const metrics = [
-    { label: "API availability", value: "99.94", suffix: "%", badge: "+0.03%", icon: ShieldCheck, tone: "success", data: [17,17,18,17,18,18,19,18,19,19] },
-    { label: "Active incidents", value: String(activeIncidentCount).padStart(2, "0"), suffix: "", badge: liveSnapshot ? `${activeIncidentCount} live` : "connecting", icon: CircleAlert, tone: "critical", data: [10,9,13,8,16,18,13,14,13,13] },
-    { label: "Healing actions", value: String(healingActionCount), suffix: "", badge: liveSnapshot ? "live incidents" : "preview", icon: GitBranch, tone: "warning", data: [8,8,8,10,20,10,15,16,16,16] },
-    { label: "Requests / min", value: liveRequests.toLocaleString(), suffix: "", badge: "+12.8%", icon: Activity, tone: "observed", data: [9,12,11,14,13,16,14,18,20,22] },
+    {
+      label: 'API availability',
+      value: '99.94',
+      suffix: '%',
+      badge: '+0.03%',
+      icon: ShieldCheck,
+      tone: 'success',
+      data: [17, 17, 18, 17, 18, 18, 19, 18, 19, 19],
+    },
+    {
+      label: 'Active incidents',
+      value: String(activeIncidentCount).padStart(2, '0'),
+      suffix: '',
+      badge: liveSnapshot ? `${activeIncidentCount} live` : 'connecting',
+      icon: CircleAlert,
+      tone: 'critical',
+      data: [10, 9, 13, 8, 16, 18, 13, 14, 13, 13],
+    },
+    {
+      label: 'Healing actions',
+      value: String(healingActionCount),
+      suffix: '',
+      badge: liveSnapshot ? 'live incidents' : 'preview',
+      icon: GitBranch,
+      tone: 'warning',
+      data: [8, 8, 8, 10, 20, 10, 15, 16, 16, 16],
+    },
+    {
+      label: 'Requests / min',
+      value: liveRequests.toLocaleString(),
+      suffix: '',
+      badge: '+12.8%',
+      icon: Activity,
+      tone: 'observed',
+      data: [9, 12, 11, 14, 13, 16, 14, 18, 20, 22],
+    },
   ];
 
-  return <main className="min-h-screen bg-background text-foreground">
-    <aside className="fixed inset-y-0 left-0 z-30 hidden w-[212px] flex-col border-r border-border bg-sidebar lg:flex">
-      <div className="flex h-16 items-center gap-2.5 border-b border-border px-4">
-        <span className="grid size-8 place-items-center rounded bg-primary/10 text-primary"><HeartPulse className="size-[18px]" /></span>
-        <div className="leading-tight"><div className="text-[13px] font-bold uppercase">Pulseguard</div><div className="font-mono text-[9px] uppercase text-muted-foreground">API assurance platform</div></div>
-      </div>
-      <div className="px-3 pt-4"><div className="flex h-9 items-center justify-between rounded border border-border bg-secondary/55 px-3 text-xs"><span className="flex items-center gap-2"><i className={`size-1.5 rounded-full ${liveSnapshot ? "bg-success" : "bg-warning"}`} />{liveSnapshot ? "Live SHAPI API" : "Connecting"}</span><ChevronDown className="size-3 text-muted-foreground" /></div></div>
-      <nav aria-label="Main navigation" className="mt-4 space-y-1 px-3">
-        <a className="nav-item nav-item-active" href="#overview"><CircleGauge />Command center</a>
-        <a className="nav-item" href="#incidents"><CircleAlert />Incidents & triage<span className="ml-auto rounded bg-critical/15 px-1.5 text-[10px] text-critical">{activeIncidentCount}</span></a>
-        <a className="nav-item" href="#traffic"><Globe2 />Global traffic</a>
-        <a className="nav-item" href="#healing"><GitBranch />Healing activity<span className="ml-auto rounded bg-warning/15 px-1.5 text-[10px] text-warning">{healingActionCount}</span></a>
-        <a className="nav-item" href="#incidents"><Network />Service events</a>
-      </nav>
-      <div className="mt-auto px-3 pb-3"><div className="rounded border border-border bg-secondary/50 p-3"><div className="flex items-center gap-2 text-xs font-medium"><span className={`size-2 rounded-full ${liveSnapshot ? "bg-success" : "bg-warning"}`} />{liveSnapshot ? "SHAPI systems online" : "Waiting for SHAPI"}</div><div className="mt-2 font-mono text-[10px] text-muted-foreground">{liveSnapshot?.summary.monitoredIntegrations ?? 0} INTEGRATIONS <span className="float-right">{liveSnapshot ? "LIVE" : "CONNECTING"}</span></div></div></div>
-      <div className="flex items-center gap-2 border-t border-border px-4 py-3"><div className="grid size-7 place-items-center rounded bg-secondary text-[10px] font-semibold">PG</div><div className="min-w-0"><p className="text-xs font-medium">Pulseguard</p><p className="text-[10px] text-muted-foreground">Dashboard preview</p></div><Settings2 className="ml-auto size-4 text-muted-foreground" /></div>
-    </aside>
-
-    <div className="min-w-0 lg:ml-[212px]">
-      <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border bg-background/95 px-4 backdrop-blur md:px-5">
-        <div className="flex min-w-0 items-center gap-2 text-xs"><span className="font-semibold lg:hidden">Pulseguard</span><span className="hidden text-muted-foreground lg:inline">PULSEGUARD</span><span className="hidden text-muted-foreground lg:inline">›</span><span className="truncate">Command center</span></div>
-        <div className="ml-auto flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setCommandOpen(true)} className="hidden w-56 justify-start text-muted-foreground sm:inline-flex"><Search className="size-3.5" /><span className="truncate">Search signals, events...</span><kbd className="ml-auto font-mono text-[10px]">⌘K</kbd></Button>
-          <Button variant="ghost" size="icon" onClick={() => setCommandOpen(true)} aria-label="Search" className="sm:hidden"><Search /></Button>
-          <Button variant="ghost" size="icon" onClick={openDiagnosis} aria-label="View alerts" title="View alerts"><Bell className="size-4" /></Button>
-        </div>
-      </header>
-      <section id="overview" className="mx-auto max-w-[1600px] px-4 pb-12 pt-5 md:px-5">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><div><h1 className="text-lg font-semibold">Command center</h1><p className="text-xs text-muted-foreground">{liveSnapshot ? `Live SHAPI telemetry · ${liveSnapshot.summary.monitoredIntegrations} integrations · refreshes every 10s` : apiError ? `SHAPI API connection failed · ${apiError}` : "Connecting to live SHAPI telemetry…"}</p></div><Button variant="outline" size="sm" onClick={openDiagnosis}><Sparkles className="size-3.5" />Run diagnosis</Button></div>
-        <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
-          {metrics.map((metric) => <article key={metric.label} className="min-w-0 rounded-md border border-border bg-card p-3.5 md:p-4">
-            <div className="flex items-start justify-between gap-1"><span className="grid size-7 place-items-center rounded border border-border bg-secondary/50 text-muted-foreground"><metric.icon className="size-3.5" /></span><span className={`metric-badge metric-${metric.tone}`}>● {metric.badge}</span></div>
-            <p className="mt-4 text-[10px] font-semibold uppercase text-muted-foreground">{metric.label}</p>
-            <div className="mt-1 flex items-end justify-between gap-1"><p className="min-w-0 text-xl font-bold tabular-nums md:text-2xl">{metric.value}<span className="ml-0.5 text-sm">{metric.suffix}</span></p><div className={`spark-${metric.tone}`}><Sparkline values={metric.data} /></div></div>
-          </article>)}
-        </div>
-
-        <section id="traffic" className="mt-3.5 overflow-hidden rounded-md border border-border bg-card">
-          <div className="flex min-h-[58px] flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2.5"><div><h2 className="flex items-center gap-2 text-sm font-semibold"><Globe2 className="size-4 text-observed" />Global API issue radar</h2><p className="mt-0.5 text-[11px] text-muted-foreground">{liveSnapshot ? "Live incident state · reference coordinates" : "Reference regions while SHAPI connects"}</p></div><div className="flex items-center gap-2"><span className="rounded bg-critical/15 px-2 py-1 text-[10px] text-critical">● {liveSnapshot ? `${activeIncidentCount} active incident${activeIncidentCount === 1 ? "" : "s"}` : "Preview signals"}</span><Button variant="outline" size="sm" onClick={() => setPaused(!paused)}>{paused ? <Play /> : <Pause />}{paused ? "Resume" : "Pause"}</Button></div></div>
-          <div className="grid lg:grid-cols-[minmax(0,1.45fr)_minmax(300px,1fr)]">
-            <div className="relative h-[390px] overflow-hidden bg-globe sm:h-[480px] lg:h-[520px]">
-              <div className="absolute left-3 top-3 z-10 rounded border border-border bg-background/85 px-2 py-2 font-mono text-[9px] leading-relaxed text-muted-foreground"><div>GLOBAL SIGNAL GRAPH</div><div className="text-success">● 9 REFERENCE REGIONS</div></div>
-              <div className="absolute right-3 top-3 z-10 rounded border border-border bg-background/85 px-2 py-2 font-mono text-[9px] leading-relaxed text-observed">AUTO CORRELATION<br />CONFIDENCE 94.7%</div>
-              {GlobeView ? <GlobeView activeIncidentCount={activeIncidentCount} isLive={Boolean(liveSnapshot)} /> : <div className="grid h-full place-items-center"><RefreshCw className="size-5 animate-spin text-observed" /></div>}
-              <div className="pointer-events-none absolute bottom-3 left-3 z-10 flex gap-3 font-mono text-[9px] text-muted-foreground"><span><i className="mr-1 inline-block size-1.5 rounded-full bg-critical" />CRITICAL</span><span><i className="mr-1 inline-block size-1.5 rounded-full bg-warning" />ELEVATED</span><span><i className="mr-1 inline-block size-1.5 rounded-full bg-observed" />OBSERVED</span></div>
-              <div className="pointer-events-none absolute bottom-3 right-3 z-10 hidden font-mono text-[9px] text-muted-foreground sm:block">DRAG TO ROTATE<br />SCROLL TO ZOOM</div>
-            </div>
-            <div className="border-t border-border lg:border-l lg:border-t-0">
-              <div className="flex h-10 items-center justify-between border-b border-border px-3.5 font-mono text-[10px] uppercase text-muted-foreground"><span>Regional context</span><span>{paused ? "Paused" : liveSnapshot ? "SHAPI · 10s" : "Preview · 5s"}</span></div>
-              <div className="divide-y divide-border">{reports.map((report) => <div key={report.city} className="flex min-h-[77px] gap-2.5 px-3.5 py-3 transition-colors hover:bg-secondary/40"><span className={`mt-1.5 size-1.5 shrink-0 rounded-full ${report.tone === "critical" ? "bg-critical" : report.tone === "elevated" ? "bg-warning" : "bg-observed"}`} /><div className="min-w-0 flex-1"><p className="truncate text-xs font-medium">{report.city}<span className="font-normal text-muted-foreground"> · {report.region}</span></p><p className="mt-1 truncate text-[11px]">{report.issue}</p><p className="mt-1 font-mono text-[9px] uppercase text-muted-foreground">{report.source} · illustrative</p></div><div className="flex shrink-0 flex-col items-end gap-2"><time className="font-mono text-[9px] text-muted-foreground">{report.time}</time><MapPin className="size-3 text-muted-foreground" /></div></div>)}</div>
-              <div className="m-3 rounded border border-warning/30 bg-warning/10 p-3 text-[11px] leading-relaxed text-warning"><TriangleAlert className="mr-1.5 inline-block size-3" /><strong>Cross-region correlation:</strong> Example latency pattern detected across payment endpoints.</div>
+  return (
+    <main className="min-h-screen bg-background text-foreground">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[212px] flex-col border-r border-border bg-sidebar lg:flex">
+        <div className="flex h-16 items-center gap-2.5 border-b border-border px-4">
+          <span className="grid size-8 place-items-center rounded bg-primary/10 text-primary">
+            <HeartPulse className="size-[18px]" />
+          </span>
+          <div className="leading-tight">
+            <div className="text-[13px] font-bold uppercase">Pulseguard</div>
+            <div className="font-mono text-[9px] uppercase text-muted-foreground">
+              API assurance platform
             </div>
           </div>
-        </section>
+        </div>
+        <div className="px-3 pt-4">
+          <div className="flex h-9 items-center justify-between rounded border border-border bg-secondary/55 px-3 text-xs">
+            <span className="flex items-center gap-2">
+              <i
+                className={`size-1.5 rounded-full ${liveSnapshot ? 'bg-success' : 'bg-warning'}`}
+              />
+              {liveSnapshot ? 'Live SHAPI API' : 'Connecting'}
+            </span>
+            <ChevronDown className="size-3 text-muted-foreground" />
+          </div>
+        </div>
+        <nav aria-label="Main navigation" className="mt-4 space-y-1 px-3">
+          <a className="nav-item nav-item-active" href="#overview">
+            <CircleGauge />
+            Command center
+          </a>
+          <a className="nav-item" href="#incidents">
+            <CircleAlert />
+            Incidents & triage
+            <span className="ml-auto rounded bg-critical/15 px-1.5 text-[10px] text-critical">
+              {activeIncidentCount}
+            </span>
+          </a>
+          <a className="nav-item" href="#traffic">
+            <Globe2 />
+            Global traffic
+          </a>
+          <a className="nav-item" href="#healing">
+            <GitBranch />
+            Healing activity
+            <span className="ml-auto rounded bg-warning/15 px-1.5 text-[10px] text-warning">
+              {healingActionCount}
+            </span>
+          </a>
+          <a className="nav-item" href="#incidents">
+            <Network />
+            Service events
+          </a>
+        </nav>
+        <div className="mt-auto px-3 pb-3">
+          <div className="rounded border border-border bg-secondary/50 p-3">
+            <div className="flex items-center gap-2 text-xs font-medium">
+              <span
+                className={`size-2 rounded-full ${liveSnapshot ? 'bg-success' : 'bg-warning'}`}
+              />
+              {liveSnapshot ? 'SHAPI systems online' : 'Waiting for SHAPI'}
+            </div>
+            <div className="mt-2 font-mono text-[10px] text-muted-foreground">
+              {liveSnapshot?.summary.monitoredIntegrations ?? 0} INTEGRATIONS{' '}
+              <span className="float-right">{liveSnapshot ? 'LIVE' : 'CONNECTING'}</span>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 border-t border-border px-4 py-3">
+          <div className="grid size-7 place-items-center rounded bg-secondary text-[10px] font-semibold">
+            PG
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-medium">Pulseguard</p>
+            <p className="text-[10px] text-muted-foreground">Dashboard preview</p>
+          </div>
+          <Settings2 className="ml-auto size-4 text-muted-foreground" />
+        </div>
+      </aside>
 
-        <section id="healing" className="mt-4 grid gap-4 xl:grid-cols-[1fr_1fr]"><div className="rounded-md border border-border bg-card"><div className="border-b border-border px-4 py-3"><h2 className="text-sm font-semibold">Healing activity</h2><p className="text-[11px] text-muted-foreground">{liveSnapshot ? "Live incident activity from SHAPI" : "Waiting for SHAPI telemetry"}</p></div><div className="divide-y divide-border text-xs">{liveSnapshot?.incidents.length ? liveSnapshot.incidents.map((incident) => <div key={incident.id} className="flex items-center gap-3 px-4 py-3"><TriangleAlert className="size-4 text-warning" /><div><p>{incident.title}</p><p className="font-mono text-[10px] text-muted-foreground">{incident.integrationId} · {incident.severity}</p></div><span className="ml-auto status-healing">{incident.status}</span></div>) : <div className="flex items-center gap-3 px-4 py-6 text-muted-foreground"><Check className="size-4 text-success" /><p>{liveSnapshot ? "No live healing actions" : "Connecting to live healing activity…"}</p></div>}</div></div><div className="rounded-md border border-border bg-card"><div className="border-b border-border px-4 py-3"><h2 className="text-sm font-semibold">System posture</h2><p className="text-[11px] text-muted-foreground">{liveSnapshot ? `${liveSnapshot.summary.monitoredIntegrations} monitored integrations` : "Waiting for SHAPI telemetry"}</p></div><div className="grid grid-cols-3 divide-x divide-border py-5 text-center"><div><p className="text-xl font-semibold text-success">{liveSnapshot ? liveSnapshot.summary.monitoredIntegrations : "—"}</p><p className="text-[10px] text-muted-foreground">Integrations</p></div><div><p className="text-xl font-semibold text-warning">{liveSnapshot ? activeIncidentCount : "—"}</p><p className="text-[10px] text-muted-foreground">Active</p></div><div><p className="text-xl font-semibold text-observed">{liveSnapshot ? liveSnapshot.summary.totalInvariants : "—"}</p><p className="text-[10px] text-muted-foreground">Invariants</p></div></div></div></section>
-        <section id="incidents" className="mt-4 overflow-hidden rounded-md border border-border bg-card"><div className="border-b border-border px-4 py-3"><h2 className="text-sm font-semibold">Recent interventions</h2><p className="text-[11px] text-muted-foreground">{liveSnapshot ? "Live incidents from SHAPI" : "Preview data while SHAPI connects"}</p></div><div className="overflow-x-auto"><table className="w-full min-w-[700px] text-left text-xs"><thead className="bg-secondary/40 font-mono text-[10px] uppercase text-muted-foreground"><tr><th className="px-4 py-3 font-medium">Service</th><th className="px-4 py-3 font-medium">Detection</th><th className="px-4 py-3 font-medium">Region</th><th className="px-4 py-3 font-medium">Action</th><th className="px-4 py-3 font-medium">State</th></tr></thead><tbody className="divide-y divide-border">{(liveSnapshot ? (liveSnapshot.incidents.length ? liveSnapshot.incidents.map((item) => ({ service: item.integrationId, issue: item.title, region: "SHAPI", action: item.severity, time: item.detectedAt, state: item.status })) : [{ service: "SHAPI", issue: "No active incidents", region: "—", action: "Monitoring", time: "", state: "HEALTHY" }]) : sampleIncidents).map((item) => <tr key={`${item.service}-${item.issue}`}><td className="px-4 py-3 font-mono">{item.service}</td><td className="px-4 py-3 text-muted-foreground">{item.issue}</td><td className="px-4 py-3 font-mono text-muted-foreground">{item.region}</td><td className="px-4 py-3">{item.action}</td><td className="px-4 py-3"><span className={item.state === "Healing" || item.state === "REPLAYING" ? "status-healing" : "status-resolved"}>{item.state}</span></td></tr>)}</tbody></table></div></section>
-      </section>
-    </div>
-    {commandOpen && <div className="fixed inset-0 z-50 flex justify-center bg-overlay px-4 pt-[16vh]" onClick={() => setCommandOpen(false)}><div className="h-fit w-full max-w-lg rounded-md border border-border bg-popover shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="flex items-center gap-3 border-b border-border px-4"><Command className="size-4 text-primary" /><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search services, signals, regions..." className="h-12 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" /><Button variant="ghost" size="icon" aria-label="Close search" onClick={() => setCommandOpen(false)}><X /></Button></div><div className="p-3">{[...reports.map((report) => `${report.city} · ${report.issue}`), ...sampleIncidents.map((item) => `${item.service} · ${item.action}`)].filter((item) => item.toLowerCase().includes(query.toLowerCase())).map((item) => <div key={item} className="border-b border-border px-2 py-2.5 text-xs last:border-0">{item}</div>)}</div></div></div>}
-    {diagnosisOpen && <div className="fixed inset-0 z-50 grid place-items-center bg-overlay p-4" onClick={() => setDiagnosisOpen(false)}><div role="dialog" aria-label="Fleet diagnosis" className="w-full max-w-md rounded-md border border-border bg-popover p-5" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between"><ShieldCheck className="size-5 text-success" /><Button variant="ghost" size="icon" aria-label="Close diagnosis" onClick={() => setDiagnosisOpen(false)}><X /></Button></div>{diagnosisResult ? <><h2 className="mt-3 text-lg font-semibold">Live diagnosis complete</h2><p className="mt-2 text-sm text-muted-foreground">Confidence: <span className="font-mono text-foreground">{Math.round(diagnosisResult.confidence * 100)}%</span></p><p className="mt-4 border-l-2 border-warning pl-3 text-sm text-warning">{diagnosisResult.rootCause}</p><p className="mt-4 text-sm leading-relaxed text-muted-foreground">{diagnosisResult.suggestedFix}</p><div className="mt-4 space-y-1 text-xs text-muted-foreground">{diagnosisResult.evidence.map((item) => <p key={item}>• {item}</p>)}</div><div className="mt-4 rounded border border-border bg-secondary/30 p-3 text-xs"><div className="flex items-center justify-between gap-2"><span className="font-semibold">GitHub repair connection</span><span className={`rounded px-1.5 py-0.5 font-mono text-[10px] uppercase ${githubStatus?.mode === "unconfigured" ? "bg-critical/15 text-critical" : githubStatus?.mode === "app" ? "bg-success/15 text-success" : "bg-warning/15 text-warning"}`}>{githubStatus?.mode ?? "checking"}</span></div><p className="mt-1 text-muted-foreground">{githubStatus?.message ?? "Checking GitHub configuration…"}</p>{githubStatus && <p className="mt-2 font-mono text-[10px] text-muted-foreground">{githubStatus.repositoryCount} repo{githubStatus.repositoryCount === 1 ? "" : "s"} · {githubStatus.realInstallations} App installation{githubStatus.realInstallations === 1 ? "" : "s"} · webhook {githubStatus.webhookConfigured ? "ready" : "not configured"}</p>}</div><GitHubSetupGuide status={githubStatus} /><div className="mt-4 rounded border border-border bg-secondary/30 p-3 text-xs"><div className="flex items-center justify-between gap-2"><div className="flex items-center gap-2"><p className="font-semibold">Recent repair PRs</p><Button size="sm" variant="outline" onClick={() => void refreshGitHubPrs()} disabled={githubPrLoading || !selectedIncidentId}>{githubPrLoading ? "Refreshing…" : "Refresh"}</Button></div><span className="font-mono text-[10px] text-muted-foreground">{githubPrLoading ? "loading…" : `${githubPrs.length} total`}</span></div>{githubPrError ? <p className="mt-2 text-[10px] text-critical">{githubPrError}</p> : githubPrs.length ? <div className="mt-2 space-y-2">{githubPrs.map((pr) => <div key={pr.id} className="rounded border border-border bg-background/50 p-2"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><a href={pr.prUrl} target="_blank" rel="noreferrer" className="truncate font-medium text-primary hover:underline">PR #{pr.prNumber} · {pr.title}</a><p className="mt-1 truncate font-mono text-[10px] text-muted-foreground">{pr.repository}</p></div><span className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] ${pr.status === "MERGED" ? "bg-success/15 text-success" : pr.status === "CLOSED" ? "bg-critical/15 text-critical" : "bg-warning/15 text-warning"}`}>{pr.status}</span></div><div className="mt-2 flex items-center justify-between gap-2"><span className={`font-mono text-[10px] ${pr.verified ? "text-success" : "text-muted-foreground"}`}>{pr.verified ? "CI VERIFIED" : "CI PENDING"}</span><Button size="sm" variant="outline" onClick={() => void verifyRepairPr(pr)} disabled={githubPrVerifyBusy === pr.id}>{githubPrVerifyBusy === pr.id ? "Checking…" : "Verify"}</Button></div></div>)}</div> : <p className="mt-2 text-[10px] text-muted-foreground">No repair PRs created for this incident.</p>}</div><div className="mt-4 border-t border-border pt-3"><p className="text-[10px] font-semibold uppercase text-muted-foreground">Repair candidates</p><label className="mt-2 block text-[10px] uppercase text-muted-foreground">Replay fix candidate<input value={replayCandidate} onChange={(event) => setReplayCandidate(event.target.value)} placeholder='add_field:status:"paid"' className="mt-1 h-9 w-full rounded border border-border bg-background px-2 text-xs normal-case text-foreground outline-none placeholder:text-muted-foreground" /></label><p className="mt-1 text-[10px] text-muted-foreground">Supported replay operations: add_field, modify_field, remove_field.</p><div className="mt-2 space-y-2">{diagnosisResult.candidates.map((candidate) => <div key={`${candidate.type}-${candidate.description}`} className="rounded border border-border bg-secondary/30 p-2 text-xs"><div className="flex items-center justify-between gap-2"><span>{candidate.description}</span><span className="font-mono text-success">{Math.round(candidate.confidence * 100)}%</span></div><p className="mt-1 font-mono text-[10px] text-muted-foreground">{candidate.type} · {candidate.files.join(", ") || "manual review"}</p><div className="mt-2 flex gap-2"><Button size="sm" variant="outline" onClick={() => void runReplay(candidate)} disabled={replayBusy}>{replayBusy ? "Replaying…" : "Replay"}</Button><Button size="sm" onClick={() => void createRepairPr(candidate)} disabled={prBusy || githubLoading || githubInstallations.length === 0 || !candidate.changes?.length}>{prBusy ? "Creating…" : candidate.changes?.length ? "Create PR" : "Manual review"}</Button></div></div>)}</div>{replayMessage && <p className="mt-2 text-xs text-muted-foreground">{replayMessage}</p>}{prMessage && <p className="mt-2 break-all text-xs text-muted-foreground">{prMessage}</p>}{!githubInstallations.length && <p className="mt-2 text-[10px] text-muted-foreground">GitHub PR actions require a configured GitHub App installation.</p>}</div></> : selectedIncidentId ? <><h2 className="mt-3 text-lg font-semibold">Live incident diagnosis</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">SHAPI has an active incident ready for automated root-cause analysis and repair suggestions.</p>{diagnosisError && <p className="mt-3 text-xs text-critical">{diagnosisError}</p>}<Button className="mt-5 w-full" onClick={() => void runLiveDiagnosis()} disabled={diagnosing}>{diagnosing ? "Diagnosing…" : "Diagnose live incident"}</Button></> : <><h2 className="mt-3 text-lg font-semibold">Fleet diagnosis preview</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">No live incident is currently active. This preview demonstrates the operator workflow for 24 services across 9 regions.</p><p className="mt-4 border-l-2 border-warning pl-3 font-mono text-xs text-warning">payments-api · eu-central-1 · sample intervention</p></>}<Button variant={diagnosisResult || !selectedIncidentId ? "default" : "outline"} className="mt-5 w-full" onClick={() => setDiagnosisOpen(false)}>Done</Button></div></div>}
-  </main>;
+      <div className="min-w-0 lg:ml-[212px]">
+        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border bg-background/95 px-4 backdrop-blur md:px-5">
+          <div className="flex min-w-0 items-center gap-2 text-xs">
+            <span className="font-semibold lg:hidden">Pulseguard</span>
+            <span className="hidden text-muted-foreground lg:inline">PULSEGUARD</span>
+            <span className="hidden text-muted-foreground lg:inline">›</span>
+            <span className="truncate">Command center</span>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCommandOpen(true)}
+              className="hidden w-56 justify-start text-muted-foreground sm:inline-flex"
+            >
+              <Search className="size-3.5" />
+              <span className="truncate">Search signals, events...</span>
+              <kbd className="ml-auto font-mono text-[10px]">⌘K</kbd>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setCommandOpen(true)}
+              aria-label="Search"
+              className="sm:hidden"
+            >
+              <Search />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={openDiagnosis}
+              aria-label="View alerts"
+              title="View alerts"
+            >
+              <Bell className="size-4" />
+            </Button>
+          </div>
+        </header>
+        <section id="overview" className="mx-auto max-w-[1600px] px-4 pb-12 pt-5 md:px-5">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h1 className="text-lg font-semibold">Command center</h1>
+              <p className="text-xs text-muted-foreground">
+                {liveSnapshot
+                  ? `Live SHAPI telemetry · ${liveSnapshot.summary.monitoredIntegrations} integrations · refreshes every 10s`
+                  : apiError
+                    ? `SHAPI API connection failed · ${apiError}`
+                    : 'Connecting to live SHAPI telemetry…'}
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={openDiagnosis}>
+              <Sparkles className="size-3.5" />
+              Run diagnosis
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+            {metrics.map(metric => (
+              <article
+                key={metric.label}
+                className="min-w-0 rounded-md border border-border bg-card p-3.5 md:p-4"
+              >
+                <div className="flex items-start justify-between gap-1">
+                  <span className="grid size-7 place-items-center rounded border border-border bg-secondary/50 text-muted-foreground">
+                    <metric.icon className="size-3.5" />
+                  </span>
+                  <span className={`metric-badge metric-${metric.tone}`}>● {metric.badge}</span>
+                </div>
+                <p className="mt-4 text-[10px] font-semibold uppercase text-muted-foreground">
+                  {metric.label}
+                </p>
+                <div className="mt-1 flex items-end justify-between gap-1">
+                  <p className="min-w-0 text-xl font-bold tabular-nums md:text-2xl">
+                    {metric.value}
+                    <span className="ml-0.5 text-sm">{metric.suffix}</span>
+                  </p>
+                  <div className={`spark-${metric.tone}`}>
+                    <Sparkline values={metric.data} />
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <section
+            id="traffic"
+            className="mt-3.5 overflow-hidden rounded-md border border-border bg-card"
+          >
+            <div className="flex min-h-[58px] flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2.5">
+              <div>
+                <h2 className="flex items-center gap-2 text-sm font-semibold">
+                  <Globe2 className="size-4 text-observed" />
+                  Global API issue radar
+                </h2>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  {liveSnapshot
+                    ? 'Live incident state · reference coordinates'
+                    : 'Reference regions while SHAPI connects'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="rounded bg-critical/15 px-2 py-1 text-[10px] text-critical">
+                  ●{' '}
+                  {liveSnapshot
+                    ? `${activeIncidentCount} active incident${activeIncidentCount === 1 ? '' : 's'}`
+                    : 'Preview signals'}
+                </span>
+                <Button variant="outline" size="sm" onClick={() => setPaused(!paused)}>
+                  {paused ? <Play /> : <Pause />}
+                  {paused ? 'Resume' : 'Pause'}
+                </Button>
+              </div>
+            </div>
+            <div className="grid lg:grid-cols-[minmax(0,1.45fr)_minmax(300px,1fr)]">
+              <div className="relative h-[390px] overflow-hidden bg-globe sm:h-[480px] lg:h-[520px]">
+                <div className="absolute left-3 top-3 z-10 rounded border border-border bg-background/85 px-2 py-2 font-mono text-[9px] leading-relaxed text-muted-foreground">
+                  <div>GLOBAL SIGNAL GRAPH</div>
+                  <div className="text-success">● 9 REFERENCE REGIONS</div>
+                </div>
+                <div className="absolute right-3 top-3 z-10 rounded border border-border bg-background/85 px-2 py-2 font-mono text-[9px] leading-relaxed text-observed">
+                  AUTO CORRELATION
+                  <br />
+                  CONFIDENCE 94.7%
+                </div>
+                {GlobeView ? (
+                  <GlobeView
+                    activeIncidentCount={activeIncidentCount}
+                    isLive={Boolean(liveSnapshot)}
+                  />
+                ) : (
+                  <div className="grid h-full place-items-center">
+                    <RefreshCw className="size-5 animate-spin text-observed" />
+                  </div>
+                )}
+                <div className="pointer-events-none absolute bottom-3 left-3 z-10 flex gap-3 font-mono text-[9px] text-muted-foreground">
+                  <span>
+                    <i className="mr-1 inline-block size-1.5 rounded-full bg-critical" />
+                    CRITICAL
+                  </span>
+                  <span>
+                    <i className="mr-1 inline-block size-1.5 rounded-full bg-warning" />
+                    ELEVATED
+                  </span>
+                  <span>
+                    <i className="mr-1 inline-block size-1.5 rounded-full bg-observed" />
+                    OBSERVED
+                  </span>
+                </div>
+                <div className="pointer-events-none absolute bottom-3 right-3 z-10 hidden font-mono text-[9px] text-muted-foreground sm:block">
+                  DRAG TO ROTATE
+                  <br />
+                  SCROLL TO ZOOM
+                </div>
+              </div>
+              <div className="border-t border-border lg:border-l lg:border-t-0">
+                <div className="flex h-10 items-center justify-between border-b border-border px-3.5 font-mono text-[10px] uppercase text-muted-foreground">
+                  <span>Regional context</span>
+                  <span>{paused ? 'Paused' : liveSnapshot ? 'SHAPI · 10s' : 'Preview · 5s'}</span>
+                </div>
+                <div className="divide-y divide-border">
+                  {reports.map(report => (
+                    <div
+                      key={report.city}
+                      className="flex min-h-[77px] gap-2.5 px-3.5 py-3 transition-colors hover:bg-secondary/40"
+                    >
+                      <span
+                        className={`mt-1.5 size-1.5 shrink-0 rounded-full ${report.tone === 'critical' ? 'bg-critical' : report.tone === 'elevated' ? 'bg-warning' : 'bg-observed'}`}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-medium">
+                          {report.city}
+                          <span className="font-normal text-muted-foreground">
+                            {' '}
+                            · {report.region}
+                          </span>
+                        </p>
+                        <p className="mt-1 truncate text-[11px]">{report.issue}</p>
+                        <p className="mt-1 font-mono text-[9px] uppercase text-muted-foreground">
+                          {report.source} · illustrative
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-2">
+                        <time className="font-mono text-[9px] text-muted-foreground">
+                          {report.time}
+                        </time>
+                        <MapPin className="size-3 text-muted-foreground" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="m-3 rounded border border-warning/30 bg-warning/10 p-3 text-[11px] leading-relaxed text-warning">
+                  <TriangleAlert className="mr-1.5 inline-block size-3" />
+                  <strong>Cross-region correlation:</strong> Example latency pattern detected across
+                  payment endpoints.
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section id="healing" className="mt-4 grid gap-4 xl:grid-cols-[1fr_1fr]">
+            <div className="rounded-md border border-border bg-card">
+              <div className="border-b border-border px-4 py-3">
+                <h2 className="text-sm font-semibold">Healing activity</h2>
+                <p className="text-[11px] text-muted-foreground">
+                  {liveSnapshot
+                    ? 'Live incident activity from SHAPI'
+                    : 'Waiting for SHAPI telemetry'}
+                </p>
+              </div>
+              <div className="divide-y divide-border text-xs">
+                {liveSnapshot?.incidents.length ? (
+                  liveSnapshot.incidents.map(incident => (
+                    <div key={incident.id} className="flex items-center gap-3 px-4 py-3">
+                      <TriangleAlert className="size-4 text-warning" />
+                      <div>
+                        <p>{incident.title}</p>
+                        <p className="font-mono text-[10px] text-muted-foreground">
+                          {incident.integrationId} · {incident.severity}
+                        </p>
+                      </div>
+                      <span className="ml-auto status-healing">{incident.status}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex items-center gap-3 px-4 py-6 text-muted-foreground">
+                    <Check className="size-4 text-success" />
+                    <p>
+                      {liveSnapshot
+                        ? 'No live healing actions'
+                        : 'Connecting to live healing activity…'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="rounded-md border border-border bg-card">
+              <div className="border-b border-border px-4 py-3">
+                <h2 className="text-sm font-semibold">System posture</h2>
+                <p className="text-[11px] text-muted-foreground">
+                  {liveSnapshot
+                    ? `${liveSnapshot.summary.monitoredIntegrations} monitored integrations`
+                    : 'Waiting for SHAPI telemetry'}
+                </p>
+              </div>
+              <div className="grid grid-cols-3 divide-x divide-border py-5 text-center">
+                <div>
+                  <p className="text-xl font-semibold text-success">
+                    {liveSnapshot ? liveSnapshot.summary.monitoredIntegrations : '—'}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">Integrations</p>
+                </div>
+                <div>
+                  <p className="text-xl font-semibold text-warning">
+                    {liveSnapshot ? activeIncidentCount : '—'}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">Active</p>
+                </div>
+                <div>
+                  <p className="text-xl font-semibold text-observed">
+                    {liveSnapshot ? liveSnapshot.summary.totalInvariants : '—'}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">Invariants</p>
+                </div>
+              </div>
+            </div>
+          </section>
+          <section
+            id="incidents"
+            className="mt-4 overflow-hidden rounded-md border border-border bg-card"
+          >
+            <div className="border-b border-border px-4 py-3">
+              <h2 className="text-sm font-semibold">Recent interventions</h2>
+              <p className="text-[11px] text-muted-foreground">
+                {liveSnapshot ? 'Live incidents from SHAPI' : 'Preview data while SHAPI connects'}
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[700px] text-left text-xs">
+                <thead className="bg-secondary/40 font-mono text-[10px] uppercase text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Service</th>
+                    <th className="px-4 py-3 font-medium">Detection</th>
+                    <th className="px-4 py-3 font-medium">Region</th>
+                    <th className="px-4 py-3 font-medium">Action</th>
+                    <th className="px-4 py-3 font-medium">State</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {(liveSnapshot
+                    ? liveSnapshot.incidents.length
+                      ? liveSnapshot.incidents.map(item => ({
+                          service: item.integrationId,
+                          issue: item.title,
+                          region: 'SHAPI',
+                          action: item.severity,
+                          time: item.detectedAt,
+                          state: item.status,
+                        }))
+                      : [
+                          {
+                            service: 'SHAPI',
+                            issue: 'No active incidents',
+                            region: '—',
+                            action: 'Monitoring',
+                            time: '',
+                            state: 'HEALTHY',
+                          },
+                        ]
+                    : sampleIncidents
+                  ).map(item => (
+                    <tr key={`${item.service}-${item.issue}`}>
+                      <td className="px-4 py-3 font-mono">{item.service}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{item.issue}</td>
+                      <td className="px-4 py-3 font-mono text-muted-foreground">{item.region}</td>
+                      <td className="px-4 py-3">{item.action}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={
+                            item.state === 'Healing' || item.state === 'REPLAYING'
+                              ? 'status-healing'
+                              : 'status-resolved'
+                          }
+                        >
+                          {item.state}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+      </div>
+      {commandOpen && (
+        <div
+          className="fixed inset-0 z-50 flex justify-center bg-overlay px-4 pt-[16vh]"
+          onClick={() => setCommandOpen(false)}
+        >
+          <div
+            className="h-fit w-full max-w-lg rounded-md border border-border bg-popover shadow-2xl"
+            onClick={event => event.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 border-b border-border px-4">
+              <Command className="size-4 text-primary" />
+              <input
+                autoFocus
+                value={query}
+                onChange={event => setQuery(event.target.value)}
+                placeholder="Search services, signals, regions..."
+                className="h-12 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Close search"
+                onClick={() => setCommandOpen(false)}
+              >
+                <X />
+              </Button>
+            </div>
+            <div className="p-3">
+              {[
+                ...reports.map(report => `${report.city} · ${report.issue}`),
+                ...sampleIncidents.map(item => `${item.service} · ${item.action}`),
+              ]
+                .filter(item => item.toLowerCase().includes(query.toLowerCase()))
+                .map(item => (
+                  <div
+                    key={item}
+                    className="border-b border-border px-2 py-2.5 text-xs last:border-0"
+                  >
+                    {item}
+                  </div>
+                ))}
+            </div>
+          </div>
+        </div>
+      )}
+      {diagnosisOpen && (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-overlay p-4"
+          onClick={() => setDiagnosisOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-label="Fleet diagnosis"
+            className="w-full max-w-md rounded-md border border-border bg-popover p-5"
+            onClick={event => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <ShieldCheck className="size-5 text-success" />
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Close diagnosis"
+                onClick={() => setDiagnosisOpen(false)}
+              >
+                <X />
+              </Button>
+            </div>
+            {diagnosisResult ? (
+              <>
+                <h2 className="mt-3 text-lg font-semibold">Live diagnosis complete</h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Confidence:{' '}
+                  <span className="font-mono text-foreground">
+                    {Math.round(diagnosisResult.confidence * 100)}%
+                  </span>
+                </p>
+                <p className="mt-4 border-l-2 border-warning pl-3 text-sm text-warning">
+                  {diagnosisResult.rootCause}
+                </p>
+                <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+                  {diagnosisResult.suggestedFix}
+                </p>
+                <div className="mt-4 space-y-1 text-xs text-muted-foreground">
+                  {diagnosisResult.evidence.map(item => (
+                    <p key={item}>• {item}</p>
+                  ))}
+                </div>
+                <div className="mt-4 rounded border border-border bg-secondary/30 p-3 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold">GitHub repair connection</span>
+                    <span
+                      className={`rounded px-1.5 py-0.5 font-mono text-[10px] uppercase ${githubStatus?.mode === 'unconfigured' ? 'bg-critical/15 text-critical' : githubStatus?.mode === 'app' ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning'}`}
+                    >
+                      {githubStatus?.mode ?? 'checking'}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-muted-foreground">
+                    {githubStatus?.message ?? 'Checking GitHub configuration…'}
+                  </p>
+                  {githubStatus && (
+                    <p className="mt-2 font-mono text-[10px] text-muted-foreground">
+                      {githubStatus.repositoryCount} repo
+                      {githubStatus.repositoryCount === 1 ? '' : 's'} ·{' '}
+                      {githubStatus.realInstallations} App installation
+                      {githubStatus.realInstallations === 1 ? '' : 's'} · webhook{' '}
+                      {githubStatus.webhookConfigured ? 'ready' : 'not configured'}
+                    </p>
+                  )}
+                </div>
+                <GitHubSetupGuide status={githubStatus} />
+                <div className="mt-4 rounded border border-border bg-secondary/30 p-3 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold">Recent repair PRs</p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void refreshGitHubPrs()}
+                        disabled={githubPrLoading || !selectedIncidentId}
+                      >
+                        {githubPrLoading ? 'Refreshing…' : 'Refresh'}
+                      </Button>
+                    </div>
+                    <span className="font-mono text-[10px] text-muted-foreground">
+                      {githubPrLoading ? 'loading…' : `${githubPrs.length} total`}
+                    </span>
+                  </div>
+                  {githubPrError ? (
+                    <p className="mt-2 text-[10px] text-critical">{githubPrError}</p>
+                  ) : githubPrs.length ? (
+                    <div className="mt-2 space-y-2">
+                      {githubPrs.map(pr => (
+                        <div
+                          key={pr.id}
+                          className="rounded border border-border bg-background/50 p-2"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <a
+                                href={pr.prUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="truncate font-medium text-primary hover:underline"
+                              >
+                                PR #{pr.prNumber} · {pr.title}
+                              </a>
+                              <p className="mt-1 truncate font-mono text-[10px] text-muted-foreground">
+                                {pr.repository}
+                              </p>
+                            </div>
+                            <span
+                              className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] ${pr.status === 'MERGED' ? 'bg-success/15 text-success' : pr.status === 'CLOSED' ? 'bg-critical/15 text-critical' : 'bg-warning/15 text-warning'}`}
+                            >
+                              {pr.status}
+                            </span>
+                          </div>
+                          <div className="mt-2 flex items-center justify-between gap-2">
+                            <span
+                              className={`font-mono text-[10px] ${pr.verified ? 'text-success' : 'text-muted-foreground'}`}
+                            >
+                              {pr.verified ? 'CI VERIFIED' : 'CI PENDING'}
+                            </span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => void verifyRepairPr(pr)}
+                              disabled={githubPrVerifyBusy === pr.id}
+                            >
+                              {githubPrVerifyBusy === pr.id ? 'Checking…' : 'Verify'}
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-[10px] text-muted-foreground">
+                      No repair PRs created for this incident.
+                    </p>
+                  )}
+                </div>
+                <div className="mt-4 border-t border-border pt-3">
+                  <p className="text-[10px] font-semibold uppercase text-muted-foreground">
+                    Repair candidates
+                  </p>
+                  <label className="mt-2 block text-[10px] uppercase text-muted-foreground">
+                    Replay fix candidate
+                    <input
+                      value={replayCandidate}
+                      onChange={event => setReplayCandidate(event.target.value)}
+                      placeholder='add_field:status:"paid"'
+                      className="mt-1 h-9 w-full rounded border border-border bg-background px-2 text-xs normal-case text-foreground outline-none placeholder:text-muted-foreground"
+                    />
+                  </label>
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    Supported replay operations: add_field, modify_field, remove_field.
+                  </p>
+                  <div className="mt-2 space-y-2">
+                    {diagnosisResult.candidates.map(candidate => (
+                      <div
+                        key={`${candidate.type}-${candidate.description}`}
+                        className="rounded border border-border bg-secondary/30 p-2 text-xs"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span>{candidate.description}</span>
+                          <span className="font-mono text-success">
+                            {Math.round(candidate.confidence * 100)}%
+                          </span>
+                        </div>
+                        <p className="mt-1 font-mono text-[10px] text-muted-foreground">
+                          {candidate.type} · {candidate.files.join(', ') || 'manual review'}
+                        </p>
+                        {repairPreview?.candidateId === candidate.id && (
+                          <div className="mt-2 space-y-2 rounded border border-success/30 bg-success/5 p-2">
+                            <p className="font-mono text-[10px] text-success">
+                              Read-only preview · {repairPreview.result.repository} ·{' '}
+                              {repairPreview.result.base}@{repairPreview.result.baseSha.slice(0, 8)}
+                            </p>
+                            {repairPreview.result.changes.map(change => (
+                              <div key={change.path} className="space-y-1">
+                                <p className="font-mono text-[10px] text-foreground">
+                                  {change.kind} · {change.path}
+                                </p>
+                                {change.before && (
+                                  <pre className="max-h-28 overflow-auto whitespace-pre-wrap rounded bg-background/70 p-2 font-mono text-[10px] text-muted-foreground">
+                                    {change.before.truncated ? '…\n' : ''}
+                                    {change.before.text}
+                                    {change.before.truncated ? '\n…' : ''}
+                                  </pre>
+                                )}
+                                <pre className="max-h-28 overflow-auto whitespace-pre-wrap rounded bg-background/70 p-2 font-mono text-[10px] text-success">
+                                  {change.after.truncated ? '…\n' : ''}
+                                  {change.after.text}
+                                  {change.after.truncated ? '\n…' : ''}
+                                </pre>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div className="mt-2 flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void runReplay(candidate)}
+                            disabled={replayBusy}
+                          >
+                            {replayBusy ? 'Replaying…' : 'Replay'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void previewRepairPr(candidate)}
+                            disabled={
+                              Boolean(previewBusy) ||
+                              githubLoading ||
+                              githubInstallations.length === 0 ||
+                              !candidate.changes?.length
+                            }
+                          >
+                            {previewBusy === candidate.id ? 'Previewing…' : 'Preview patch'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => void createRepairPr(candidate)}
+                            disabled={
+                              prBusy ||
+                              githubLoading ||
+                              githubInstallations.length === 0 ||
+                              !candidate.changes?.length
+                            }
+                          >
+                            {prBusy
+                              ? 'Creating…'
+                              : candidate.changes?.length
+                                ? 'Create PR'
+                                : 'Manual review'}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {replayMessage && (
+                    <p className="mt-2 text-xs text-muted-foreground">{replayMessage}</p>
+                  )}
+                  {prMessage && (
+                    <p className="mt-2 break-all text-xs text-muted-foreground">{prMessage}</p>
+                  )}
+                  {!githubInstallations.length && (
+                    <p className="mt-2 text-[10px] text-muted-foreground">
+                      GitHub preview and PR actions require a configured GitHub connection.
+                    </p>
+                  )}
+                </div>
+              </>
+            ) : selectedIncidentId ? (
+              <>
+                <h2 className="mt-3 text-lg font-semibold">Live incident diagnosis</h2>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  SHAPI has an active incident ready for automated root-cause analysis and repair
+                  suggestions.
+                </p>
+                {diagnosisError && <p className="mt-3 text-xs text-critical">{diagnosisError}</p>}
+                <Button
+                  className="mt-5 w-full"
+                  onClick={() => void runLiveDiagnosis()}
+                  disabled={diagnosing}
+                >
+                  {diagnosing ? 'Diagnosing…' : 'Diagnose live incident'}
+                </Button>
+              </>
+            ) : (
+              <>
+                <h2 className="mt-3 text-lg font-semibold">Fleet diagnosis preview</h2>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  No live incident is currently active. This preview demonstrates the operator
+                  workflow for 24 services across 9 regions.
+                </p>
+                <p className="mt-4 border-l-2 border-warning pl-3 font-mono text-xs text-warning">
+                  payments-api · eu-central-1 · sample intervention
+                </p>
+              </>
+            )}
+            <Button
+              variant={diagnosisResult || !selectedIncidentId ? 'default' : 'outline'}
+              className="mt-5 w-full"
+              onClick={() => setDiagnosisOpen(false)}
+            >
+              Done
+            </Button>
+          </div>
+        </div>
+      )}
+    </main>
+  );
 }
