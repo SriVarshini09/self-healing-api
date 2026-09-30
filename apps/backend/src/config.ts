@@ -39,6 +39,12 @@ const configSchema = z.object({
   GITHUB_APP_PRIVATE_KEY: z.string().optional(),
   GITHUB_WEBHOOK_SECRET_APP: z.string().optional(),
   GITHUB_APP_INTEGRATION_ID: z.string().optional(),
+  // Optional local/operator token mode for repositories where a GitHub App is
+  // not available. Keep the allow-list explicit; never infer repositories
+  // from a token alone.
+  GITHUB_TOKEN: z.string().optional(),
+  GITHUB_ACCOUNT_LOGIN: z.string().optional(),
+  GITHUB_REPOSITORIES: z.string().optional(),
   // Frontend URLs
   DASHBOARD_URL: z.string().url().default('http://localhost:5173'),
   DEMO_SAAS_URL: z.string().url().default('http://localhost:3000')

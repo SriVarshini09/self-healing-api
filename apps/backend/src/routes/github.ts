@@ -15,6 +15,28 @@ function obj(value: unknown): JsonRecord {
   return typeof value === 'object' && value !== null ? (value as JsonRecord) : {};
 }
 
+const TOKEN_INSTALLATION_GITHUB_ID = BigInt(-1);
+
+async function ensureTokenInstallation(tenantId: string, integrationId: string) {
+  const repositories = (process.env.GITHUB_REPOSITORIES ?? '')
+    .split(',')
+    .map(repository => repository.trim())
+    .filter(Boolean);
+  if (!process.env.GITHUB_TOKEN || !process.env.GITHUB_ACCOUNT_LOGIN || repositories.length === 0) return null;
+
+  return prisma.gitHubInstallation.upsert({
+    where: { githubInstallationId: TOKEN_INSTALLATION_GITHUB_ID },
+    update: { accountLogin: process.env.GITHUB_ACCOUNT_LOGIN, accountType: 'User', repositories, integrationId },
+    create: {
+      githubInstallationId: TOKEN_INSTALLATION_GITHUB_ID,
+      accountLogin: process.env.GITHUB_ACCOUNT_LOGIN,
+      accountType: 'User',
+      repositories,
+      integrationId,
+    },
+  });
+}
+
 const prSchema = z.object({
   installationId: z.string().min(1),
   repository: z.string().regex(/^[^/\s]+\/[^/\s]+$/),
@@ -92,7 +114,7 @@ export async function githubRoutes(app: FastifyInstance) {
 
   app.get('/github/installations', async (request, reply) => {
     const tenantId = tenantIdFor(request);
-    const installations = await prisma.gitHubInstallation.findMany({
+    let installations = await prisma.gitHubInstallation.findMany({
       where: { integration: { tenantId } },
       orderBy: { createdAt: 'desc' },
       include: {
@@ -100,6 +122,13 @@ export async function githubRoutes(app: FastifyInstance) {
         _count: { select: { prs: true } },
       },
     });
+    if (installations.length === 0) {
+      const integration = await prisma.integration.findFirst({ where: { type: IntegrationType.GITHUB, tenantId } });
+      if (integration) {
+        const tokenInstallation = await ensureTokenInstallation(tenantId, integration.id);
+        if (tokenInstallation) installations = [tokenInstallation as typeof installations[number]];
+      }
+    }
     return reply.send(installations);
   });
 
@@ -135,9 +164,13 @@ export async function githubRoutes(app: FastifyInstance) {
     if (!parsed.success) return reply.code(400).send({ error: 'Invalid pull-request payload', details: parsed.error.flatten() });
     const { installationId, repository, branchName, base, title, body, diff, files } = parsed.data;
 
-    const installation = await prisma.gitHubInstallation.findFirst({
+    let installation = await prisma.gitHubInstallation.findFirst({
       where: { id: installationId, integration: { tenantId } },
     });
+    if (!installation && installationId === 'env-token-installation') {
+      const integration = await prisma.integration.findFirst({ where: { type: IntegrationType.GITHUB, tenantId } });
+      if (integration) installation = await ensureTokenInstallation(tenantId, integration.id);
+    }
     if (!installation) return reply.code(404).send({ error: 'Installation not found' });
 
     const incident = await prisma.incident.findUnique({

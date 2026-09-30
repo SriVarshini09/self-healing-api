@@ -165,6 +165,10 @@ Typechecks: `pnpm -r typecheck`. Builds verified: backend `tsc`, dashboard `tsc 
   public webhook URL and sorted request parameters.
 - Repair PRs use real Octokit (`openRepairPr`: branch from main → commit files →
   open PR) whenever `GITHUB_TOKEN` is set, and a simulated PR otherwise.
+- If a GitHub App is unavailable, local/operator mode can use `GITHUB_TOKEN`
+  together with `GITHUB_ACCOUNT_LOGIN` and an explicit comma-separated
+  `GITHUB_REPOSITORIES` allow-list. This mode never infers repository access
+  from the token alone and should not be used as a multi-tenant App substitute.
 - The backend runs a scheduled invariant-window evaluator (default every 60 seconds;
   configure with `INVARIANT_EVALUATION_INTERVAL_SEC`) and uses weighted baseline/current
   trial counts for drift calculations.
