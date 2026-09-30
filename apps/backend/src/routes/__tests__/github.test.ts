@@ -17,6 +17,9 @@ interface FakePr {
   status: string;
   verified: boolean;
   incidentId: string;
+  verificationHeadSha?: string | null;
+  verificationChecks?: unknown;
+  verifiedAt?: Date | null;
 }
 
 interface FakeIncident {
@@ -192,6 +195,10 @@ const passingCi = {
   closed: false,
   headSha: 'abc123',
   checksTotal: 2,
+  checkRuns: [
+    { name: 'target-tests', status: 'completed', conclusion: 'success', detailsUrl: 'https://github.com/acme/demo/actions/runs/1' },
+    { name: 'lint', status: 'completed', conclusion: 'success', detailsUrl: null },
+  ],
 };
 
 const failingCi = {
@@ -337,8 +344,11 @@ describe('POST /github/prs/:prId/verify', () => {
     expect(body.ciPassed).toBe(true);
     expect(body.pr.verified).toBe(true);
 
-    // CI success changes verified and nothing else.
+    // CI success persists the verification evidence alongside the boolean.
     expect(pr('pr-1').verified).toBe(true);
+    expect(pr('pr-1').verificationHeadSha).toBe('abc123');
+    expect(pr('pr-1').verificationChecks).toEqual(passingCi.checkRuns);
+    expect(pr('pr-1').verifiedAt).toBeInstanceOf(Date);
     expect(pr('pr-1').status).toBe('OPEN');
     expect(incident('inc-1').status).toBe('REPAIRED');
     expect(incident('inc-1').status).not.toBe('RESOLVED');

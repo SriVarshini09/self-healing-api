@@ -22,8 +22,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   Human-readable diffs are never committed as file contents. PR verification
   checks GitHub CI and merge state separately.
 - PR verification now returns the exact GitHub check-run evidence and head
-  commit used to determine CI status. Missing, running, or failing checks
-  remain unverified.
+  commit used to determine CI status, and persists that evidence for audit
+  after reload. Missing, running, or failing checks remain unverified.
 - Operators can request a read-only preview of a repair before opening its PR.
   The preview validates the exact repair against a pinned Git base commit and
   returns bounded before/after source excerpts without creating any GitHub

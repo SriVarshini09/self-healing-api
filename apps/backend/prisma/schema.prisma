@@ -297,6 +297,9 @@ model GitHubPullRequest {
   title           String
   status          GitHubPRStatus @default(OPEN)
   verified        Boolean  @default(false)
+  verificationHeadSha String?
+  verificationChecks Json?
+  verifiedAt      DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

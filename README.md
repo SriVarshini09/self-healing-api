@@ -183,8 +183,9 @@ Typechecks: `pnpm -r typecheck`. Builds verified: backend `tsc`, dashboard `tsc 
   commit before it creates a PR.
 - `POST /github/prs/:id/verify` returns the exact PR head SHA and each GitHub
   check run used as proof. A PR is not verified when checks are missing,
-  running, or failing; passing CI is evidence from the target repository, not
-  a claim that SHAPI has proven the business outcome.
+  running, or failing; the evidence is persisted and shown again when the
+  dashboard reloads. Passing CI is evidence from the target repository, not a
+  claim that SHAPI has proven the business outcome.
 - When `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, and a real GitHub App
   installation are configured, PR creation and CI verification use a short-lived
   installation token. The explicit `GITHUB_TOKEN` mode remains available for

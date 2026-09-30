@@ -260,7 +260,16 @@ export async function githubRoutes(app: FastifyInstance) {
       orderBy: { createdAt: 'desc' },
       include: { installation: true },
     });
-    return reply.send(prs);
+    return reply.send(prs.map(pr => ({
+      ...pr,
+      proof: pr.verificationHeadSha && Array.isArray(pr.verificationChecks)
+        ? {
+            headSha: pr.verificationHeadSha,
+            checksTotal: pr.verificationChecks.length,
+            checkRuns: pr.verificationChecks,
+          }
+        : null,
+    })));
   });
 
   app.post('/github/incidents/:incidentId/pr/preview', async (request, reply) => {
@@ -470,7 +479,13 @@ export async function githubRoutes(app: FastifyInstance) {
         : pr.status;
     const updated = await prisma.gitHubPullRequest.update({
       where: { id: prId },
-      data: { verified: result.verified, status },
+      data: {
+        verified: result.verified,
+        status,
+        verificationHeadSha: result.headSha,
+        verificationChecks: result.checkRuns,
+        verifiedAt: result.verified ? new Date() : null,
+      },
     });
 
     if (result.merged && pr.incident.status !== IncidentStatus.RESOLVED) {
