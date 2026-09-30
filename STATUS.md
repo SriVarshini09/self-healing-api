@@ -24,6 +24,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - PR verification now returns the exact GitHub check-run evidence and head
   commit used to determine CI status, and persists that evidence for audit
   after reload. Missing, running, or failing checks remain unverified.
+- Invariants can now declare required target check names; verification remains
+  false when any configured application check is absent or unsuccessful.
 - Operators can request a read-only preview of a repair before opening its PR.
   The preview validates the exact repair against a pinned Git base commit and
   returns bounded before/after source excerpts without creating any GitHub
@@ -59,9 +61,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Next engineering priority
 
-Add end-to-end repair proof: execute the proposed patch against the target
-application's tests before presenting a repair as verified. Do not claim a
-replay-verified fix prematurely.
+Use the required-check contract with a real GitHub App and target repository
+workflow, then add a true business-outcome test rather than treating CI
+success alone as proof. Do not claim a replay-verified fix prematurely.
 
 ## Local checks
 

@@ -15,6 +15,15 @@ function obj(value: unknown): JsonRecord {
   return typeof value === 'object' && value !== null ? (value as JsonRecord) : {};
 }
 
+function missingRequiredChecks(
+  requiredChecks: string[],
+  checkRuns: Array<{ name: string; status: string | null; conclusion: string | null }>,
+): string[] {
+  return requiredChecks.filter(required => !checkRuns.some(run =>
+    run.name === required && run.status === 'completed' && run.conclusion === 'success'
+  ));
+}
+
 const TOKEN_INSTALLATION_GITHUB_ID = BigInt(-1);
 
 async function ensureTokenInstallation(tenantId: string, integrationId: string) {
@@ -454,7 +463,10 @@ export async function githubRoutes(app: FastifyInstance) {
     const { prId } = (request.params ?? {}) as { prId: string };
     const pr = await prisma.gitHubPullRequest.findFirst({
       where: { id: prId, incident: { integration: { tenantId } } },
-      include: { incident: true, installation: true },
+      include: {
+        incident: { include: { invariant: { select: { repairRequiredChecks: true } } } },
+        installation: true,
+      },
     });
     if (!pr) return reply.code(404).send({ error: 'PR not found' });
 
@@ -472,6 +484,10 @@ export async function githubRoutes(app: FastifyInstance) {
       return reply.code(502).send({ error: e instanceof Error ? e.message : 'GitHub verification failed' });
     }
 
+    const requiredChecks = pr.incident.invariant?.repairRequiredChecks ?? [];
+    const missingChecks = missingRequiredChecks(requiredChecks, result.checkRuns);
+    const verified = result.verified && missingChecks.length === 0;
+
     const status = result.merged
       ? GitHubPRStatus.MERGED
       : result.closed
@@ -480,11 +496,11 @@ export async function githubRoutes(app: FastifyInstance) {
     const updated = await prisma.gitHubPullRequest.update({
       where: { id: prId },
       data: {
-        verified: result.verified,
+        verified,
         status,
         verificationHeadSha: result.headSha,
         verificationChecks: result.checkRuns,
-        verifiedAt: result.verified ? new Date() : null,
+        verifiedAt: verified ? new Date() : null,
       },
     });
 
@@ -496,7 +512,7 @@ export async function githubRoutes(app: FastifyInstance) {
     }
 
     return reply.send({
-      verified: result.verified,
+      verified,
       ciPassed: result.ciPassed,
       merged: result.merged,
       closed: result.closed,
@@ -504,6 +520,8 @@ export async function githubRoutes(app: FastifyInstance) {
         headSha: result.headSha,
         checksTotal: result.checksTotal,
         checkRuns: result.checkRuns,
+        requiredChecks,
+        missingChecks,
       },
       pr: updated,
     });
@@ -601,7 +619,10 @@ async function handleWorkflowRunEvent(payload: Record<string, unknown>, integrat
     if (!prNumber) continue;
     const ours = await prisma.gitHubPullRequest.findFirst({
       where: { prNumber, repository: repoFullName, status: GitHubPRStatus.OPEN, installation: { integrationId } },
-      include: { installation: true },
+      include: {
+        installation: true,
+        incident: { include: { invariant: { select: { repairRequiredChecks: true } } } },
+      },
     });
     if (!ours) continue;
 
@@ -614,14 +635,19 @@ async function handleWorkflowRunEvent(payload: Record<string, unknown>, integrat
     } catch {
       continue;
     }
-    // CI passing marks verified only. It never sets MERGED and never resolves
+    // CI passing plus configured target checks marks verified only. It never sets MERGED and never resolves
     // the incident; those follow solely from actual merged state via the
     // pull_request closed+merged webhook.
-    if (result.verified) {
-      await prisma.gitHubPullRequest.update({
-        where: { id: ours.id },
-        data: { verified: true },
-      });
-    }
+    const requiredChecks = ours.incident.invariant?.repairRequiredChecks ?? [];
+    const verified = result.verified && missingRequiredChecks(requiredChecks, result.checkRuns).length === 0;
+    await prisma.gitHubPullRequest.update({
+      where: { id: ours.id },
+      data: {
+        verified,
+        verificationHeadSha: result.headSha,
+        verificationChecks: result.checkRuns,
+        verifiedAt: verified ? new Date() : null,
+      },
+    });
   }
 }

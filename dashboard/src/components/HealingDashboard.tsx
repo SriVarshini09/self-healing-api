@@ -158,6 +158,8 @@ type GitHubPr = {
       conclusion: string | null;
       detailsUrl: string | null;
     }>;
+    requiredChecks?: string[];
+    missingChecks?: string[];
   };
 };
 type GitHubStatus = {
@@ -263,12 +265,13 @@ type InvariantMapping = {
   predicateExpression: string;
   repairRepository: string | null;
   repairFilePath: string | null;
+  repairRequiredChecks: string[];
   integration?: { name: string; type: string };
 };
 
 function RepairTargetPanel() {
   const [items, setItems] = useState<InvariantMapping[]>([]);
-  const [drafts, setDrafts] = useState<Record<string, { repository: string; filePath: string }>>({});
+  const [drafts, setDrafts] = useState<Record<string, { repository: string; filePath: string; requiredChecks: string }>>({});
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -281,6 +284,7 @@ function RepairTargetPanel() {
       setDrafts(Object.fromEntries((response.data ?? []).map(item => [item.id, {
         repository: item.repairRepository ?? '',
         filePath: item.repairFilePath ?? '',
+        requiredChecks: item.repairRequiredChecks?.join('\n') ?? '',
       }])));
       setMessage(null);
     } catch (error) {
@@ -295,7 +299,7 @@ function RepairTargetPanel() {
   }, []);
 
   const save = async (item: InvariantMapping) => {
-    const draft = drafts[item.id] ?? { repository: '', filePath: '' };
+    const draft = drafts[item.id] ?? { repository: '', filePath: '', requiredChecks: '' };
     const repository = draft.repository.trim();
     const filePath = draft.filePath.trim();
     if (Boolean(repository) !== Boolean(filePath)) {
@@ -311,6 +315,7 @@ function RepairTargetPanel() {
         body: JSON.stringify({
           repairRepository: repository || null,
           repairFilePath: filePath || null,
+          repairRequiredChecks: draft.requiredChecks.split(/[\r\n,]+/).map(check => check.trim()).filter(Boolean),
         }),
       });
       setItems(current => current.map(row => row.id === item.id ? { ...row, ...updated } : row));
@@ -341,7 +346,7 @@ function RepairTargetPanel() {
       {!loading && items.length > 0 && (
         <div className="divide-y divide-border">
           {items.map(item => {
-            const draft = drafts[item.id] ?? { repository: '', filePath: '' };
+            const draft = drafts[item.id] ?? { repository: '', filePath: '', requiredChecks: '' };
             return (
               <div key={item.id} className="space-y-2 px-4 py-3">
                 <div className="flex flex-wrap items-center gap-2">
@@ -351,13 +356,20 @@ function RepairTargetPanel() {
                   </span>
                 </div>
                 <p className="truncate font-mono text-[10px] text-muted-foreground">{item.predicateExpression}</p>
-                <div className="grid gap-2 md:grid-cols-[1fr_1.4fr_auto]">
+                <div className="grid gap-2 md:grid-cols-[1fr_1.4fr_1.1fr_auto]">
                   <input
                     value={draft.repository}
                     onChange={event => setDrafts(current => ({ ...current, [item.id]: { ...draft, repository: event.target.value } }))}
                     placeholder="owner/repository"
                     aria-label={`${item.name} GitHub repository`}
                     className="h-9 rounded border border-border bg-background px-2 font-mono text-xs outline-none placeholder:text-muted-foreground"
+                  />
+                  <input
+                    value={draft.requiredChecks}
+                    onChange={event => setDrafts(current => ({ ...current, [item.id]: { ...draft, requiredChecks: event.target.value } }))}
+                    placeholder="target-tests, lint (optional)"
+                    aria-label={`${item.name} required CI checks`}
+                    className="h-9 rounded border border-border bg-background px-2 text-xs outline-none placeholder:text-muted-foreground"
                   />
                   <input
                     value={draft.filePath}
@@ -1394,6 +1406,11 @@ export function HealingDashboard() {
                                 Proof evidence · {pr.proof.checksTotal} check{pr.proof.checksTotal === 1 ? '' : 's'} · {pr.proof.headSha.slice(0, 8)}
                               </summary>
                               <div className="mt-2 space-y-1">
+                                {pr.proof.requiredChecks?.length ? (
+                                  <p className={pr.proof.missingChecks?.length ? 'text-critical' : 'text-success'}>
+                                    Required target checks: {pr.proof.missingChecks?.length ? `missing ${pr.proof.missingChecks.join(', ')}` : 'all passed'}
+                                  </p>
+                                ) : null}
                                 {pr.proof.checkRuns.map((check, index) => (
                                   <div key={`${check.name}-${index}`} className="flex items-center justify-between gap-2">
                                     {check.detailsUrl ? (

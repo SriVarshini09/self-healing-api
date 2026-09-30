@@ -69,6 +69,7 @@ export async function invariantRoutes(app: FastifyInstance) {
       predicateExample?: string;
       repairRepository?: string | null;
       repairFilePath?: string | null;
+      repairRequiredChecks?: string[];
       evaluationWindowSec?: number;
       minSamples?: number;
       expectedSuccessRate?: number;
@@ -88,6 +89,8 @@ export async function invariantRoutes(app: FastifyInstance) {
     }
     const targetError = repairTargetError(data.repairRepository ?? null, data.repairFilePath ?? null);
     if (targetError) return reply.code(400).send({ error: 'Invalid repair target', details: targetError });
+    const requiredChecksError = repairRequiredChecksError(data.repairRequiredChecks);
+    if (requiredChecksError) return reply.code(400).send({ error: 'Invalid required checks', details: requiredChecksError });
 
     const result = await prisma.$transaction(async tx => {
       // Serialize creates for this tenant across backend processes so the
@@ -107,6 +110,7 @@ export async function invariantRoutes(app: FastifyInstance) {
           predicateExample: data.predicateExample,
           repairRepository: data.repairRepository ?? null,
           repairFilePath: data.repairFilePath ?? null,
+          repairRequiredChecks: normalizeRepairRequiredChecks(data.repairRequiredChecks),
           evaluationWindowSec: data.evaluationWindowSec ?? 300,
           minSamples: data.minSamples ?? 10,
           expectedSuccessRate: data.expectedSuccessRate ?? 0.99,
@@ -134,6 +138,7 @@ export async function invariantRoutes(app: FastifyInstance) {
       predicateExample: string;
       repairRepository: string | null;
       repairFilePath: string | null;
+      repairRequiredChecks: string[];
       evaluationWindowSec: number;
       minSamples: number;
       expectedSuccessRate: number;
@@ -146,6 +151,11 @@ export async function invariantRoutes(app: FastifyInstance) {
       data.repairFilePath === undefined ? existing.repairFilePath : data.repairFilePath,
     );
     if (targetError) return reply.code(400).send({ error: 'Invalid repair target', details: targetError });
+    const requestedChecks = data.repairRequiredChecks === undefined
+      ? existing.repairRequiredChecks
+      : data.repairRequiredChecks;
+    const requiredChecksError = repairRequiredChecksError(requestedChecks);
+    if (requiredChecksError) return reply.code(400).send({ error: 'Invalid required checks', details: requiredChecksError });
 
     if (data.predicateExpression) {
       try {
@@ -158,7 +168,12 @@ export async function invariantRoutes(app: FastifyInstance) {
       }
     }
 
-    const invariant = await prisma.invariant.update({ where: { id }, data });
+    const invariant = await prisma.invariant.update({
+      where: { id },
+      data: data.repairRequiredChecks === undefined
+        ? data
+        : { ...data, repairRequiredChecks: normalizeRepairRequiredChecks(data.repairRequiredChecks) },
+    });
     return reply.send(invariant);
   });
 
@@ -232,5 +247,21 @@ export function repairTargetError(repository: unknown, filePath: unknown): strin
   } catch (error) {
     return error instanceof Error ? error.message : 'invalid repairFilePath';
   }
+  return null;
+}
+
+function normalizeRepairRequiredChecks(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.filter((check): check is string => typeof check === 'string').map(check => check.trim()).filter(Boolean))];
+}
+
+export function repairRequiredChecksError(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  if (!Array.isArray(value)) return 'repairRequiredChecks must be an array of check names';
+  if (value.length > 20) return 'repairRequiredChecks cannot contain more than 20 checks';
+  if (value.some(check => typeof check !== 'string' || check.trim().length === 0 || check.trim().length > 200)) {
+    return 'each required check name must be a non-empty string of at most 200 characters';
+  }
+  if (normalizeRepairRequiredChecks(value).length !== value.length) return 'repairRequiredChecks must not contain duplicate names';
   return null;
 }

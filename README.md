@@ -186,6 +186,11 @@ Typechecks: `pnpm -r typecheck`. Builds verified: backend `tsc`, dashboard `tsc 
   running, or failing; the evidence is persisted and shown again when the
   dashboard reloads. Passing CI is evidence from the target repository, not a
   claim that SHAPI has proven the business outcome.
+- Invariants may set `repairRequiredChecks` to the exact GitHub check names
+  that represent the target application's tests. When configured, every named
+  check must complete successfully in addition to generic CI before a repair
+  becomes verified. The dashboard exposes this field beside the repository
+  and file mapping.
 - When `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, and a real GitHub App
   installation are configured, PR creation and CI verification use a short-lived
   installation token. The explicit `GITHUB_TOKEN` mode remains available for

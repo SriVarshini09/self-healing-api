@@ -30,6 +30,7 @@ interface FakeIncident {
   rootCause: string;
   suggestedFix: string;
   githubPrUrl?: string;
+  invariant?: { repairRequiredChecks: string[] } | null;
 }
 
 interface FakeCandidate {
@@ -353,6 +354,23 @@ describe('POST /github/prs/:prId/verify', () => {
     expect(incident('inc-1').status).toBe('REPAIRED');
     expect(incident('inc-1').status).not.toBe('RESOLVED');
     expect(incident('inc-1').resolvedAt).toBeNull();
+  });
+
+  it('requires configured target checks in addition to generic CI success', async () => {
+    db.incidents[0].invariant = { repairRequiredChecks: ['target-tests', 'business-regression'] };
+    verifyRepairPrMock.mockResolvedValue({
+      ...passingCi,
+      checksTotal: 1,
+      checkRuns: [passingCi.checkRuns[0]],
+    });
+
+    const res = await app.inject({ method: 'POST', url: '/github/prs/pr-1/verify' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { verified: boolean; proof: { missingChecks: string[] } };
+    expect(body.verified).toBe(false);
+    expect(body.proof.missingChecks).toEqual(['business-regression']);
+    expect(pr('pr-1').verified).toBe(false);
+    expect(pr('pr-1').verifiedAt).toBeNull();
   });
 
   it('failing CI marks unverified and leaves everything else alone', async () => {
