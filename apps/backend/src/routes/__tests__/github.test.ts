@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { createHmac } from 'node:crypto';
+import type { TenantRole } from '@prisma/client';
 import { githubRoutes } from '../github.js';
+import type { AuthenticatedRequest } from '../../utils/auth-context.js';
 
 // ---------------------------------------------------------------------------
 // In-memory Prisma substitute. Route handlers only touch
@@ -22,6 +24,10 @@ interface FakeIncident {
   status: string;
   resolvedAt: Date | null;
 }
+
+type FakePrWhere = { id?: string; prNumber?: number; repository?: string; status?: string };
+type FakePrUpdateArgs = { where: { id: string }; data: Partial<FakePr> };
+type FakeIncidentUpdateArgs = { where: { id: string }; data: Partial<Pick<FakeIncident, 'status' | 'resolvedAt'>> };
 
 const db = { prs: [] as FakePr[], incidents: [] as FakeIncident[] };
 
@@ -45,9 +51,9 @@ vi.mock('../../utils/prisma.js', () => ({
       }]),
     },
     gitHubPullRequest: {
-      findUnique: vi.fn(async ({ where }: any) => db.prs.find(p => p.id === where.id) ?? null),
-      findFirst: vi.fn(async ({ where }: any) => db.prs.find(p => matchesPr(p, where)) ?? null),
-      update: vi.fn(async ({ where, data }: any) => {
+      findUnique: vi.fn(async ({ where }: { where: { id: string } }) => db.prs.find(p => p.id === where.id) ?? null),
+      findFirst: vi.fn(async ({ where }: { where: FakePrWhere }) => db.prs.find(p => matchesPr(p, where)) ?? null),
+      update: vi.fn(async ({ where, data }: FakePrUpdateArgs) => {
         const pr = db.prs.find(p => p.id === where.id);
         if (!pr) throw new Error('PR not found');
         Object.assign(pr, data);
@@ -55,7 +61,7 @@ vi.mock('../../utils/prisma.js', () => ({
       }),
     },
     incident: {
-      update: vi.fn(async ({ where, data }: any) => {
+      update: vi.fn(async ({ where, data }: FakeIncidentUpdateArgs) => {
         const inc = db.incidents.find(i => i.id === where.id);
         if (!inc) throw new Error('Incident not found');
         Object.assign(inc, data);
@@ -93,7 +99,13 @@ beforeEach(async () => {
   process.env.GITHUB_WEBHOOK_SECRET_APP = 'test-secret';
   app = Fastify();
   app.addHook('onRequest', async request => {
-    (request as any).shapiAuth = { tenantId: 'tenant-local-dev' };
+    (request as AuthenticatedRequest).shapiAuth = {
+      id: 'test-key',
+      name: 'GitHub route test key',
+      tenantId: 'tenant-local-dev',
+      role: 'OWNER' as TenantRole,
+      permissions: ['*'],
+    };
   });
   await githubRoutes(app);
   await app.ready();
