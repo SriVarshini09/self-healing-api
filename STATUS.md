@@ -7,8 +7,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 - The local production Docker stack runs PostgreSQL, the backend, and the
   dashboard. On 2026-09-30, `/health`, `/ready`, and the dashboard returned 200.
-- GitHub Actions CI on `master` passed for commit `2e6ab99`:
-  [run 36770155567](https://github.com/SriVarshini09/self-healing-api/actions/runs/36770155567).
+- GitHub Actions CI on `master` passed for commit `87998cb`:
+  [run 36785136267](https://github.com/SriVarshini09/self-healing-api/actions/runs/36785136267).
   CI checks workspace types, backend lint, package/backend unit tests, backend
   and dashboard builds, and Prisma schema validation.
 - Webhook and SDK events feed behavioral invariants; drift detection and
@@ -21,6 +21,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   commit, checks exact edit preconditions, and writes resulting file contents.
   Human-readable diffs are never committed as file contents. PR verification
   checks GitHub CI and merge state separately.
+- Operators can request a read-only preview of a repair before opening its PR.
+  The preview validates the exact repair against a pinned Git base commit and
+  returns bounded before/after source excerpts without creating any GitHub
+  branch, file, or pull request.
 
 ## Not complete
 
@@ -32,8 +36,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 2. **Repository-aware repair workflow.** Invariants can now store an explicit
    `repairRepository` and `repairFilePath`, and a structured predicate edit
    is generated only for a mapped target. Existing invariants remain unmapped
-   until configured. Most other repair types are suggestions only. A read-only
-   patch preview and dashboard UI for editing the mapping are still missing.
+   until configured. Most other repair types are suggestions only. The API
+   supports a read-only patch preview, but dashboard controls for previewing
+   it and editing the mapping are still missing.
 3. **End-to-end repair proof.** Replay currently tests a user-entered event
    transformation; it does not execute a proposed code patch against the
    target application's tests. Passing replay is not yet a prerequisite for
@@ -47,8 +52,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Next engineering priority
 
-Add a read-only patch preview and a dashboard control for the invariant's
-repository-file mapping. Then gate PR creation on an explicit operator review
+Add dashboard controls for the invariant's repository-file mapping and the
+read-only patch preview. Then gate PR creation on an explicit operator review
 of the exact source and replacement, without claiming a replay-verified fix.
 
 ## Local checks
