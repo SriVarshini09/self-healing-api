@@ -325,4 +325,23 @@ describe('github-integration', () => {
       checks: 1,
     });
   });
+
+  it('does not verify a merged PR when GitHub reports no check runs', async () => {
+    const fake = {
+      rest: {
+        pulls: {
+          get: vi.fn(async () => ({ data: { merged: true, merged_at: 'now', state: 'closed', head: { sha: 'sha' } } })),
+        },
+        checks: {
+          listForRef: vi.fn(async () => ({ data: { total_count: 0, check_runs: [] } })),
+        },
+      },
+    };
+    await expect(verifyPullRequest('acme/demo', 42, 'token', fake as any)).resolves.toMatchObject({
+      verified: false,
+      merged: true,
+      ciPassed: false,
+      checks: 0,
+    });
+  });
 });

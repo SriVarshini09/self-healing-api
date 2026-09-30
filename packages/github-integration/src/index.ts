@@ -99,7 +99,9 @@ export async function verifyPullRequest(
   const failed = checks.check_runs.some(check =>
     check.status === 'completed' && !['success', 'skipped', 'neutral'].includes(check.conclusion ?? ''),
   );
-  const ciPassed = !failed && checks.check_runs.every(check => check.status === 'completed');
+  // A PR with no check runs has not been verified. Do not let Array.every's
+  // empty-list behavior turn missing CI evidence into a green result.
+  const ciPassed = checks.total_count > 0 && !failed && checks.check_runs.every(check => check.status === 'completed');
   const merged = Boolean(pull.merged_at) || pull.merged;
   return {
     verified: Boolean(merged && ciPassed),
