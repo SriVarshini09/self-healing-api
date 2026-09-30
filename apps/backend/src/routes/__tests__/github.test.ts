@@ -52,7 +52,10 @@ vi.mock('../../utils/prisma.js', () => ({
     },
     gitHubPullRequest: {
       findUnique: vi.fn(async ({ where }: { where: { id: string } }) => db.prs.find(p => p.id === where.id) ?? null),
-      findFirst: vi.fn(async ({ where }: { where: FakePrWhere }) => db.prs.find(p => matchesPr(p, where)) ?? null),
+      findFirst: vi.fn(async ({ where }: { where: FakePrWhere }) => {
+        const found = db.prs.find(p => matchesPr(p, where));
+        return found ? { ...found, incident: db.incidents.find(i => i.id === found.incidentId) } : null;
+      }),
       update: vi.fn(async ({ where, data }: FakePrUpdateArgs) => {
         const pr = db.prs.find(p => p.id === where.id);
         if (!pr) throw new Error('PR not found');
@@ -154,6 +157,24 @@ const failingCi = {
   checksTotal: 2,
 };
 
+const mergedPr = {
+  verified: true,
+  ciPassed: true,
+  merged: true,
+  closed: true,
+  headSha: 'abc123',
+  checksTotal: 2,
+};
+
+const closedPr = {
+  verified: false,
+  ciPassed: false,
+  merged: false,
+  closed: true,
+  headSha: 'abc123',
+  checksTotal: 2,
+};
+
 describe('POST /github/prs/:prId/verify', () => {
   it('passing CI marks verified without touching status or incident', async () => {
     verifyRepairPrMock.mockResolvedValue(passingCi);
@@ -187,6 +208,34 @@ describe('POST /github/prs/:prId/verify', () => {
 
     expect(pr('pr-1').verified).toBe(false);
     expect(pr('pr-1').status).toBe('OPEN');
+    expect(incident('inc-1').status).toBe('REPAIRED');
+    expect(incident('inc-1').resolvedAt).toBeNull();
+  });
+
+  it('merged GitHub state synchronizes PR and incident lifecycle', async () => {
+    verifyRepairPrMock.mockResolvedValue(mergedPr);
+
+    const res = await app.inject({ method: 'POST', url: '/github/prs/pr-1/verify' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { merged: boolean; closed: boolean; pr: FakePr };
+    expect(body.merged).toBe(true);
+    expect(body.closed).toBe(true);
+    expect(body.pr.status).toBe('MERGED');
+    expect(pr('pr-1').status).toBe('MERGED');
+    expect(incident('inc-1').status).toBe('RESOLVED');
+    expect(incident('inc-1').resolvedAt).not.toBeNull();
+  });
+
+  it('closed but unmerged GitHub state closes the PR without resolving the incident', async () => {
+    verifyRepairPrMock.mockResolvedValue(closedPr);
+
+    const res = await app.inject({ method: 'POST', url: '/github/prs/pr-1/verify' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { merged: boolean; closed: boolean; pr: FakePr };
+    expect(body.merged).toBe(false);
+    expect(body.closed).toBe(true);
+    expect(body.pr.status).toBe('CLOSED');
+    expect(pr('pr-1').status).toBe('CLOSED');
     expect(incident('inc-1').status).toBe('REPAIRED');
     expect(incident('inc-1').resolvedAt).toBeNull();
   });
@@ -289,7 +338,7 @@ describe('workflow_run webhook scoping', () => {
   });
 });
 
-describe('pull_request merge webhook (sole RESOLVED path)', () => {
+describe('pull_request merge webhook lifecycle path', () => {
   it('closed+merged sets PR MERGED, incident RESOLVED, resolvedAt', async () => {
     const res = await app.inject({
       method: 'POST',

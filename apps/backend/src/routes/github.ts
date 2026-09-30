@@ -293,9 +293,9 @@ export async function githubRoutes(app: FastifyInstance) {
     });
     if (!pr) return reply.code(404).send({ error: 'PR not found' });
 
-    // Real verification only: CI passing sets verified, never MERGED/RESOLVED.
-    // MERGED status and incident resolution happen exclusively from actual
-    // GitHub merged state (pull_request closed+merged webhook).
+    // Verification reads the actual GitHub state. CI passing marks the PR
+    // verified; a real merged/closed state also synchronizes local lifecycle
+    // state when webhook delivery is unavailable (for example, local token mode).
     const { verifyRepairPr } = await import('@shapi/github-integration');
     let result;
     try {
@@ -307,10 +307,22 @@ export async function githubRoutes(app: FastifyInstance) {
       return reply.code(502).send({ error: e instanceof Error ? e.message : 'GitHub verification failed' });
     }
 
+    const status = result.merged
+      ? GitHubPRStatus.MERGED
+      : result.closed
+        ? GitHubPRStatus.CLOSED
+        : pr.status;
     const updated = await prisma.gitHubPullRequest.update({
       where: { id: prId },
-      data: { verified: result.verified },
+      data: { verified: result.verified, status },
     });
+
+    if (result.merged && pr.incident.status !== IncidentStatus.RESOLVED) {
+      await prisma.incident.update({
+        where: { id: pr.incidentId },
+        data: { status: IncidentStatus.RESOLVED, resolvedAt: new Date() },
+      });
+    }
 
     return reply.send({ verified: result.verified, ciPassed: result.ciPassed, merged: result.merged, closed: result.closed, pr: updated });
   });
