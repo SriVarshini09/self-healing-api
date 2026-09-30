@@ -46,11 +46,18 @@ const prSchema = z.object({
   title: z.string().trim().min(1).max(256),
   body: z.string().max(100_000).optional(),
 }).strict();
+const prPreviewSchema = prSchema.pick({ installationId: true, repository: true, candidateId: true, base: true }).strict();
 
 const repairChangesSchema = z.array(z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('replace'), path: z.string().min(1).max(400), before: z.string().min(1), after: z.string() }).strict(),
-  z.object({ kind: z.literal('create'), path: z.string().min(1).max(400), content: z.string() }).strict(),
+  z.object({ kind: z.literal('replace'), path: z.string().min(1).max(400), before: z.string().min(1).max(100_000), after: z.string().max(100_000) }).strict(),
+  z.object({ kind: z.literal('create'), path: z.string().min(1).max(400), content: z.string().max(100_000) }).strict(),
 ])).min(1).max(50);
+
+function previewExcerpt(content: string, changeStart: number, changeLength: number) {
+  const from = Math.max(0, changeStart - 120);
+  const to = Math.min(content.length, changeStart + Math.min(changeLength, 4_000) + 120);
+  return { text: content.slice(from, to), truncated: from > 0 || to < content.length };
+}
 
 export async function githubRoutes(app: FastifyInstance) {
   app.post('/github/webhook', { config: { rawBody: true } }, async (request, reply) => {
@@ -208,6 +215,74 @@ export async function githubRoutes(app: FastifyInstance) {
       include: { installation: true },
     });
     return reply.send(prs);
+  });
+
+  app.post('/github/incidents/:incidentId/pr/preview', async (request, reply) => {
+    const tenantId = tenantIdFor(request);
+    const { incidentId } = (request.params ?? {}) as { incidentId: string };
+    const parsed = prPreviewSchema.safeParse(request.body ?? {});
+    if (!parsed.success) return reply.code(400).send({ error: 'Invalid repair preview payload', details: parsed.error.flatten() });
+    const { installationId, repository, candidateId, base } = parsed.data;
+
+    let installation = await prisma.gitHubInstallation.findFirst({
+      where: { id: installationId, integration: { tenantId } },
+    });
+    if (!installation && installationId === 'env-token-installation') {
+      const integration = await prisma.integration.findFirst({ where: { type: IntegrationType.GITHUB, tenantId } });
+      if (integration) installation = await ensureTokenInstallation(tenantId, integration.id);
+    }
+    if (!installation) return reply.code(404).send({ error: 'Installation not found' });
+
+    const incident = await prisma.incident.findUnique({
+      where: { id: incidentId, integration: { tenantId } },
+      include: { repairCandidates: { where: { id: candidateId }, take: 1 } },
+    });
+    if (!incident) return reply.code(404).send({ error: 'Incident not found' });
+    const candidate = incident.repairCandidates[0];
+    if (!candidate) return reply.code(404).send({ error: 'Repair candidate not found for this incident' });
+    const changes = repairChangesSchema.safeParse(candidate.changes);
+    if (!changes.success) return reply.code(409).send({ error: 'Selected repair candidate has no applicable file changes' });
+
+    const fullRepo = repository.includes('/') ? repository : `${installation.accountLogin}/${repository}`;
+    if (candidate.repository !== fullRepo) return reply.code(409).send({ error: 'Repair candidate is not mapped to the selected repository' });
+    if (!installation.repositories.includes(fullRepo)) return reply.code(403).send({ error: 'Repository is not included in this GitHub installation' });
+    const hasAppAuth = Boolean(
+      process.env.GITHUB_APP_ID && process.env.GITHUB_APP_PRIVATE_KEY && Number(installation.githubInstallationId) > 0,
+    );
+    if (!process.env.GITHUB_TOKEN && !hasAppAuth) {
+      return reply.code(503).send({ error: 'GitHub credentials are required to preview a real repository patch' });
+    }
+
+    const { previewRepairPrChanges, RepairChangeError } = await import('@shapi/github-integration');
+    try {
+      const preview = await previewRepairPrChanges({
+        repository: fullRepo,
+        ...(base ? { base } : {}),
+        changes: changes.data,
+      }, undefined, undefined, Number(installation.githubInstallationId));
+      return reply.send({
+        repository: fullRepo,
+        base: preview.base,
+        baseSha: preview.baseSha,
+        changes: preview.files.map((file, index) => {
+          const change = changes.data[index];
+          if (change.kind === 'create') {
+            return { path: file.path, kind: file.kind, before: null, after: previewExcerpt(file.content, 0, file.content.length) };
+          }
+          const original = file.original ?? '';
+          const offset = original.indexOf(change.before);
+          return {
+            path: file.path,
+            kind: file.kind,
+            before: previewExcerpt(original, offset, change.before.length),
+            after: previewExcerpt(file.content, offset, change.after.length),
+          };
+        }),
+      });
+    } catch (error) {
+      if (error instanceof RepairChangeError) return reply.code(409).send({ error: error.message });
+      return reply.code(502).send({ error: error instanceof Error ? error.message : 'GitHub preview failed' });
+    }
   });
 
   app.post('/github/incidents/:incidentId/pr', async (request, reply) => {

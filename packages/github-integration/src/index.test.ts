@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import crypto from 'crypto';
-import { verifyWebhookSignature, buildPrBody, shouldAutoMerge, openRepairPr, openRepairPrFromChanges, verifyPullRequest, verifyRepairPr, hasGitHubAppCredentials } from './index.js';
+import { verifyWebhookSignature, buildPrBody, shouldAutoMerge, openRepairPr, openRepairPrFromChanges, previewRepairPrChanges, verifyPullRequest, verifyRepairPr, hasGitHubAppCredentials } from './index.js';
 
 afterEach(() => {
   delete process.env.GITHUB_TOKEN;
@@ -79,6 +79,34 @@ describe('github-integration', () => {
     const write = fake.rest.repos.createOrUpdateFileContents.mock.calls[0][0] as { content: string; sha: string };
     expect(Buffer.from(write.content, 'base64').toString('utf8')).toBe('export const retry = 3;\n');
     expect(write.sha).toBe('file-sha');
+  });
+
+  it('previews an applicable patch without creating a branch, file, or PR', async () => {
+    const fake = {
+      rest: {
+        repos: {
+          get: vi.fn(async () => ({ data: { default_branch: 'main' } })),
+          getContent: vi.fn(async () => ({ data: { type: 'file', encoding: 'base64', content: Buffer.from('const mode = "old";\n').toString('base64') } })),
+          createOrUpdateFileContents: vi.fn(),
+        },
+        git: {
+          getRef: vi.fn(async () => ({ data: { object: { sha: 'base-sha' } } })),
+          createRef: vi.fn(),
+        },
+        pulls: { create: vi.fn() },
+      },
+    };
+    const result = await previewRepairPrChanges({
+      repository: 'acme/demo',
+      changes: [{ kind: 'replace', path: 'src/mode.ts', before: '"old"', after: '"new"' }],
+    }, 'fake-token', fake as any);
+    expect(result).toEqual({
+      base: 'main', baseSha: 'base-sha',
+      files: [{ path: 'src/mode.ts', kind: 'replace', original: 'const mode = "old";\n', content: 'const mode = "new";\n' }],
+    });
+    expect(fake.rest.git.createRef).not.toHaveBeenCalled();
+    expect(fake.rest.repos.createOrUpdateFileContents).not.toHaveBeenCalled();
+    expect(fake.rest.pulls.create).not.toHaveBeenCalled();
   });
 
   it('rejects an inapplicable change before creating a branch', async () => {

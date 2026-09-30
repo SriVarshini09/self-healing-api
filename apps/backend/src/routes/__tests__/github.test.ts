@@ -112,10 +112,12 @@ vi.mock('../../utils/prisma.js', () => ({
 
 const verifyRepairPrMock = vi.fn();
 const openRepairPrFromChangesMock = vi.fn();
+const previewRepairPrChangesMock = vi.fn();
 
 vi.mock('@shapi/github-integration', () => ({
   verifyRepairPr: (...args: unknown[]) => verifyRepairPrMock(...args),
   openRepairPrFromChanges: (...args: unknown[]) => openRepairPrFromChangesMock(...args),
+  previewRepairPrChanges: (...args: unknown[]) => previewRepairPrChangesMock(...args),
   openRepairPr: vi.fn(),
   buildRepairBranch: vi.fn((id: string) => `shapi/fix-${id.slice(0, 8)}`),
   buildPrBody: vi.fn(() => 'Generated PR body'),
@@ -140,6 +142,7 @@ beforeEach(async () => {
   seedDb();
   verifyRepairPrMock.mockReset();
   openRepairPrFromChangesMock.mockReset();
+  previewRepairPrChangesMock.mockReset();
   process.env.GITHUB_WEBHOOK_SECRET_APP = 'test-secret';
   process.env.GITHUB_TOKEN = 'test-token';
   app = Fastify();
@@ -220,6 +223,28 @@ const closedPr = {
 
 const candidateA = '11111111-1111-4111-8111-111111111111';
 const candidateB = '22222222-2222-4222-8222-222222222222';
+
+describe('POST /github/incidents/:incidentId/pr/preview', () => {
+  it('returns bounded source and result excerpts without opening a PR', async () => {
+    const changes = [{ kind: 'replace', path: 'src/selected.ts', before: 'old', after: 'new' }];
+    db.candidates = [{ id: candidateB, incidentId: 'inc-1', description: 'Selected', diff: null, confidence: 0.7, changes, repository: 'acme/demo' }];
+    previewRepairPrChangesMock.mockResolvedValue({
+      base: 'master', baseSha: 'base-sha',
+      files: [{ path: 'src/selected.ts', kind: 'replace', original: 'const value = old;\n', content: 'const value = new;\n' }],
+    });
+    const res = await app.inject({
+      method: 'POST', url: '/github/incidents/inc-1/pr/preview',
+      payload: { installationId: 'install-1', repository: 'acme/demo', candidateId: candidateB },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      repository: 'acme/demo', base: 'master', baseSha: 'base-sha',
+      changes: [{ path: 'src/selected.ts', before: { text: 'const value = old;\n' }, after: { text: 'const value = new;\n' } }],
+    });
+    expect(openRepairPrFromChangesMock).not.toHaveBeenCalled();
+    expect(db.prs).toHaveLength(2);
+  });
+});
 
 describe('POST /github/incidents/:incidentId/pr', () => {
   const payload = { installationId: 'install-1', repository: 'acme/demo', candidateId: candidateB, title: 'Repair' };

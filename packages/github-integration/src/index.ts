@@ -226,13 +226,19 @@ export async function openRepairPr(
   return { prNumber: pr.number, prUrl: pr.html_url, real: true };
 }
 
-/** Resolve an exact stored change set against the target repository before opening a PR. */
-export async function openRepairPrFromChanges(
-  opts: Omit<OpenRepairPrOptions, 'files'> & { changes: RepairChange[] },
+export interface RepairChangePreview {
+  base: string;
+  baseSha: string;
+  files: Array<{ path: string; kind: RepairChange['kind']; original: string | null; content: string }>;
+}
+
+/** Read and validate stored changes against one pinned base commit, without writing to GitHub. */
+export async function previewRepairPrChanges(
+  opts: { repository: string; base?: string; changes: RepairChange[] },
   token?: string,
   client?: Pick<Octokit, 'rest'>,
   installationId?: InstallationId,
-): Promise<OpenRepairPrResult> {
+): Promise<RepairChangePreview> {
   validateRepairChanges(opts.changes);
   const octokit = client ?? createGitHubClient(token, installationId);
   if (!octokit) throw new Error('GitHub credentials are required to apply repair changes');
@@ -263,16 +269,41 @@ export async function openRepairPrFromChanges(
   }
 
   const updated = applyRepairChanges(originals, opts.changes);
-  const files = opts.changes.map(change => ({ path: change.path, content: updated[change.path] }));
+  return {
+    base,
+    baseSha,
+    files: opts.changes.map(change => ({
+      path: change.path,
+      kind: change.kind,
+      original: originals[change.path] ?? null,
+      content: updated[change.path],
+    })),
+  };
+}
+
+/** Resolve an exact stored change set against the target repository before opening a PR. */
+export async function openRepairPrFromChanges(
+  opts: Omit<OpenRepairPrOptions, 'files'> & { changes: RepairChange[] },
+  token?: string,
+  client?: Pick<Octokit, 'rest'>,
+  installationId?: InstallationId,
+): Promise<OpenRepairPrResult> {
+  const octokit = client ?? createGitHubClient(token, installationId);
+  if (!octokit) throw new Error('GitHub credentials are required to apply repair changes');
+  const preview = await previewRepairPrChanges({
+    repository: opts.repository,
+    ...(opts.base ? { base: opts.base } : {}),
+    changes: opts.changes,
+  }, token, octokit, installationId);
   return openRepairPr({
     repository: opts.repository,
     title: opts.title,
     body: opts.body,
     branch: opts.branch,
-    base,
-    baseSha,
+    base: preview.base,
+    baseSha: preview.baseSha,
     allowExistingBranch: false,
-    files,
+    files: preview.files.map(file => ({ path: file.path, content: file.content })),
   }, token, octokit, installationId);
 }
 

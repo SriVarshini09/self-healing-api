@@ -128,7 +128,7 @@ browser session instead.
 - `GET/POST /invariants`, `GET/PATCH/DELETE /invariants/:id`, `POST /invariants/:id/evaluate`, `GET /invariants/:id/evaluations`
 - `GET /incidents`, `GET/PATCH /incidents/:id`, `GET /incidents/:id/timeline`, `POST /incidents/:id/diagnose`, `POST /incidents/:id/replay`
 - `GET/PATCH /drift/config/:integrationId`, `GET /drift/results`, `POST /drift/check/:invariantId`, `GET /drift/summary`
-- `POST /github/webhook`, GitHub status/installations, incident PRs, PR verify
+- `POST /github/webhook`, GitHub status/installations, `POST /github/incidents/:id/pr/preview`, incident PRs, PR verify
 - `POST /sdk/track`, `GET /sdk/events`
 - `GET/POST /api-keys`, `DELETE /api-keys/:id`, `POST /bootstrap/tenant`
 
@@ -175,6 +175,10 @@ Typechecks: `pnpm -r typecheck`. Builds verified: backend `tsc`, dashboard `tsc 
   must contain the current predicate text exactly once. Existing unmapped
   invariants continue to produce manual-review suggestions; SHAPI never
   guesses a repository file path.
+- `POST /github/incidents/:id/pr/preview` performs no writes. It returns the
+  repository base SHA plus bounded source/result excerpts only after the
+  candidate applies cleanly at that pinned revision. Opening the actual PR
+  independently repeats the validation to protect against repository changes.
 - When `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, and a real GitHub App
   installation are configured, PR creation and CI verification use a short-lived
   installation token. The explicit `GITHUB_TOKEN` mode remains available for
