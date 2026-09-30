@@ -323,6 +323,10 @@ describe('github-integration', () => {
       closed: false,
       headSha: 'abc123',
       checksTotal: 2,
+      checkRuns: [
+        { name: 'unnamed check', status: 'completed', conclusion: 'success', detailsUrl: null },
+        { name: 'unnamed check', status: 'completed', conclusion: 'success', detailsUrl: null },
+      ],
     });
     expect(fake.rest.checks.listForRef).toHaveBeenCalledWith(
       expect.objectContaining({ ref: 'abc123' }),
@@ -407,6 +411,7 @@ describe('github-integration', () => {
       closed: false,
       headSha: 'abc123',
       checksTotal: 0,
+      checkRuns: [],
     });
   });
 
@@ -463,6 +468,7 @@ describe('github-integration', () => {
       closed: true,
       headSha: 'def456',
       checksTotal: 0,
+      checkRuns: [],
     });
   });
 

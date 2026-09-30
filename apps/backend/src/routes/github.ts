@@ -480,7 +480,18 @@ export async function githubRoutes(app: FastifyInstance) {
       });
     }
 
-    return reply.send({ verified: result.verified, ciPassed: result.ciPassed, merged: result.merged, closed: result.closed, pr: updated });
+    return reply.send({
+      verified: result.verified,
+      ciPassed: result.ciPassed,
+      merged: result.merged,
+      closed: result.closed,
+      proof: {
+        headSha: result.headSha,
+        checksTotal: result.checksTotal,
+        checkRuns: result.checkRuns,
+      },
+      pr: updated,
+    });
   });
 }
 

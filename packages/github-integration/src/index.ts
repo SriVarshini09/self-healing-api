@@ -327,6 +327,13 @@ export interface VerifyRepairPrResult {
   headSha: string;
   /** number of check runs evaluated for the head SHA */
   checksTotal: number;
+  /** evidence used to determine CI status */
+  checkRuns: Array<{
+    name: string;
+    status: string | null;
+    conclusion: string | null;
+    detailsUrl: string | null;
+  }>;
 }
 
 /**
@@ -355,7 +362,12 @@ export async function verifyRepairPr(
   // Check-runs are paginated: a later page may contain the failure, so every
   // page must be evaluated. Any retrieval error throws (fail closed).
   // A short page terminates the loop.
-  const runs: Array<{ status: string | null; conclusion: string | null }> = [];
+  const runs: Array<{
+    name: string;
+    status: string | null;
+    conclusion: string | null;
+    detailsUrl: string | null;
+  }> = [];
   const PAGE_SIZE = 100;
   for (let page = 1; ; page += 1) {
     const { data: checks } = await octokit.rest.checks.listForRef({
@@ -365,12 +377,16 @@ export async function verifyRepairPr(
       per_page: PAGE_SIZE,
       page,
     });
-    const batch: Array<{ status: string | null; conclusion: string | null }> =
-      checks.check_runs ?? [];
+    const batch = (checks.check_runs ?? []).map(check => ({
+      name: typeof check.name === 'string' ? check.name : 'unnamed check',
+      status: check.status ?? null,
+      conclusion: check.conclusion ?? null,
+      detailsUrl: typeof check.html_url === 'string' ? check.html_url : null,
+    }));
     runs.push(...batch);
     if (batch.length < PAGE_SIZE) break;
   }
   const ciPassed = runs.length > 0 && runs.every(r => r.status === 'completed' && r.conclusion === 'success');
 
-  return { verified: ciPassed, ciPassed, merged, closed, headSha, checksTotal: runs.length };
+  return { verified: ciPassed, ciPassed, merged, closed, headSha, checksTotal: runs.length, checkRuns: runs };
 }

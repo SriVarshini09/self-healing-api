@@ -149,6 +149,16 @@ type GitHubPr = {
   status: string;
   verified: boolean;
   createdAt: string;
+  proof?: {
+    headSha: string;
+    checksTotal: number;
+    checkRuns: Array<{
+      name: string;
+      status: string | null;
+      conclusion: string | null;
+      detailsUrl: string | null;
+    }>;
+  };
 };
 type GitHubStatus = {
   mode: 'app' | 'token' | 'simulated' | 'unconfigured';
@@ -636,6 +646,7 @@ export function HealingDashboard() {
         merged: boolean;
         closed: boolean;
         pr: GitHubPr;
+        proof: GitHubPr['proof'];
       }>(`github/prs/${pr.id}/verify`, { method: 'POST' });
       setGithubPrs(current =>
         current.map(item =>
@@ -645,6 +656,7 @@ export function HealingDashboard() {
                 ...result.pr,
                 status: result.merged ? 'MERGED' : result.closed ? 'CLOSED' : result.pr.status,
                 verified: result.verified,
+                proof: result.proof,
               }
             : item
         )
@@ -1376,6 +1388,27 @@ export function HealingDashboard() {
                               {githubPrVerifyBusy === pr.id ? 'Checking…' : 'Verify'}
                             </Button>
                           </div>
+                          {pr.proof && (
+                            <details className="mt-2 rounded border border-border bg-secondary/20 p-2 text-[10px]">
+                              <summary className="cursor-pointer font-mono text-muted-foreground">
+                                Proof evidence · {pr.proof.checksTotal} check{pr.proof.checksTotal === 1 ? '' : 's'} · {pr.proof.headSha.slice(0, 8)}
+                              </summary>
+                              <div className="mt-2 space-y-1">
+                                {pr.proof.checkRuns.map((check, index) => (
+                                  <div key={`${check.name}-${index}`} className="flex items-center justify-between gap-2">
+                                    {check.detailsUrl ? (
+                                      <a href={check.detailsUrl} target="_blank" rel="noreferrer" className="truncate text-primary hover:underline">
+                                        {check.name}
+                                      </a>
+                                    ) : <span className="truncate">{check.name}</span>}
+                                    <span className={check.conclusion === 'success' ? 'text-success' : 'text-critical'}>
+                                      {check.status}/{check.conclusion ?? 'pending'}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </details>
+                          )}
                         </div>
                       ))}
                     </div>
