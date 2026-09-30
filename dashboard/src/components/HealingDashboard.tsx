@@ -246,6 +246,129 @@ function Sparkline({ values }: { values: number[] }) {
   );
 }
 
+type InvariantMapping = {
+  id: string;
+  name: string;
+  status: string;
+  predicateExpression: string;
+  repairRepository: string | null;
+  repairFilePath: string | null;
+  integration?: { name: string; type: string };
+};
+
+function RepairTargetPanel() {
+  const [items, setItems] = useState<InvariantMapping[]>([]);
+  const [drafts, setDrafts] = useState<Record<string, { repository: string; filePath: string }>>({});
+  const [loading, setLoading] = useState(true);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const response = await fetchShapi<{ data: InvariantMapping[] }>('invariants?pageSize=100');
+      setItems(response.data ?? []);
+      setDrafts(Object.fromEntries((response.data ?? []).map(item => [item.id, {
+        repository: item.repairRepository ?? '',
+        filePath: item.repairFilePath ?? '',
+      }])));
+      setMessage(null);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not load invariants');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const save = async (item: InvariantMapping) => {
+    const draft = drafts[item.id] ?? { repository: '', filePath: '' };
+    const repository = draft.repository.trim();
+    const filePath = draft.filePath.trim();
+    if (Boolean(repository) !== Boolean(filePath)) {
+      setMessage('Repository and file path must be set together, or both cleared.');
+      return;
+    }
+    setSavingId(item.id);
+    setMessage(null);
+    try {
+      const updated = await fetchShapi<InvariantMapping>(`invariants/${item.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          repairRepository: repository || null,
+          repairFilePath: filePath || null,
+        }),
+      });
+      setItems(current => current.map(row => row.id === item.id ? { ...row, ...updated } : row));
+      setMessage(`${item.name} repair target saved.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not save repair target');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  return (
+    <section id="repair-targets" className="mt-4 rounded-md border border-border bg-card">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+        <div>
+          <h2 className="text-sm font-semibold">Repair targets</h2>
+          <p className="text-[11px] text-muted-foreground">
+            Map an invariant to the exact GitHub file where a safe predicate repair may be proposed.
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
+          {loading ? 'Loading…' : 'Refresh'}
+        </Button>
+      </div>
+      {message && <p className="border-b border-border px-4 py-2 text-xs text-muted-foreground">{message}</p>}
+      {loading && <p className="px-4 py-5 text-xs text-muted-foreground">Loading invariants…</p>}
+      {!loading && items.length === 0 && <p className="px-4 py-5 text-xs text-muted-foreground">No invariants configured yet.</p>}
+      {!loading && items.length > 0 && (
+        <div className="divide-y divide-border">
+          {items.map(item => {
+            const draft = drafts[item.id] ?? { repository: '', filePath: '' };
+            return (
+              <div key={item.id} className="space-y-2 px-4 py-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-medium">{item.name}</span>
+                  <span className="font-mono text-[10px] text-muted-foreground">
+                    {item.integration?.name ?? 'integration'} · {item.status}
+                  </span>
+                </div>
+                <p className="truncate font-mono text-[10px] text-muted-foreground">{item.predicateExpression}</p>
+                <div className="grid gap-2 md:grid-cols-[1fr_1.4fr_auto]">
+                  <input
+                    value={draft.repository}
+                    onChange={event => setDrafts(current => ({ ...current, [item.id]: { ...draft, repository: event.target.value } }))}
+                    placeholder="owner/repository"
+                    aria-label={`${item.name} GitHub repository`}
+                    className="h-9 rounded border border-border bg-background px-2 font-mono text-xs outline-none placeholder:text-muted-foreground"
+                  />
+                  <input
+                    value={draft.filePath}
+                    onChange={event => setDrafts(current => ({ ...current, [item.id]: { ...draft, filePath: event.target.value } }))}
+                    placeholder="src/invariants/payments.ts"
+                    aria-label={`${item.name} repair file path`}
+                    className="h-9 rounded border border-border bg-background px-2 font-mono text-xs outline-none placeholder:text-muted-foreground"
+                  />
+                  <Button size="sm" onClick={() => void save(item)} disabled={savingId === item.id}>
+                    {savingId === item.id ? 'Saving…' : 'Save target'}
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function HealingDashboard() {
   const [liveRequests, setLiveRequests] = useState(2174);
   const [paused, setPaused] = useState(false);
@@ -710,6 +833,10 @@ export function HealingDashboard() {
               {healingActionCount}
             </span>
           </a>
+          <a className="nav-item" href="#repair-targets">
+            <Settings2 />
+            Repair targets
+          </a>
           <a className="nav-item" href="#incidents">
             <Network />
             Service events
@@ -1074,6 +1201,9 @@ export function HealingDashboard() {
             </div>
           </section>
         </section>
+        <div className="mx-auto max-w-[1600px] px-4 pb-12 md:px-5">
+          <RepairTargetPanel />
+        </div>
       </div>
       {commandOpen && (
         <div
