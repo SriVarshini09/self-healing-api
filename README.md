@@ -163,8 +163,13 @@ Typechecks: `pnpm -r typecheck`. Builds verified: backend `tsc`, dashboard `tsc 
   store the SendGrid public key in integration config as `sendgridPublicKey`.
 - Twilio webhooks use `X-Twilio-Signature` HMAC verification over the configured
   public webhook URL and sorted request parameters.
-- Repair PRs use real Octokit (`openRepairPr`: branch from main → commit files →
-  open PR) whenever `GITHUB_TOKEN` is set, and a simulated PR otherwise.
+- Repair PRs use real Octokit (`openRepairPr`: branch from the repository default
+  branch → commit files → open PR) whenever App or token credentials are set,
+  and a simulated PR otherwise.
+- When `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, and a real GitHub App
+  installation are configured, PR creation and CI verification use a short-lived
+  installation token. The explicit `GITHUB_TOKEN` mode remains available for
+  local/operator deployments and synthetic token installations.
 - If a GitHub App is unavailable, local/operator mode can use `GITHUB_TOKEN`
   together with `GITHUB_ACCOUNT_LOGIN` and an explicit comma-separated
   `GITHUB_REPOSITORIES` allow-list. This mode never infers repository access
@@ -204,9 +209,12 @@ Typechecks: `pnpm -r typecheck`. Builds verified: backend `tsc`, dashboard `tsc 
   Without it, `test`-signature traffic uses test mode (local simulate only).
 - GitHub: set `GITHUB_TOKEN` and create a repair PR against a real repo to
   exercise the Octokit path (`openRepairPr`). Without it, PRs are simulated.
-- GitHub App webhooks: set `GITHUB_WEBHOOK_SECRET_APP` and, when more than one
-  GitHub integration exists, set `GITHUB_APP_INTEGRATION_ID` so installation and
-  PR events cannot be assigned across tenants.
+- GitHub App webhooks: set `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`,
+  `GITHUB_WEBHOOK_SECRET_APP` and, when more than one GitHub integration exists,
+  set `GITHUB_APP_INTEGRATION_ID` so installation and PR events cannot be
+  assigned across tenants. Install the App on the target repository and grant
+  Contents read/write, Pull requests read/write, Checks read-only, and Metadata
+  read-only permissions.
 - Multi-tenant predicates: add per-tenant predicate quotas and isolate recycling
   around the existing `isolated-vm` runtime.
 - Auth: rotate `SHAPI_API_KEY` per environment; set `VITE_SHAPI_API_KEY` to match.

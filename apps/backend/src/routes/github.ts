@@ -179,11 +179,17 @@ export async function githubRoutes(app: FastifyInstance) {
     });
     if (!incident) return reply.code(404).send({ error: 'Incident not found' });
 
-    if (process.env.NODE_ENV === 'production' && !process.env.GITHUB_TOKEN) {
-      return reply.code(503).send({ error: 'GITHUB_TOKEN is required to create real repair PRs in production' });
+    const hasAppAuth = Boolean(
+      process.env.GITHUB_APP_ID &&
+      process.env.GITHUB_APP_PRIVATE_KEY &&
+      Number(installation.githubInstallationId) > 0,
+    );
+    if (process.env.NODE_ENV === 'production' && !process.env.GITHUB_TOKEN && !hasAppAuth) {
+      return reply.code(503).send({ error: 'GitHub token or App installation credentials are required to create real repair PRs' });
     }
 
-    // Real PR via Octokit when GITHUB_TOKEN is set, else simulated (local demo).
+    // Real PR via App installation credentials or GITHUB_TOKEN; otherwise
+    // local development can still receive a simulated PR.
     const { openRepairPr, buildRepairBranch, buildPrBody } = await import('@shapi/github-integration');
     const branch = branchName || buildRepairBranch(incidentId);
     const top = incident?.repairCandidates?.[0];
@@ -211,7 +217,7 @@ export async function githubRoutes(app: FastifyInstance) {
         path: f,
         content: top?.diff ?? `// SHAPI repair for incident ${incidentId}\n// ${top?.description ?? title}\n`,
       })),
-    });
+    }, undefined, undefined, Number(installation.githubInstallationId));
     const { prNumber, prUrl } = opened;
 
     const pr = await prisma.gitHubPullRequest.create({
@@ -241,7 +247,10 @@ export async function githubRoutes(app: FastifyInstance) {
     const { verifyRepairPr } = await import('@shapi/github-integration');
     let result;
     try {
-      result = await verifyRepairPr(pr.repository, pr.prNumber);
+      const installationId = Number(pr.installation?.githubInstallationId);
+      result = Number.isSafeInteger(installationId) && installationId > 0
+        ? await verifyRepairPr(pr.repository, pr.prNumber, undefined, undefined, installationId)
+        : await verifyRepairPr(pr.repository, pr.prNumber);
     } catch (e) {
       return reply.code(502).send({ error: e instanceof Error ? e.message : 'GitHub verification failed' });
     }
@@ -346,12 +355,16 @@ async function handleWorkflowRunEvent(payload: Record<string, unknown>, integrat
     if (!prNumber) continue;
     const ours = await prisma.gitHubPullRequest.findFirst({
       where: { prNumber, repository: repoFullName, status: GitHubPRStatus.OPEN, installation: { integrationId } },
+      include: { installation: true },
     });
     if (!ours) continue;
 
     let result;
     try {
-      result = await verifyRepairPr(repoFullName, prNumber);
+      const installationId = Number(ours.installation?.githubInstallationId);
+      result = Number.isSafeInteger(installationId) && installationId > 0
+        ? await verifyRepairPr(repoFullName, prNumber, undefined, undefined, installationId)
+        : await verifyRepairPr(repoFullName, prNumber);
     } catch {
       continue;
     }

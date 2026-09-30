@@ -1,9 +1,21 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import crypto from 'crypto';
-import { verifyWebhookSignature, buildPrBody, shouldAutoMerge, openRepairPr, verifyPullRequest, verifyRepairPr } from './index.js';
+import { verifyWebhookSignature, buildPrBody, shouldAutoMerge, openRepairPr, verifyPullRequest, verifyRepairPr, hasGitHubAppCredentials } from './index.js';
 
 afterEach(() => {
   delete process.env.GITHUB_TOKEN;
+  delete process.env.GITHUB_APP_ID;
+  delete process.env.GITHUB_APP_PRIVATE_KEY;
+});
+
+describe('GitHub App authentication configuration', () => {
+  it('requires a positive installation id and both App credentials', () => {
+    process.env.GITHUB_APP_ID = '12345';
+    process.env.GITHUB_APP_PRIVATE_KEY = 'private-key';
+    expect(hasGitHubAppCredentials(9876)).toBe(true);
+    expect(hasGitHubAppCredentials(-1)).toBe(false);
+    expect(hasGitHubAppCredentials()).toBe(false);
+  });
 });
 
 describe('github-integration', () => {
@@ -274,7 +286,7 @@ describe('github-integration', () => {
 
   it('verifyRepairPr throws without token or client', async () => {
     delete process.env.GITHUB_TOKEN;
-    await expect(verifyRepairPr('acme/demo', 1)).rejects.toThrow('GITHUB_TOKEN is not configured');
+    await expect(verifyRepairPr('acme/demo', 1)).rejects.toThrow('GitHub token or App installation credentials are required');
   });
 
   it('verifyRepairPr reports merged state from GitHub, not CI', async () => {

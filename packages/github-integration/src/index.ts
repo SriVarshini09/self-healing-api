@@ -1,6 +1,41 @@
 // @shapi/github-integration - verified PR workflow helpers
 import crypto from 'crypto';
+import { createAppAuth } from '@octokit/auth-app';
 import { Octokit } from '@octokit/rest';
+
+type InstallationId = number | string;
+
+function normalizedPrivateKey(value: string): string {
+  return value.replace(/\\n/g, '\n');
+}
+
+export function hasGitHubAppCredentials(installationId?: InstallationId): boolean {
+  const appId = process.env.GITHUB_APP_ID;
+  const privateKey = process.env.GITHUB_APP_PRIVATE_KEY;
+  const numericInstallationId = Number(installationId);
+  return Boolean(appId && privateKey && Number.isSafeInteger(numericInstallationId) && numericInstallationId > 0);
+}
+
+function createGitHubClient(
+  token?: string,
+  installationId?: InstallationId,
+): Pick<Octokit, 'rest'> | null {
+  if (token) return new Octokit({ auth: token });
+
+  if (hasGitHubAppCredentials(installationId)) {
+    return new Octokit({
+      authStrategy: createAppAuth,
+      auth: {
+        appId: process.env.GITHUB_APP_ID!,
+        privateKey: normalizedPrivateKey(process.env.GITHUB_APP_PRIVATE_KEY!),
+        installationId: Number(installationId),
+      },
+    });
+  }
+
+  if (process.env.GITHUB_TOKEN) return new Octokit({ auth: process.env.GITHUB_TOKEN });
+  return null;
+}
 
 export function verifyWebhookSignature(secret: string, rawBody: string, signature: string): boolean {
   try {
@@ -83,10 +118,10 @@ export async function verifyPullRequest(
   prNumber: number,
   token?: string,
   client?: Pick<Octokit, 'rest'>,
+  installationId?: InstallationId,
 ): Promise<PullRequestVerificationResult> {
-  const auth = token ?? process.env.GITHUB_TOKEN;
-  if (!auth && !client) throw new Error('GITHUB_TOKEN is required for real PR verification');
-  const octokit = client ?? (new Octokit({ auth }) as Pick<Octokit, 'rest'>);
+  const octokit = client ?? createGitHubClient(token, installationId);
+  if (!octokit) throw new Error('GitHub token or App installation credentials are required for real PR verification');
   const [owner, repo] = repository.split('/');
   if (!owner || !repo) throw new Error(`Invalid repository "${repository}" (want owner/repo)`);
 
@@ -121,14 +156,14 @@ export async function openRepairPr(
   opts: OpenRepairPrOptions,
   token?: string,
   client?: Pick<Octokit, 'rest'>,
+  installationId?: InstallationId,
 ): Promise<OpenRepairPrResult> {
-  const auth = token ?? process.env.GITHUB_TOKEN;
-  if (!auth && !client) {
+  const octokit = client ?? createGitHubClient(token, installationId);
+  if (!octokit) {
     const prNumber = Math.floor(Math.random() * 10000) + 1;
     return { prNumber, prUrl: `https://github.com/${opts.repository}/pull/${prNumber}`, real: false };
   }
 
-  const octokit = client ?? (new Octokit({ auth }) as Pick<Octokit, 'rest'>);
   const [owner, repo] = opts.repository.split('/');
   if (!owner || !repo) throw new Error(`Invalid repository "${opts.repository}" (want owner/repo)`);
   // Never assume 'main': discover the repository's actual default branch
@@ -209,13 +244,10 @@ export async function verifyRepairPr(
   prNumber: number,
   token?: string,
   client?: Pick<Octokit, 'rest'>,
+  installationId?: InstallationId,
 ): Promise<VerifyRepairPrResult> {
-  const auth = token ?? process.env.GITHUB_TOKEN;
-  if (!auth && !client) {
-    throw new Error('GITHUB_TOKEN is not configured');
-  }
-
-  const octokit = client ?? (new Octokit({ auth }) as Pick<Octokit, 'rest'>);
+  const octokit = client ?? createGitHubClient(token, installationId);
+  if (!octokit) throw new Error('GitHub token or App installation credentials are required');
   const [owner, repo] = repository.split('/');
   if (!owner || !repo) throw new Error(`Invalid repository "${repository}" (want owner/repo)`);
 
