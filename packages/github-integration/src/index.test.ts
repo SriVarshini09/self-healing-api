@@ -109,6 +109,28 @@ describe('github-integration', () => {
     expect(fake.rest.pulls.create).not.toHaveBeenCalled();
   });
 
+  it('rejects a reviewed patch when the target branch has advanced', async () => {
+    const fake = {
+      rest: {
+        repos: {
+          get: vi.fn(async () => ({ data: { default_branch: 'main' } })),
+          getContent: vi.fn(),
+        },
+        git: {
+          getRef: vi.fn(async () => ({ data: { object: { sha: 'newer-sha' } } })),
+          createRef: vi.fn(),
+        },
+      },
+    };
+    await expect(previewRepairPrChanges({
+      repository: 'acme/demo',
+      expectedBaseSha: 'reviewed-sha',
+      changes: [{ kind: 'replace', path: 'src/mode.ts', before: 'old', after: 'new' }],
+    }, 'fake-token', fake as any)).rejects.toThrow(/stale/);
+    expect(fake.rest.repos.getContent).not.toHaveBeenCalled();
+    expect(fake.rest.git.createRef).not.toHaveBeenCalled();
+  });
+
   it('rejects an inapplicable change before creating a branch', async () => {
     const fake = {
       rest: {
