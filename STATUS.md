@@ -24,7 +24,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - Operators can request a read-only preview of a repair before opening its PR.
   The preview validates the exact repair against a pinned Git base commit and
   returns bounded before/after source excerpts without creating any GitHub
-  branch, file, or pull request.
+  branch, file, or pull request. The production dashboard requires an
+  operator to preview and explicitly confirm that exact patch before enabling
+  its Create PR action.
 
 ## Not complete
 
@@ -37,8 +39,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
    `repairRepository` and `repairFilePath`, and a structured predicate edit
    is generated only for a mapped target. Existing invariants remain unmapped
    until configured. Most other repair types are suggestions only. The API
-   supports a read-only patch preview, but dashboard controls for previewing
-   it and editing the mapping are still missing.
+   supports a read-only patch preview, and the production dashboard displays
+   its pinned source excerpts before a PR can be opened. Dashboard controls
+   for editing the mapping are still missing.
 3. **End-to-end repair proof.** Replay currently tests a user-entered event
    transformation; it does not execute a proposed code patch against the
    target application's tests. Passing replay is not yet a prerequisite for
@@ -52,9 +55,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Next engineering priority
 
-Add dashboard controls for the invariant's repository-file mapping and the
-read-only patch preview. Then gate PR creation on an explicit operator review
-of the exact source and replacement, without claiming a replay-verified fix.
+Add dashboard controls for the invariant's repository-file mapping. Then make
+the preview acknowledgement a server-enforced approval step, without claiming
+a replay-verified fix.
 
 ## Local checks
 
