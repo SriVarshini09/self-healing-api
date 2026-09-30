@@ -4,6 +4,7 @@ import { prisma } from '../utils/prisma.js';
 import { serializeJson } from '../utils/json.js';
 import { incrementCounter, renderPrometheus } from '../utils/metrics.js';
 import { logger } from '../utils/logger.js';
+import { rateLimitKey } from '../utils/rate-limit.js';
 
 export async function registerPlugins(app: FastifyInstance) {
   // Prisma models carry BigInt columns (e.g. GitHubInstallation.githubInstallationId)
@@ -44,8 +45,9 @@ export async function registerPlugins(app: FastifyInstance) {
 
   // Rate limiting
   await app.register(import('@fastify/rate-limit'), {
-    max: 1000,
-    timeWindow: '1 minute'
+    max: config.API_RATE_LIMIT_MAX,
+    timeWindow: config.API_RATE_LIMIT_WINDOW,
+    keyGenerator: rateLimitKey,
   });
 
   // Swagger/OpenAPI

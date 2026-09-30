@@ -106,6 +106,10 @@ API keys carry a tenant role: `OWNER`, `ADMIN`, `OPERATOR`, or `VIEWER`. Only
 Owner/Admin keys can administer keys, and only the Owner can assign Owner/Admin
 roles. Permissions still provide endpoint-level `read`/`write`/`*` scope.
 
+Requests are rate-limited per API key using a hashed bucket, so tenants do not
+share an IP-based quota. Requests without an API key fall back to an IP bucket.
+Configure the window with `API_RATE_LIMIT_MAX` and `API_RATE_LIMIT_WINDOW`.
+
 The dashboard also supports provider-neutral OIDC login. Configure
 `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`,
 `OIDC_REDIRECT_URI`, and `OIDC_DEFAULT_TENANT_SLUG`; the same flow works with

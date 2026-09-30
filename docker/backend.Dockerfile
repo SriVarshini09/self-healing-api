@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -
 
 COPY --from=build /app ./
 COPY docker/backend-entrypoint.sh /usr/local/bin/shapi-backend-entrypoint
-RUN chmod +x /usr/local/bin/shapi-backend-entrypoint
+RUN sed -i 's/\r$//' /usr/local/bin/shapi-backend-entrypoint && chmod +x /usr/local/bin/shapi-backend-entrypoint
 
 EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD node -e "fetch('http://127.0.0.1:3001/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
