@@ -96,6 +96,8 @@ model Invariant {
   predicateExpression   String   @db.Text
   predicateDescription  String
   predicateExample      String?
+  repairRepository      String?
+  repairFilePath        String?
   status                InvariantStatus @default(UNKNOWN)
   evaluationWindowSec   Int      @default(300)
   minSamples            Int      @default(10)
@@ -252,6 +254,7 @@ model RepairCandidate {
   description String   @db.Text
   diff        String?  @db.Text
   files       String[]
+  repository  String?
   changes     Json?
   confidence  Float    @default(0.5)
   verified    Boolean  @default(false)

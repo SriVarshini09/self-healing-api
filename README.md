@@ -169,6 +169,12 @@ Typechecks: `pnpm -r typecheck`. Builds verified: backend `tsc`, dashboard `tsc 
   repository base branch, checks exact replacement preconditions, then commits
   the resulting content through Octokit. Candidates with only a suggested diff
   remain manual review items; a diff is never written as file content.
+- To enable an automatic predicate repair, set both `repairRepository` (for
+  example `owner/repo`) and `repairFilePath` (repository-relative path) on an
+  invariant via `POST /invariants` or `PATCH /invariants/:id`. The mapped file
+  must contain the current predicate text exactly once. Existing unmapped
+  invariants continue to produce manual-review suggestions; SHAPI never
+  guesses a repository file path.
 - When `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, and a real GitHub App
   installation are configured, PR creation and CI verification use a short-lived
   installation token. The explicit `GITHUB_TOKEN` mode remains available for

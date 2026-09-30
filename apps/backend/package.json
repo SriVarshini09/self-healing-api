@@ -30,6 +30,7 @@
     "@prisma/client": "^5.7.1",
     "@shapi/github-integration": "workspace:^",
     "@shapi/invariant-engine": "workspace:^",
+    "@shapi/repair-generation": "workspace:*",
     "@shapi/shared": "workspace:*",
     "crypto": "^1.0.1",
     "dotenv": "^18.0.0",

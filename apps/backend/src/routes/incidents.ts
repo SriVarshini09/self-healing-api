@@ -204,6 +204,7 @@ export async function incidentRoutes(app: FastifyInstance) {
             description: candidate.description,
             diff: candidate.diff,
             files: candidate.files,
+            repository: candidate.repository ?? null,
             ...(candidate.changes ? { changes: candidate.changes as Prisma.InputJsonValue } : {}),
             confidence: candidate.confidence,
           },

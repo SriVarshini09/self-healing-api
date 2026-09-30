@@ -47,6 +47,9 @@ importers:
       '@shapi/invariant-engine':
         specifier: workspace:^
         version: link:../../packages/invariant-engine
+      '@shapi/repair-generation':
+        specifier: workspace:*
+        version: link:../../packages/repair-generation
       '@shapi/shared':
         specifier: workspace:*
         version: link:../../packages/shared

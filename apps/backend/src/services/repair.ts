@@ -6,6 +6,7 @@ export interface RepairCandidate {
   description: string;
   diff: string | null;
   files: string[];
+  repository?: string | null;
   confidence: number;
   /** structured changes, persisted to RepairCandidate.changes as JSON; diff/files stay as-is */
   changes?: Prisma.JsonValue | null;
@@ -53,6 +54,8 @@ function generatePredicateFix(
   _diagnosis: DiagnosisResult,
 ): RepairCandidate | null {
   const predicate = invariant.predicateExpression;
+  const mappedPath = invariant.repairRepository && invariant.repairFilePath
+    ? invariant.repairFilePath : null;
 
   if (predicate.includes('payload.') && !predicate.includes('?.')) {
     const modified = predicate.replace(/payload\.(\w+)/g, 'payload?.$1');
@@ -60,9 +63,10 @@ function generatePredicateFix(
       type: 'CODE_CHANGE',
       description: 'Add optional chaining to predicate to handle missing fields',
       diff: `- ${predicate}\n+ ${modified}`,
-      files: [`invariants/${invariant.name}.ts`],
+      files: mappedPath ? [mappedPath] : [],
+      repository: mappedPath ? invariant.repairRepository : null,
       confidence: 0.7,
-      changes: [{ kind: 'replace', path: `invariants/${invariant.name}.ts`, before: predicate, after: modified }],
+      ...(mappedPath ? { changes: [{ kind: 'replace', path: mappedPath, before: predicate, after: modified }] } : {}),
     };
   }
 
@@ -72,7 +76,8 @@ function generatePredicateFix(
       type: 'CODE_CHANGE',
       description: 'Add event type guard to predicate',
       diff: `- ${predicate}\n+ ${modified}`,
-      files: [`invariants/${invariant.name}.ts`],
+      files: mappedPath ? [mappedPath] : [],
+      repository: mappedPath ? invariant.repairRepository : null,
       confidence: 0.5,
     };
   }

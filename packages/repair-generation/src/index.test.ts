@@ -12,5 +12,23 @@ describe('repair-generation', () => {
     });
     expect(r.length).toBeGreaterThanOrEqual(2);
     expect(r[0].confidence).toBeGreaterThanOrEqual(r[1].confidence);
+    expect(r.find(candidate => candidate.description.includes('optional chaining'))?.changes).toBeNull();
+  });
+
+  it('generates an exact replacement only for an explicitly mapped repository file', () => {
+    const repairs = suggestRepairs({
+      predicateExpression: 'event.payload.amount > 0',
+      invariantName: 'pay',
+      rootCause: 'changed payload',
+      suggestedFix: 'review predicate',
+      hasRetryConfig: true,
+      repairRepository: 'acme/demo',
+      repairFilePath: 'src/invariants/pay.ts',
+    });
+    expect(repairs[0]).toMatchObject({
+      repository: 'acme/demo',
+      files: ['src/invariants/pay.ts'],
+      changes: [{ kind: 'replace', path: 'src/invariants/pay.ts', before: 'event.payload.amount > 0' }],
+    });
   });
 });

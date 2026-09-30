@@ -31,7 +31,7 @@ type LiveDiagnosis = {
   suggestedFix: string;
   confidence: number;
   evidence: string[];
-  candidates: Array<{ id: string; type: string; description: string; confidence: number; files: string[]; diff: string | null; changes: unknown[] | null }>;
+  candidates: Array<{ id: string; type: string; description: string; confidence: number; files: string[]; diff: string | null; repository: string | null; changes: unknown[] | null }>;
 };
 
 type GitHubInstallation = { id: string; accountLogin: string; repositories: string[] };
@@ -197,10 +197,10 @@ export function HealingDashboard() {
 
   const createRepairPr = async (candidate: LiveDiagnosis["candidates"][number]) => {
     const incident = liveSnapshot?.incidents.find(item => item.id === selectedIncidentId);
-    const installation = githubInstallations[0];
-    const repository = installation?.repositories[0];
+    const repository = candidate.repository;
+    const installation = githubInstallations.find(item => repository && item.repositories.includes(repository));
     if (!incident || githubLoading || !installation || !repository) {
-      setPrMessage(githubLoadError ?? "No GitHub App installation is connected. Configure the App and repository before creating repair PRs.");
+      setPrMessage(githubLoadError ?? "This candidate needs a mapped repository connected to GitHub before a PR can be created.");
       return;
     }
     if (!candidate.id || !Array.isArray(candidate.changes) || candidate.changes.length === 0) {

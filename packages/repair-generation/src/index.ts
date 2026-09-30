@@ -1,5 +1,6 @@
 // @shapi/repair-generation - suggest fixes from diagnosis
 import type { RepairChange } from './changes.js';
+import { validateRepairChanges } from './changes.js';
 export * from './changes.js';
 
 export interface Repair {
@@ -7,6 +8,7 @@ export interface Repair {
   description: string;
   diff: string | null;
   files: string[];
+  repository?: string | null;
   confidence: number;
   /** structured, machine-applicable form of the fix; diff/files stay as the human-readable form */
   changes?: RepairChange[] | null;
@@ -18,19 +20,27 @@ export function suggestRepairs(opts: {
   rootCause: string;
   suggestedFix: string;
   hasRetryConfig: boolean;
+  repairRepository?: string | null;
+  repairFilePath?: string | null;
 }): Repair[] {
   const out: Repair[] = [];
-  const { predicateExpression, invariantName, rootCause, suggestedFix, hasRetryConfig } = opts;
+  const { predicateExpression, invariantName, rootCause, suggestedFix, hasRetryConfig, repairRepository, repairFilePath } = opts;
+  const mappedPath = repairRepository && repairFilePath ? repairFilePath : null;
 
   if (predicateExpression.includes('payload.') && !predicateExpression.includes('?.')) {
     const fixed = predicateExpression.replace(/payload\.(\w+)/g, 'payload?.$1');
+    const changes: RepairChange[] | null = mappedPath
+      ? [{ kind: 'replace', path: mappedPath, before: predicateExpression, after: fixed }]
+      : null;
+    if (changes) validateRepairChanges(changes);
     out.push({
       type: 'CODE_CHANGE',
       description: 'Add optional chaining to predicate',
       diff: `- ${predicateExpression}\n+ ${fixed}`,
-      files: [`invariants/${invariantName}.ts`],
+      files: mappedPath ? [mappedPath] : [],
+      repository: mappedPath ? repairRepository : null,
       confidence: 0.7,
-      changes: [{ kind: 'replace', path: `invariants/${invariantName}.ts`, before: predicateExpression, after: fixed }],
+      changes,
     });
   }
   if (!hasRetryConfig) {

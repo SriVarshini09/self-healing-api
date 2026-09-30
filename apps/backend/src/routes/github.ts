@@ -261,6 +261,9 @@ export async function githubRoutes(app: FastifyInstance) {
     const fullRepo = repository.includes('/')
       ? repository
       : `${installation.accountLogin}/${repository}`;
+    if (candidate.repository !== fullRepo) {
+      return reply.code(409).send({ error: 'Repair candidate is not mapped to the selected repository' });
+    }
     if (!installation.repositories.includes(fullRepo)) {
       return reply.code(403).send({ error: 'Repository is not included in this GitHub installation' });
     }

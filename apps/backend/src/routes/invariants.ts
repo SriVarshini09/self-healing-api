@@ -5,6 +5,7 @@ import { InvariantStatus } from '@prisma/client';
 import {
   validatePredicate as sandboxValidate,
 } from '@shapi/invariant-engine';
+import { validateRepairChanges } from '@shapi/repair-generation';
 import { evaluateInvariantWindow } from '../services/invariants.js';
 import { tenantIdFor } from '../utils/auth-context.js';
 import { config } from '../config.js';
@@ -66,6 +67,8 @@ export async function invariantRoutes(app: FastifyInstance) {
       predicateExpression: string;
       predicateDescription: string;
       predicateExample?: string;
+      repairRepository?: string | null;
+      repairFilePath?: string | null;
       evaluationWindowSec?: number;
       minSamples?: number;
       expectedSuccessRate?: number;
@@ -83,6 +86,8 @@ export async function invariantRoutes(app: FastifyInstance) {
         details: error instanceof Error ? error.message : String(error),
       });
     }
+    const targetError = repairTargetError(data.repairRepository ?? null, data.repairFilePath ?? null);
+    if (targetError) return reply.code(400).send({ error: 'Invalid repair target', details: targetError });
 
     const result = await prisma.$transaction(async tx => {
       // Serialize creates for this tenant across backend processes so the
@@ -100,6 +105,8 @@ export async function invariantRoutes(app: FastifyInstance) {
           predicateExpression: data.predicateExpression,
           predicateDescription: data.predicateDescription ?? '',
           predicateExample: data.predicateExample,
+          repairRepository: data.repairRepository ?? null,
+          repairFilePath: data.repairFilePath ?? null,
           evaluationWindowSec: data.evaluationWindowSec ?? 300,
           minSamples: data.minSamples ?? 10,
           expectedSuccessRate: data.expectedSuccessRate ?? 0.99,
@@ -125,6 +132,8 @@ export async function invariantRoutes(app: FastifyInstance) {
       predicateExpression: string;
       predicateDescription: string;
       predicateExample: string;
+      repairRepository: string | null;
+      repairFilePath: string | null;
       evaluationWindowSec: number;
       minSamples: number;
       expectedSuccessRate: number;
@@ -132,6 +141,11 @@ export async function invariantRoutes(app: FastifyInstance) {
 
     const existing = await prisma.invariant.findFirst({ where: { id, integration: { tenantId } } });
     if (!existing) return reply.code(404).send({ error: 'Invariant not found' });
+    const targetError = repairTargetError(
+      data.repairRepository === undefined ? existing.repairRepository : data.repairRepository,
+      data.repairFilePath === undefined ? existing.repairFilePath : data.repairFilePath,
+    );
+    if (targetError) return reply.code(400).send({ error: 'Invalid repair target', details: targetError });
 
     if (data.predicateExpression) {
       try {
@@ -201,4 +215,22 @@ export async function invariantRoutes(app: FastifyInstance) {
 export function validatePredicateExpression(expression: string): void {
   // Delegates to @shapi/invariant-engine: dangerous-pattern rejection + vm-based syntax check.
   sandboxValidate(expression);
+}
+
+export function repairTargetError(repository: unknown, filePath: unknown): string | null {
+  if (repository == null && filePath == null) return null;
+  if (typeof repository !== 'string' || typeof filePath !== 'string') {
+    return 'repairRepository and repairFilePath must be set or cleared together';
+  }
+  const parts = repository.split('/');
+  if (repository.length > 200 || parts.length !== 2 || parts.some(part => !/^[A-Za-z0-9_.-]+$/.test(part) || part === '.' || part === '..')) {
+    return 'repairRepository must be an owner/repository name';
+  }
+  if (filePath.length > 400) return 'repairFilePath is too long';
+  try {
+    validateRepairChanges([{ kind: 'create', path: filePath, content: '' }]);
+  } catch (error) {
+    return error instanceof Error ? error.message : 'invalid repairFilePath';
+  }
+  return null;
 }

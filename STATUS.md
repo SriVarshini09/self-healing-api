@@ -7,8 +7,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 - The local production Docker stack runs PostgreSQL, the backend, and the
   dashboard. On 2026-09-30, `/health`, `/ready`, and the dashboard returned 200.
-- GitHub Actions CI on `master` passed for commit `0983fd4`:
-  [run 36769741818](https://github.com/SriVarshini09/self-healing-api/actions/runs/36769741818).
+- GitHub Actions CI on `master` passed for commit `2e6ab99`:
+  [run 36770155567](https://github.com/SriVarshini09/self-healing-api/actions/runs/36770155567).
   CI checks workspace types, backend lint, package/backend unit tests, backend
   and dashboard builds, and Prisma schema validation.
 - Webhook and SDK events feed behavioral invariants; drift detection and
@@ -29,12 +29,11 @@ product is production-ready. See [README.md](README.md) for setup and API detail
    repository permissions, public webhook URL, and delivery test still require
    operator-owned GitHub setup. Token mode is useful for local/operator use but
    is not a substitute for tenant-isolated App installations.
-2. **Repository-aware repair generation.** Most generated candidates are
-   suggestions only. The structured predicate edit assumes an
-   `invariants/<name>.ts` path that may not exist in the target repository.
-   SHAPI correctly rejects an inapplicable patch, but automatic PR creation
-   will remain limited until integrations map invariants to real repository
-   files and show a preview of the exact patch.
+2. **Repository-aware repair workflow.** Invariants can now store an explicit
+   `repairRepository` and `repairFilePath`, and a structured predicate edit
+   is generated only for a mapped target. Existing invariants remain unmapped
+   until configured. Most other repair types are suggestions only. A read-only
+   patch preview and dashboard UI for editing the mapping are still missing.
 3. **End-to-end repair proof.** Replay currently tests a user-entered event
    transformation; it does not execute a proposed code patch against the
    target application's tests. Passing replay is not yet a prerequisite for
@@ -48,10 +47,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Next engineering priority
 
-Add an explicit repository-file mapping for invariants and a read-only patch
-preview. Then generate structured candidates only when the mapped file and
-exact predicate text can be found. This makes the safe PR path usable without
-guessing paths or claiming an unverified fix.
+Add a read-only patch preview and a dashboard control for the invariant's
+repository-file mapping. Then gate PR creation on an explicit operator review
+of the exact source and replacement, without claiming a replay-verified fix.
 
 ## Local checks
 

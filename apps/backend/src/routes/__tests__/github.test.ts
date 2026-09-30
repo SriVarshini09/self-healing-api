@@ -36,6 +36,7 @@ interface FakeCandidate {
   diff: string | null;
   confidence: number;
   changes: unknown;
+  repository?: string | null;
 }
 
 type FakePrWhere = { id?: string; prNumber?: number; repository?: string; status?: string };
@@ -227,7 +228,7 @@ describe('POST /github/incidents/:incidentId/pr', () => {
     const selectedChanges = [{ kind: 'replace', path: 'src/selected.ts', before: 'old', after: 'new' }];
     db.candidates = [
       { id: candidateA, incidentId: 'inc-1', description: 'Other', diff: 'other diff', confidence: 0.9, changes: null },
-      { id: candidateB, incidentId: 'inc-1', description: 'Selected', diff: 'selected diff', confidence: 0.7, changes: selectedChanges },
+      { id: candidateB, incidentId: 'inc-1', description: 'Selected', diff: 'selected diff', confidence: 0.7, changes: selectedChanges, repository: 'acme/demo' },
     ];
     openRepairPrFromChangesMock.mockResolvedValue({ prNumber: 42, prUrl: 'https://github.com/acme/demo/pull/42', real: true });
 
@@ -254,6 +255,13 @@ describe('POST /github/incidents/:incidentId/pr', () => {
     db.candidates = [{ id: candidateB, incidentId: 'inc-1', description: 'Selected', diff: null, confidence: 0.7, changes: [{ kind: 'create', path: 'safe.txt', content: 'safe' }] }];
     const res = await app.inject({ method: 'POST', url: '/github/incidents/inc-1/pr', payload: { ...payload, files: ['unsafe.txt'] } });
     expect(res.statusCode).toBe(400);
+    expect(openRepairPrFromChangesMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a candidate mapped to another repository', async () => {
+    db.candidates = [{ id: candidateB, incidentId: 'inc-1', description: 'Selected', diff: null, confidence: 0.7, changes: [{ kind: 'create', path: 'safe.txt', content: 'safe' }], repository: 'acme/other' }];
+    const res = await app.inject({ method: 'POST', url: '/github/incidents/inc-1/pr', payload });
+    expect(res.statusCode).toBe(409);
     expect(openRepairPrFromChangesMock).not.toHaveBeenCalled();
   });
 
