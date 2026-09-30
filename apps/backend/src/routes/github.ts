@@ -146,6 +146,58 @@ export async function githubRoutes(app: FastifyInstance) {
     return reply.send(installation);
   });
 
+  app.get('/github/status', async (request, reply) => {
+    const tenantId = tenantIdFor(request);
+    const integrations = await prisma.integration.findMany({
+      where: { type: IntegrationType.GITHUB, tenantId, webhookEnabled: true },
+      select: { id: true, webhookSecret: true },
+    });
+    const integrationIds = integrations.map(integration => integration.id);
+    const installations = integrationIds.length === 0
+      ? []
+      : await prisma.gitHubInstallation.findMany({
+        where: { integrationId: { in: integrationIds } },
+        select: { githubInstallationId: true, repositories: true },
+      });
+    const repositories = new Set(installations.flatMap(installation => installation.repositories));
+    const appCredentialsConfigured = Boolean(process.env.GITHUB_APP_ID && process.env.GITHUB_APP_PRIVATE_KEY);
+    const tokenConfigured = Boolean(
+      process.env.GITHUB_TOKEN &&
+      process.env.GITHUB_ACCOUNT_LOGIN &&
+      process.env.GITHUB_REPOSITORIES?.split(',').some(repository => repository.trim()),
+    );
+    const realInstallations = installations.filter(installation => Number(installation.githubInstallationId) > 0).length;
+    const webhookConfigured = Boolean(
+      process.env.GITHUB_WEBHOOK_SECRET_APP ||
+      integrations.some(integration => Boolean(integration.webhookSecret)),
+    );
+    const mode = realInstallations > 0 && appCredentialsConfigured
+      ? 'app'
+      : tokenConfigured
+        ? 'token'
+        : process.env.NODE_ENV === 'production'
+          ? 'unconfigured'
+          : 'simulated';
+    const message = mode === 'app'
+      ? 'GitHub App installation authentication is ready.'
+      : mode === 'token'
+        ? 'Operator token mode is active for the configured repository allow-list.'
+        : mode === 'simulated'
+          ? 'Development simulation is active; real PRs require GitHub credentials.'
+          : 'Configure a GitHub App installation or an operator token before creating real PRs.';
+
+    return reply.send({
+      mode,
+      message,
+      appCredentialsConfigured,
+      tokenConfigured,
+      webhookConfigured,
+      realInstallations,
+      installationCount: installations.length,
+      repositoryCount: repositories.size,
+    });
+  });
+
   app.get('/github/incidents/:incidentId/prs', async (request, reply) => {
     const tenantId = tenantIdFor(request);
     const { incidentId } = (request.params ?? {}) as { incidentId: string };

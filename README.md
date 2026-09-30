@@ -127,7 +127,7 @@ browser session instead.
 - `GET/POST /invariants`, `GET/PATCH/DELETE /invariants/:id`, `POST /invariants/:id/evaluate`, `GET /invariants/:id/evaluations`
 - `GET /incidents`, `GET/PATCH /incidents/:id`, `GET /incidents/:id/timeline`, `POST /incidents/:id/diagnose`, `POST /incidents/:id/replay`
 - `GET/PATCH /drift/config/:integrationId`, `GET /drift/results`, `POST /drift/check/:invariantId`, `GET /drift/summary`
-- `POST /github/webhook`, installations, incident PRs, PR verify
+- `POST /github/webhook`, GitHub status/installations, incident PRs, PR verify
 - `POST /sdk/track`, `GET /sdk/events`
 - `GET/POST /api-keys`, `DELETE /api-keys/:id`, `POST /bootstrap/tenant`
 
