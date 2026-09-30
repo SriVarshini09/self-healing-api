@@ -175,38 +175,44 @@ export async function incidentRoutes(app: FastifyInstance) {
       },
     });
     if (!incident) return reply.code(404).send({ error: 'Incident not found' });
+    if (incident.status !== IncidentStatus.DETECTED) {
+      return reply.code(409).send({ error: 'Only newly detected incidents can be diagnosed' });
+    }
 
     const { diagnoseIncident } = await import('../services/diagnosis.js');
     const diagnosis = await diagnoseIncident(incident);
-
-    const updated = await prisma.incident.update({
-      where: { id },
-      data: {
-        status: IncidentStatus.TRIAGED,
-        rootCause: diagnosis.rootCause,
-        suggestedFix: diagnosis.suggestedFix,
-        triagedAt: new Date(),
-      },
-    });
-
     const { generateRepairCandidates } = await import('../services/repair.js');
     const candidates = await generateRepairCandidates(incident, diagnosis);
-
-    const persistedCandidates = await Promise.all(candidates.map(candidate =>
-      prisma.repairCandidate.create({
+    const saved = await prisma.$transaction(async tx => {
+      const claimed = await tx.incident.updateMany({
+        where: { id, integration: { tenantId }, status: IncidentStatus.DETECTED },
         data: {
-          incidentId: id,
-          type: candidate.type as RepairType,
-          description: candidate.description,
-          diff: candidate.diff,
-          files: candidate.files,
-          ...(candidate.changes ? { changes: candidate.changes as Prisma.InputJsonValue } : {}),
-          confidence: candidate.confidence,
+          status: IncidentStatus.TRIAGED,
+          rootCause: diagnosis.rootCause,
+          suggestedFix: diagnosis.suggestedFix,
+          triagedAt: new Date(),
         },
-      }),
-    ));
-
-    return reply.send({ incident: updated, diagnosis, candidates: persistedCandidates });
+      });
+      if (claimed.count !== 1) return null;
+      const updated = await tx.incident.findUniqueOrThrow({ where: { id } });
+      const persistedCandidates = [];
+      for (const candidate of candidates) {
+        persistedCandidates.push(await tx.repairCandidate.create({
+          data: {
+            incidentId: id,
+            type: candidate.type as RepairType,
+            description: candidate.description,
+            diff: candidate.diff,
+            files: candidate.files,
+            ...(candidate.changes ? { changes: candidate.changes as Prisma.InputJsonValue } : {}),
+            confidence: candidate.confidence,
+          },
+        }));
+      }
+      return { incident: updated, candidates: persistedCandidates };
+    });
+    if (!saved) return reply.code(409).send({ error: 'Incident state changed during diagnosis; no candidates were saved' });
+    return reply.send({ ...saved, diagnosis });
   });
 
   app.post('/incidents/:id/replay', async (request, reply) => {
@@ -218,6 +224,9 @@ export async function incidentRoutes(app: FastifyInstance) {
 
     const incident = await prisma.incident.findFirst({ where: { id, integration: { tenantId } } });
     if (!incident) return reply.code(404).send({ error: 'Incident not found' });
+    if (incident.status !== IncidentStatus.TRIAGED && incident.status !== IncidentStatus.REPLAYING) {
+      return reply.code(409).send({ error: 'Only triaged or replaying incidents can be replayed' });
+    }
 
     const webhookEvent = await prisma.webhookEvent.findUnique({ where: { id: webhookEventId } });
     if (!webhookEvent) return reply.code(404).send({ error: 'Webhook event not found' });
@@ -225,17 +234,20 @@ export async function incidentRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: 'Webhook event does not belong to this incident integration' });
     }
 
-    const replayJob = await prisma.replayJob.create({
-      data: { incidentId: id, webhookEventId, fixCandidate, status: ReplayJobStatus.PENDING },
+    const replayJob = await prisma.$transaction(async tx => {
+      const claimed = await tx.incident.updateMany({
+        where: { id, integration: { tenantId }, status: { in: [IncidentStatus.TRIAGED, IncidentStatus.REPLAYING] } },
+        data: { status: IncidentStatus.REPLAYING },
+      });
+      if (claimed.count !== 1) return null;
+      return tx.replayJob.create({
+        data: { incidentId: id, webhookEventId, fixCandidate, status: ReplayJobStatus.PENDING },
+      });
     });
+    if (!replayJob) return reply.code(409).send({ error: 'Incident state changed during replay; no job was created' });
 
     processReplayJob(replayJob.id).catch(err => {
       console.error('Replay job failed:', err);
-    });
-
-    await prisma.incident.update({
-      where: { id },
-      data: { status: IncidentStatus.REPLAYING },
     });
 
     return reply.code(201).send(replayJob);

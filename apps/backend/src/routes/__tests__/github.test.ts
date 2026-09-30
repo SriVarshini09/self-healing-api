@@ -256,6 +256,15 @@ describe('POST /github/incidents/:incidentId/pr', () => {
     expect(res.statusCode).toBe(400);
     expect(openRepairPrFromChangesMock).not.toHaveBeenCalled();
   });
+
+  it('does not reopen a resolved incident through PR creation', async () => {
+    db.incidents[0].status = 'RESOLVED';
+    db.candidates = [{ id: candidateB, incidentId: 'inc-1', description: 'Selected', diff: null, confidence: 0.7, changes: [{ kind: 'create', path: 'safe.txt', content: 'safe' }] }];
+    const res = await app.inject({ method: 'POST', url: '/github/incidents/inc-1/pr', payload });
+    expect(res.statusCode).toBe(409);
+    expect(openRepairPrFromChangesMock).not.toHaveBeenCalled();
+    expect(db.incidents[0].status).toBe('RESOLVED');
+  });
 });
 
 describe('POST /github/prs/:prId/verify', () => {

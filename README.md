@@ -180,8 +180,8 @@ Typechecks: `pnpm -r typecheck`. Builds verified: backend `tsc`, dashboard `tsc 
   production setup checklist. For App mode, configure the App credentials, install
   the App on the target repository, grant Contents and Pull requests read/write
   permissions, set `GITHUB_WEBHOOK_SECRET_APP`, and point the App webhook to
-  `/api/v1/github/webhook` on the public API URL. Refresh the diagnosis until the
-  readiness mode reports `app`.
+  `/api/v1/github/webhook` on the public API URL. Reopen the dashboard's GitHub
+  readiness panel to confirm it reports `app`.
 - The backend runs a scheduled invariant-window evaluator (default every 60 seconds;
   configure with `INVARIANT_EVALUATION_INTERVAL_SEC`) and uses weighted baseline/current
   trial counts for drift calculations.
@@ -214,13 +214,19 @@ Typechecks: `pnpm -r typecheck`. Builds verified: backend `tsc`, dashboard `tsc 
 
 `DETECTED → TRIAGED (diagnosis + repair candidates) → REPLAYING (replay verification) → REPAIRED (PR) → RESOLVED (CI merge)`, with `DISMISSED` as escape hatch.
 
+Diagnosis runs once per newly detected incident; repeating it returns 409 rather
+than creating duplicate candidates. Replay requires a triaged or replaying
+incident. Neither action can reopen resolved or dismissed incidents.
+
 ## Production checklist (manual, requires real secrets)
 
 - Stripe: set a real `STRIPE_WEBHOOK_SECRET` (`whsec_...`) in `.env` and point
   Stripe CLI at `POST /api/v1/webhooks/stripe` for a true signature check.
   Without it, `test`-signature traffic uses test mode (local simulate only).
-- GitHub: set `GITHUB_TOKEN` and create a repair PR against a real repo to
-  exercise the Octokit path (`openRepairPr`). Without it, PRs are simulated.
+- GitHub: set `GITHUB_TOKEN` (or configure a GitHub App installation) and
+  select a candidate with applicable structured file changes to create a real
+  repair PR. The API rejects PR creation without credentials or a valid patch;
+  suggested-only diffs require manual review.
 - GitHub App webhooks: set `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`,
   `GITHUB_WEBHOOK_SECRET_APP` and, when more than one GitHub integration exists,
   set `GITHUB_APP_INTEGRATION_ID` so installation and PR events cannot be

@@ -231,6 +231,9 @@ export async function githubRoutes(app: FastifyInstance) {
       include: { repairCandidates: { where: { id: candidateId }, take: 1 } },
     });
     if (!incident) return reply.code(404).send({ error: 'Incident not found' });
+    if (incident.status === IncidentStatus.RESOLVED || incident.status === IncidentStatus.DISMISSED) {
+      return reply.code(409).send({ error: 'Resolved or dismissed incidents cannot create new repair PRs' });
+    }
     const candidate = incident.repairCandidates[0];
     if (!candidate) return reply.code(404).send({ error: 'Repair candidate not found for this incident' });
     const changes = repairChangesSchema.safeParse(candidate.changes);

@@ -104,7 +104,8 @@ export function HealingDashboard() {
   }, []);
 
   const openDiagnosis = () => {
-    const incidentId = liveSnapshot?.incidents[0]?.id ?? null;
+    const selected = liveSnapshot?.incidents.find(item => item.status !== "RESOLVED" && item.status !== "DISMISSED");
+    const incidentId = selected?.id ?? null;
     setSelectedIncidentId(incidentId);
     setDiagnosisResult(null);
     setDiagnosisError(null);
@@ -115,6 +116,19 @@ export function HealingDashboard() {
     setGithubLoadError(null);
     setGithubPrLoading(Boolean(incidentId));
     setGithubPrError(null);
+    if (selected && selected.status !== "DETECTED") {
+      setDiagnosing(true);
+      void fetchShapi<{ rootCause: string | null; suggestedFix: string | null; repairCandidates: LiveDiagnosis["candidates"] }>(`incidents/${incidentId}`)
+        .then(detail => setDiagnosisResult({
+          rootCause: detail.rootCause ?? "Diagnosis not recorded",
+          suggestedFix: detail.suggestedFix ?? "Review this incident manually",
+          confidence: Math.max(0, ...detail.repairCandidates.map(candidate => candidate.confidence)),
+          evidence: [],
+          candidates: detail.repairCandidates,
+        }))
+        .catch(error => setDiagnosisError(error instanceof Error ? error.message : "Could not load saved diagnosis"))
+        .finally(() => setDiagnosing(false));
+    }
     void Promise.all([
       fetchShapi<GitHubInstallation[]>("github/installations"),
       fetchShapi<GitHubStatus>("github/status"),
@@ -138,6 +152,10 @@ export function HealingDashboard() {
 
   const runLiveDiagnosis = async () => {
     if (!selectedIncidentId) return;
+    if (liveSnapshot?.incidents.find(item => item.id === selectedIncidentId)?.status !== "DETECTED") {
+      setDiagnosisError("This incident has already been diagnosed. Open a newly detected incident to run diagnosis.");
+      return;
+    }
     setDiagnosing(true);
     setDiagnosisError(null);
     try {
