@@ -14,6 +14,7 @@ const configSchema = z.object({
   PORT: z.coerce.number().default(3001),
   HOST: z.string().default('0.0.0.0'),
   INVARIANT_EVALUATION_INTERVAL_SEC: z.coerce.number().int().positive().default(60),
+  SHAPI_MAX_INVARIANTS_PER_TENANT: z.coerce.number().int().positive().default(100),
   DATABASE_URL: z.string().url(),
   JWT_SECRET: z.string().min(32),
   API_KEY_PREFIX: z.string().default('shapi_'),

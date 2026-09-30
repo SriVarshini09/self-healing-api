@@ -13,6 +13,10 @@ describe('invariant-engine', () => {
     expect(() => validatePredicate('require("fs")')).toThrow();
   });
 
+  it('rejects oversized predicate expressions before execution', () => {
+    expect(() => validatePredicate(`true /*${'x'.repeat(4096)}*/`)).toThrow(/4096 characters/);
+  });
+
   it('200 OK does not prove success - payload must satisfy business outcome', () => {
     // Technically healthy webhook (HTTP 200) but business outcome failed:
     // amount_paid = 0 means no real payment, provisioning missing

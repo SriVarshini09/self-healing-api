@@ -36,6 +36,7 @@ const DANGEROUS = [
 
 export function validatePredicate(expression: string): void {
   if (!expression || !expression.trim()) throw new Error('Predicate expression is empty');
+  if (expression.length > 4096) throw new Error('Predicate expression exceeds 4096 characters');
   for (const p of DANGEROUS) {
     if (p.test(expression)) throw new Error(`Dangerous pattern: ${p.source}`);
   }

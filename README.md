@@ -183,6 +183,10 @@ Typechecks: `pnpm -r typecheck`. Builds verified: backend `tsc`, dashboard `tsc 
 - The backend runs a scheduled invariant-window evaluator (default every 60 seconds;
   configure with `INVARIANT_EVALUATION_INTERVAL_SEC`) and uses weighted baseline/current
   trial counts for drift calculations.
+- Invariant creation is capped at 100 per tenant by default; set
+  `SHAPI_MAX_INVARIANTS_PER_TENANT` to change the cap. The count and insert are
+  serialized per tenant in PostgreSQL, and predicate expressions are limited to
+  4096 characters. Once at the cap, creating another invariant returns 409.
 - `POST /sdk/track` feeds the same invariant engine as webhooks (shared
   `evaluateInvariantsForEvent`). A tracked `provisioning.failed` flips the
   `No Failed Provisioning Invariant` to VIOLATED and opens a deduped HIGH
@@ -221,8 +225,8 @@ Typechecks: `pnpm -r typecheck`. Builds verified: backend `tsc`, dashboard `tsc 
   assigned across tenants. Install the App on the target repository and grant
   Contents read/write, Pull requests read/write, Checks read-only, and Metadata
   read-only permissions.
-- Multi-tenant predicates: add per-tenant predicate quotas and isolate recycling
-  around the existing `isolated-vm` runtime.
+- Multi-tenant predicates: tune the per-tenant quota for deployment size and
+  monitor `isolated-vm` resource use under real traffic.
 - Auth: rotate `SHAPI_API_KEY` per environment; set `VITE_SHAPI_API_KEY` to match.
 - Bootstrap: set a random `SHAPI_BOOTSTRAP_TOKEN` of at least 32 characters only
   during tenant onboarding, then remove or rotate it.

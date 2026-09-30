@@ -7,6 +7,7 @@ import {
 } from '@shapi/invariant-engine';
 import { evaluateInvariantWindow } from '../services/invariants.js';
 import { tenantIdFor } from '../utils/auth-context.js';
+import { config } from '../config.js';
 
 export async function invariantRoutes(app: FastifyInstance) {
   app.get('/invariants', async (request, reply) => {
@@ -74,9 +75,6 @@ export async function invariantRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: 'integrationId, name, predicateExpression required' });
     }
 
-    const integration = await prisma.integration.findFirst({ where: { id: data.integrationId, tenantId } });
-    if (!integration) return reply.code(404).send({ error: 'Integration not found' });
-
     try {
       validatePredicateExpression(data.predicateExpression);
     } catch (error) {
@@ -86,21 +84,36 @@ export async function invariantRoutes(app: FastifyInstance) {
       });
     }
 
-    const invariant = await prisma.invariant.create({
-      data: {
-        integrationId: data.integrationId,
-        name: data.name,
-        description: data.description ?? '',
-        predicateExpression: data.predicateExpression,
-        predicateDescription: data.predicateDescription ?? '',
-        predicateExample: data.predicateExample,
-        evaluationWindowSec: data.evaluationWindowSec ?? 300,
-        minSamples: data.minSamples ?? 10,
-        expectedSuccessRate: data.expectedSuccessRate ?? 0.99,
-        status: InvariantStatus.UNKNOWN,
-      },
+    const result = await prisma.$transaction(async tx => {
+      // Serialize creates for this tenant across backend processes so the
+      // count and insert cannot both succeed at the quota boundary.
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${tenantId}, 0))::text`;
+      const integration = await tx.integration.findFirst({ where: { id: data.integrationId, tenantId } });
+      if (!integration) return { kind: 'missing' } as const;
+      const count = await tx.invariant.count({ where: { integration: { tenantId } } });
+      if (count >= config.SHAPI_MAX_INVARIANTS_PER_TENANT) return { kind: 'quota' } as const;
+      const invariant = await tx.invariant.create({
+        data: {
+          integrationId: data.integrationId,
+          name: data.name,
+          description: data.description ?? '',
+          predicateExpression: data.predicateExpression,
+          predicateDescription: data.predicateDescription ?? '',
+          predicateExample: data.predicateExample,
+          evaluationWindowSec: data.evaluationWindowSec ?? 300,
+          minSamples: data.minSamples ?? 10,
+          expectedSuccessRate: data.expectedSuccessRate ?? 0.99,
+          status: InvariantStatus.UNKNOWN,
+        },
+      });
+      return { kind: 'created', invariant } as const;
     });
-    return reply.code(201).send(invariant);
+    if (result.kind === 'missing') return reply.code(404).send({ error: 'Integration not found' });
+    if (result.kind === 'quota') return reply.code(409).send({
+      error: 'Invariant quota reached for this tenant',
+      limit: config.SHAPI_MAX_INVARIANTS_PER_TENANT,
+    });
+    return reply.code(201).send(result.invariant);
   });
 
   app.patch('/invariants/:id', async (request, reply) => {
