@@ -265,6 +265,7 @@ export function HealingDashboard() {
     candidateId: string;
     result: RepairPreview;
   } | null>(null);
+  const [reviewedPreviewCandidateId, setReviewedPreviewCandidateId] = useState<string | null>(null);
   const [githubInstallations, setGithubInstallations] = useState<GitHubInstallation[]>([]);
   const [githubStatus, setGithubStatus] = useState<GitHubStatus | null>(null);
   const [githubPrs, setGithubPrs] = useState<GitHubPr[]>([]);
@@ -302,6 +303,7 @@ export function HealingDashboard() {
     setReplayMessage(null);
     setPrMessage(null);
     setRepairPreview(null);
+    setReviewedPreviewCandidateId(null);
     setGithubLoading(true);
     setGithubLoadError(null);
     setGithubPrLoading(Boolean(incidentId));
@@ -438,6 +440,10 @@ export function HealingDashboard() {
       );
       return;
     }
+    if (reviewedPreviewCandidateId !== candidate.id) {
+      setPrMessage('Preview the exact patch and confirm your review before creating a PR.');
+      return;
+    }
     setPrBusy(true);
     setPrMessage(null);
     try {
@@ -486,6 +492,7 @@ export function HealingDashboard() {
         body: JSON.stringify({ installationId: installation.id, repository, candidateId: candidate.id }),
       });
       setRepairPreview({ candidateId: candidate.id, result });
+      setReviewedPreviewCandidateId(null);
       setPrMessage(`Previewed ${result.changes.length} file${result.changes.length === 1 ? '' : 's'} at ${result.base}@${result.baseSha.slice(0, 8)}. Review it before creating a PR.`);
     } catch (error) {
       setRepairPreview(null);
@@ -1302,6 +1309,16 @@ export function HealingDashboard() {
                                 </pre>
                               </div>
                             ))}
+                            <label className="flex cursor-pointer items-center gap-2 text-[10px] text-foreground">
+                              <input
+                                type="checkbox"
+                                checked={reviewedPreviewCandidateId === candidate.id}
+                                onChange={event =>
+                                  setReviewedPreviewCandidateId(event.target.checked ? candidate.id : null)
+                                }
+                              />
+                              I reviewed this exact patch and want to create its PR.
+                            </label>
                           </div>
                         )}
                         <div className="mt-2 flex gap-2">
@@ -1333,14 +1350,17 @@ export function HealingDashboard() {
                               prBusy ||
                               githubLoading ||
                               githubInstallations.length === 0 ||
-                              !candidate.changes?.length
+                              !candidate.changes?.length ||
+                              reviewedPreviewCandidateId !== candidate.id
                             }
                           >
                             {prBusy
                               ? 'Creating…'
-                              : candidate.changes?.length
+                              : reviewedPreviewCandidateId === candidate.id
                                 ? 'Create PR'
-                                : 'Manual review'}
+                                : candidate.changes?.length
+                                  ? 'Review preview first'
+                                  : 'Manual review'}
                           </Button>
                         </div>
                       </div>
