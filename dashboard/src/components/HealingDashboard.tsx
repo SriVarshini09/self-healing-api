@@ -35,6 +35,7 @@ type LiveDiagnosis = {
 };
 
 type GitHubInstallation = { id: string; accountLogin: string; repositories: string[] };
+type GitHubPr = { id: string; prNumber: number; repository: string; prUrl: string; title: string; status: string; verified: boolean; createdAt: string };
 type GitHubStatus = {
   mode: "app" | "token" | "simulated" | "unconfigured";
   message: string;
@@ -78,6 +79,10 @@ export function HealingDashboard() {
   const [prMessage, setPrMessage] = useState<string | null>(null);
   const [githubInstallations, setGithubInstallations] = useState<GitHubInstallation[]>([]);
   const [githubStatus, setGithubStatus] = useState<GitHubStatus | null>(null);
+  const [githubPrs, setGithubPrs] = useState<GitHubPr[]>([]);
+  const [githubPrLoading, setGithubPrLoading] = useState(false);
+  const [githubPrError, setGithubPrError] = useState<string | null>(null);
+  const [githubPrVerifyBusy, setGithubPrVerifyBusy] = useState<string | null>(null);
   const [githubLoading, setGithubLoading] = useState(false);
   const [githubLoadError, setGithubLoadError] = useState<string | null>(null);
   const [GlobeView, setGlobeView] = useState<ComponentType<{ activeIncidentCount: number; isLive: boolean }> | null>(null);
@@ -91,7 +96,8 @@ export function HealingDashboard() {
   }, []);
 
   const openDiagnosis = () => {
-    setSelectedIncidentId(liveSnapshot?.incidents[0]?.id ?? null);
+    const incidentId = liveSnapshot?.incidents[0]?.id ?? null;
+    setSelectedIncidentId(incidentId);
     setDiagnosisResult(null);
     setDiagnosisError(null);
     setReplayCandidate("");
@@ -99,20 +105,26 @@ export function HealingDashboard() {
     setPrMessage(null);
     setGithubLoading(true);
     setGithubLoadError(null);
+    setGithubPrLoading(Boolean(incidentId));
+    setGithubPrError(null);
     void Promise.all([
       fetchShapi<GitHubInstallation[]>("github/installations"),
       fetchShapi<GitHubStatus>("github/status"),
+      incidentId ? fetchShapi<GitHubPr[]>(`github/incidents/${incidentId}/prs`) : Promise.resolve([] as GitHubPr[]),
     ])
-      .then(([installations, status]) => {
+      .then(([installations, status, prs]) => {
         setGithubInstallations(installations);
         setGithubStatus(status);
+        setGithubPrs(prs);
       })
       .catch(() => {
         setGithubInstallations([]);
         setGithubStatus(null);
+        setGithubPrs([]);
         setGithubLoadError("SHAPI could not read GitHub App installations. Check the API key and backend configuration.");
+        setGithubPrError("SHAPI could not load repair PRs for this incident.");
       })
-      .finally(() => setGithubLoading(false));
+      .finally(() => { setGithubLoading(false); setGithubPrLoading(false); });
     setDiagnosisOpen(true);
   };
 
@@ -168,7 +180,7 @@ export function HealingDashboard() {
     setPrBusy(true);
     setPrMessage(null);
     try {
-      const pr = await fetchShapi<{ prUrl: string; prNumber: number }>(`github/incidents/${incident.id}/pr`, {
+      const pr = await fetchShapi<GitHubPr>(`github/incidents/${incident.id}/pr`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -180,11 +192,25 @@ export function HealingDashboard() {
           files: candidate.files,
         }),
       });
+      setGithubPrs((current) => [pr, ...current.filter((item) => item.id !== pr.id)]);
       setPrMessage(`PR #${pr.prNumber} created · ${pr.prUrl}`);
     } catch (error) {
       setPrMessage(error instanceof Error ? error.message : "Repair PR creation failed");
     } finally {
       setPrBusy(false);
+    }
+  };
+  const verifyRepairPr = async (pr: GitHubPr) => {
+    setGithubPrVerifyBusy(pr.id);
+    setGithubPrError(null);
+    try {
+      const result = await fetchShapi<{ verified: boolean; ciPassed: boolean; merged: boolean; closed: boolean; pr: GitHubPr }>(`github/prs/${pr.id}/verify`, { method: "POST" });
+      setGithubPrs((current) => current.map((item) => item.id === pr.id ? { ...item, ...result.pr, status: result.merged ? "MERGED" : result.closed ? "CLOSED" : result.pr.status, verified: result.verified } : item));
+      setPrMessage(`PR #${pr.prNumber} checked · ${result.merged ? "merged" : result.closed ? "closed" : result.ciPassed ? "CI passed" : "CI pending"}`);
+    } catch (error) {
+      setGithubPrError(error instanceof Error ? error.message : "GitHub PR verification failed");
+    } finally {
+      setGithubPrVerifyBusy(null);
     }
   };
   useEffect(() => {
@@ -290,6 +316,6 @@ export function HealingDashboard() {
       </section>
     </div>
     {commandOpen && <div className="fixed inset-0 z-50 flex justify-center bg-overlay px-4 pt-[16vh]" onClick={() => setCommandOpen(false)}><div className="h-fit w-full max-w-lg rounded-md border border-border bg-popover shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="flex items-center gap-3 border-b border-border px-4"><Command className="size-4 text-primary" /><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search services, signals, regions..." className="h-12 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" /><Button variant="ghost" size="icon" aria-label="Close search" onClick={() => setCommandOpen(false)}><X /></Button></div><div className="p-3">{[...reports.map((report) => `${report.city} · ${report.issue}`), ...sampleIncidents.map((item) => `${item.service} · ${item.action}`)].filter((item) => item.toLowerCase().includes(query.toLowerCase())).map((item) => <div key={item} className="border-b border-border px-2 py-2.5 text-xs last:border-0">{item}</div>)}</div></div></div>}
-    {diagnosisOpen && <div className="fixed inset-0 z-50 grid place-items-center bg-overlay p-4" onClick={() => setDiagnosisOpen(false)}><div role="dialog" aria-label="Fleet diagnosis" className="w-full max-w-md rounded-md border border-border bg-popover p-5" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between"><ShieldCheck className="size-5 text-success" /><Button variant="ghost" size="icon" aria-label="Close diagnosis" onClick={() => setDiagnosisOpen(false)}><X /></Button></div>{diagnosisResult ? <><h2 className="mt-3 text-lg font-semibold">Live diagnosis complete</h2><p className="mt-2 text-sm text-muted-foreground">Confidence: <span className="font-mono text-foreground">{Math.round(diagnosisResult.confidence * 100)}%</span></p><p className="mt-4 border-l-2 border-warning pl-3 text-sm text-warning">{diagnosisResult.rootCause}</p><p className="mt-4 text-sm leading-relaxed text-muted-foreground">{diagnosisResult.suggestedFix}</p><div className="mt-4 space-y-1 text-xs text-muted-foreground">{diagnosisResult.evidence.map((item) => <p key={item}>• {item}</p>)}</div><div className="mt-4 rounded border border-border bg-secondary/30 p-3 text-xs"><div className="flex items-center justify-between gap-2"><span className="font-semibold">GitHub repair connection</span><span className={`rounded px-1.5 py-0.5 font-mono text-[10px] uppercase ${githubStatus?.mode === "unconfigured" ? "bg-critical/15 text-critical" : githubStatus?.mode === "app" ? "bg-success/15 text-success" : "bg-warning/15 text-warning"}`}>{githubStatus?.mode ?? "checking"}</span></div><p className="mt-1 text-muted-foreground">{githubStatus?.message ?? "Checking GitHub configuration…"}</p>{githubStatus && <p className="mt-2 font-mono text-[10px] text-muted-foreground">{githubStatus.repositoryCount} repo{githubStatus.repositoryCount === 1 ? "" : "s"} · {githubStatus.realInstallations} App installation{githubStatus.realInstallations === 1 ? "" : "s"} · webhook {githubStatus.webhookConfigured ? "ready" : "not configured"}</p>}</div><div className="mt-4 border-t border-border pt-3"><p className="text-[10px] font-semibold uppercase text-muted-foreground">Repair candidates</p><label className="mt-2 block text-[10px] uppercase text-muted-foreground">Replay fix candidate<input value={replayCandidate} onChange={(event) => setReplayCandidate(event.target.value)} placeholder='add_field:status:"paid"' className="mt-1 h-9 w-full rounded border border-border bg-background px-2 text-xs normal-case text-foreground outline-none placeholder:text-muted-foreground" /></label><p className="mt-1 text-[10px] text-muted-foreground">Supported replay operations: add_field, modify_field, remove_field.</p><div className="mt-2 space-y-2">{diagnosisResult.candidates.map((candidate) => <div key={`${candidate.type}-${candidate.description}`} className="rounded border border-border bg-secondary/30 p-2 text-xs"><div className="flex items-center justify-between gap-2"><span>{candidate.description}</span><span className="font-mono text-success">{Math.round(candidate.confidence * 100)}%</span></div><p className="mt-1 font-mono text-[10px] text-muted-foreground">{candidate.type} · {candidate.files.join(", ") || "manual review"}</p><div className="mt-2 flex gap-2"><Button size="sm" variant="outline" onClick={() => void runReplay(candidate)} disabled={replayBusy}>{replayBusy ? "Replaying…" : "Replay"}</Button><Button size="sm" onClick={() => void createRepairPr(candidate)} disabled={prBusy || githubInstallations.length === 0}>{prBusy ? "Creating…" : "Create PR"}</Button></div></div>)}</div>{replayMessage && <p className="mt-2 text-xs text-muted-foreground">{replayMessage}</p>}{prMessage && <p className="mt-2 break-all text-xs text-muted-foreground">{prMessage}</p>}{!githubInstallations.length && <p className="mt-2 text-[10px] text-muted-foreground">GitHub PR actions require a configured GitHub App installation.</p>}</div></> : selectedIncidentId ? <><h2 className="mt-3 text-lg font-semibold">Live incident diagnosis</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">SHAPI has an active incident ready for automated root-cause analysis and repair suggestions.</p>{diagnosisError && <p className="mt-3 text-xs text-critical">{diagnosisError}</p>}<Button className="mt-5 w-full" onClick={() => void runLiveDiagnosis()} disabled={diagnosing}>{diagnosing ? "Diagnosing…" : "Diagnose live incident"}</Button></> : <><h2 className="mt-3 text-lg font-semibold">Fleet diagnosis preview</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">No live incident is currently active. This preview demonstrates the operator workflow for 24 services across 9 regions.</p><p className="mt-4 border-l-2 border-warning pl-3 font-mono text-xs text-warning">payments-api · eu-central-1 · sample intervention</p></>}<Button variant={diagnosisResult || !selectedIncidentId ? "default" : "outline"} className="mt-5 w-full" onClick={() => setDiagnosisOpen(false)}>Done</Button></div></div>}
+    {diagnosisOpen && <div className="fixed inset-0 z-50 grid place-items-center bg-overlay p-4" onClick={() => setDiagnosisOpen(false)}><div role="dialog" aria-label="Fleet diagnosis" className="w-full max-w-md rounded-md border border-border bg-popover p-5" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between"><ShieldCheck className="size-5 text-success" /><Button variant="ghost" size="icon" aria-label="Close diagnosis" onClick={() => setDiagnosisOpen(false)}><X /></Button></div>{diagnosisResult ? <><h2 className="mt-3 text-lg font-semibold">Live diagnosis complete</h2><p className="mt-2 text-sm text-muted-foreground">Confidence: <span className="font-mono text-foreground">{Math.round(diagnosisResult.confidence * 100)}%</span></p><p className="mt-4 border-l-2 border-warning pl-3 text-sm text-warning">{diagnosisResult.rootCause}</p><p className="mt-4 text-sm leading-relaxed text-muted-foreground">{diagnosisResult.suggestedFix}</p><div className="mt-4 space-y-1 text-xs text-muted-foreground">{diagnosisResult.evidence.map((item) => <p key={item}>• {item}</p>)}</div><div className="mt-4 rounded border border-border bg-secondary/30 p-3 text-xs"><div className="flex items-center justify-between gap-2"><span className="font-semibold">GitHub repair connection</span><span className={`rounded px-1.5 py-0.5 font-mono text-[10px] uppercase ${githubStatus?.mode === "unconfigured" ? "bg-critical/15 text-critical" : githubStatus?.mode === "app" ? "bg-success/15 text-success" : "bg-warning/15 text-warning"}`}>{githubStatus?.mode ?? "checking"}</span></div><p className="mt-1 text-muted-foreground">{githubStatus?.message ?? "Checking GitHub configuration…"}</p>{githubStatus && <p className="mt-2 font-mono text-[10px] text-muted-foreground">{githubStatus.repositoryCount} repo{githubStatus.repositoryCount === 1 ? "" : "s"} · {githubStatus.realInstallations} App installation{githubStatus.realInstallations === 1 ? "" : "s"} · webhook {githubStatus.webhookConfigured ? "ready" : "not configured"}</p>}</div><div className="mt-4 rounded border border-border bg-secondary/30 p-3 text-xs"><div className="flex items-center justify-between gap-2"><p className="font-semibold">Recent repair PRs</p><span className="font-mono text-[10px] text-muted-foreground">{githubPrLoading ? "loading…" : `${githubPrs.length} total`}</span></div>{githubPrError ? <p className="mt-2 text-[10px] text-critical">{githubPrError}</p> : githubPrs.length ? <div className="mt-2 space-y-2">{githubPrs.map((pr) => <div key={pr.id} className="rounded border border-border bg-background/50 p-2"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><a href={pr.prUrl} target="_blank" rel="noreferrer" className="truncate font-medium text-primary hover:underline">PR #{pr.prNumber} · {pr.title}</a><p className="mt-1 truncate font-mono text-[10px] text-muted-foreground">{pr.repository}</p></div><span className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] ${pr.status === "MERGED" ? "bg-success/15 text-success" : pr.status === "CLOSED" ? "bg-critical/15 text-critical" : "bg-warning/15 text-warning"}`}>{pr.status}</span></div><div className="mt-2 flex items-center justify-between gap-2"><span className={`font-mono text-[10px] ${pr.verified ? "text-success" : "text-muted-foreground"}`}>{pr.verified ? "CI VERIFIED" : "CI PENDING"}</span><Button size="sm" variant="outline" onClick={() => void verifyRepairPr(pr)} disabled={githubPrVerifyBusy === pr.id}>{githubPrVerifyBusy === pr.id ? "Checking…" : "Verify"}</Button></div></div>)}</div> : <p className="mt-2 text-[10px] text-muted-foreground">No repair PRs created for this incident.</p>}</div><div className="mt-4 border-t border-border pt-3"><p className="text-[10px] font-semibold uppercase text-muted-foreground">Repair candidates</p><label className="mt-2 block text-[10px] uppercase text-muted-foreground">Replay fix candidate<input value={replayCandidate} onChange={(event) => setReplayCandidate(event.target.value)} placeholder='add_field:status:"paid"' className="mt-1 h-9 w-full rounded border border-border bg-background px-2 text-xs normal-case text-foreground outline-none placeholder:text-muted-foreground" /></label><p className="mt-1 text-[10px] text-muted-foreground">Supported replay operations: add_field, modify_field, remove_field.</p><div className="mt-2 space-y-2">{diagnosisResult.candidates.map((candidate) => <div key={`${candidate.type}-${candidate.description}`} className="rounded border border-border bg-secondary/30 p-2 text-xs"><div className="flex items-center justify-between gap-2"><span>{candidate.description}</span><span className="font-mono text-success">{Math.round(candidate.confidence * 100)}%</span></div><p className="mt-1 font-mono text-[10px] text-muted-foreground">{candidate.type} · {candidate.files.join(", ") || "manual review"}</p><div className="mt-2 flex gap-2"><Button size="sm" variant="outline" onClick={() => void runReplay(candidate)} disabled={replayBusy}>{replayBusy ? "Replaying…" : "Replay"}</Button><Button size="sm" onClick={() => void createRepairPr(candidate)} disabled={prBusy || githubLoading || githubInstallations.length === 0}>{prBusy ? "Creating…" : "Create PR"}</Button></div></div>)}</div>{replayMessage && <p className="mt-2 text-xs text-muted-foreground">{replayMessage}</p>}{prMessage && <p className="mt-2 break-all text-xs text-muted-foreground">{prMessage}</p>}{!githubInstallations.length && <p className="mt-2 text-[10px] text-muted-foreground">GitHub PR actions require a configured GitHub App installation.</p>}</div></> : selectedIncidentId ? <><h2 className="mt-3 text-lg font-semibold">Live incident diagnosis</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">SHAPI has an active incident ready for automated root-cause analysis and repair suggestions.</p>{diagnosisError && <p className="mt-3 text-xs text-critical">{diagnosisError}</p>}<Button className="mt-5 w-full" onClick={() => void runLiveDiagnosis()} disabled={diagnosing}>{diagnosing ? "Diagnosing…" : "Diagnose live incident"}</Button></> : <><h2 className="mt-3 text-lg font-semibold">Fleet diagnosis preview</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">No live incident is currently active. This preview demonstrates the operator workflow for 24 services across 9 regions.</p><p className="mt-4 border-l-2 border-warning pl-3 font-mono text-xs text-warning">payments-api · eu-central-1 · sample intervention</p></>}<Button variant={diagnosisResult || !selectedIncidentId ? "default" : "outline"} className="mt-5 w-full" onClick={() => setDiagnosisOpen(false)}>Done</Button></div></div>}
   </main>;
 }
