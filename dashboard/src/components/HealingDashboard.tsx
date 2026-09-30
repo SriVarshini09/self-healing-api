@@ -258,6 +258,21 @@ function Sparkline({ values }: { values: number[] }) {
   );
 }
 
+function incidentTone(severity: string): 'critical' | 'elevated' | 'observed' {
+  return severity === 'CRITICAL' || severity === 'HIGH'
+    ? 'critical'
+    : severity === 'MEDIUM'
+      ? 'elevated'
+      : 'observed';
+}
+
+function incidentAge(isoDate: string): string {
+  const seconds = Math.max(0, Math.floor((Date.now() - new Date(isoDate).getTime()) / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  return `${Math.floor(seconds / 3600)}h`;
+}
+
 type InvariantMapping = {
   id: string;
   name: string;
@@ -770,6 +785,16 @@ export function HealingDashboard() {
 
   const activeIncidentCount = liveSnapshot?.summary.activeAlerts ?? 0;
   const healingActionCount = liveSnapshot ? liveSnapshot.incidents.length : 0;
+  const visibleReports = liveSnapshot?.incidents.length
+    ? liveSnapshot.incidents.map(incident => ({
+        city: incident.integrationId,
+        region: 'SHAPI live',
+        issue: incident.title,
+        source: incident.integrationId,
+        time: incidentAge(incident.detectedAt),
+        tone: incidentTone(incident.severity),
+      }))
+    : reports;
   const metrics = [
     {
       label: 'API availability',
@@ -987,8 +1012,8 @@ export function HealingDashboard() {
                   Global API issue radar
                 </h2>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  {liveSnapshot
-                    ? 'Live incident state · reference coordinates'
+                    {liveSnapshot
+                      ? 'Live incident state from SHAPI'
                     : 'Reference regions while SHAPI connects'}
                 </p>
               </div>
@@ -1052,7 +1077,7 @@ export function HealingDashboard() {
                   <span>{paused ? 'Paused' : liveSnapshot ? 'SHAPI · 10s' : 'Preview · 5s'}</span>
                 </div>
                 <div className="divide-y divide-border">
-                  {reports.map(report => (
+                  {visibleReports.map(report => (
                     <div
                       key={report.city}
                       className="flex min-h-[77px] gap-2.5 px-3.5 py-3 transition-colors hover:bg-secondary/40"
@@ -1070,7 +1095,7 @@ export function HealingDashboard() {
                         </p>
                         <p className="mt-1 truncate text-[11px]">{report.issue}</p>
                         <p className="mt-1 font-mono text-[9px] uppercase text-muted-foreground">
-                          {report.source} · illustrative
+                          {report.source} · {liveSnapshot ? 'live SHAPI incident' : 'illustrative'}
                         </p>
                       </div>
                       <div className="flex shrink-0 flex-col items-end gap-2">

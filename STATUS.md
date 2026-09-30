@@ -56,8 +56,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 4. **Production operations.** Public deployment, secret management, database
    backup/restore drills, tenant onboarding, alert delivery, and security/load
    testing remain to be completed before a production launch.
-5. **Dashboard data fidelity.** The dashboard reads live incident/API data
-   where available, but parts of the fleet/globe view still use preview data.
+5. **Dashboard data fidelity.** The regional incident panel now uses live
+   SHAPI incidents when available, but parts of the fleet/globe view still use
+   preview data.
 
 ## Next engineering priority
 
