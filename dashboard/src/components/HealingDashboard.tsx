@@ -214,6 +214,23 @@ export function HealingDashboard() {
     }
   };
   useEffect(() => {
+    if (!diagnosisOpen || !selectedIncidentId) return;
+    let active = true;
+    const refresh = async () => {
+      try {
+        const prs = await fetchShapi<GitHubPr[]>(`github/incidents/${selectedIncidentId}/prs`);
+        if (active) {
+          setGithubPrs(prs);
+          setGithubPrError(null);
+        }
+      } catch (error) {
+        if (active) setGithubPrError(error instanceof Error ? error.message : "GitHub PR refresh failed");
+      }
+    };
+    const timer = window.setInterval(() => { void refresh(); }, 10000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [diagnosisOpen, selectedIncidentId]);
+  useEffect(() => {
     let active = true;
     const load = async () => {
       try {
