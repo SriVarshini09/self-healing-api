@@ -174,6 +174,12 @@ Typechecks: `pnpm -r typecheck`. Builds verified: backend `tsc`, dashboard `tsc 
   together with `GITHUB_ACCOUNT_LOGIN` and an explicit comma-separated
   `GITHUB_REPOSITORIES` allow-list. This mode never infers repository access
   from the token alone and should not be used as a multi-tenant App substitute.
+- The dashboard's GitHub readiness panel reports the active mode and provides the
+  production setup checklist. For App mode, configure the App credentials, install
+  the App on the target repository, grant Contents and Pull requests read/write
+  permissions, set `GITHUB_WEBHOOK_SECRET_APP`, and point the App webhook to
+  `/api/v1/github/webhook` on the public API URL. Refresh the diagnosis until the
+  readiness mode reports `app`.
 - The backend runs a scheduled invariant-window evaluator (default every 60 seconds;
   configure with `INVARIANT_EVALUATION_INTERVAL_SEC`) and uses weighted baseline/current
   trial counts for drift calculations.
