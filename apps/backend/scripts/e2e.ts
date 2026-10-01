@@ -8,6 +8,7 @@ async function main() {
   await registerPlugins(app);
   await registerRoutes(app);
   await app.ready();
+  const runStartedAt = new Date();
 
   const j = (r: any) => JSON.parse(r.body);
   const KEY = process.env.SHAPI_API_KEY || 'shapi_demo_local_d3v_k3y_9f2c';
@@ -85,6 +86,45 @@ async function main() {
   });
   console.log('sdk track:', track.statusCode);
   if (track.statusCode !== 201) throw new Error('sdk track failed: ' + track.body);
+
+  // The core product promise is stronger than an HTTP 200: a failed business
+  // outcome must become a detectable, triageable incident. Processing is
+  // intentionally asynchronous, so poll briefly for the persisted incident.
+  const incidentDeadline = Date.now() + 3000;
+  let businessFailureIncident: any = null;
+  while (Date.now() < incidentDeadline) {
+    businessFailureIncident = await prisma.incident.findFirst({
+      where: {
+        invariantId: 'inv-stripe-provisioning',
+        detectedAt: { gte: runStartedAt },
+        status: { in: ['DETECTED', 'TRIAGED', 'REPLAYING'] },
+      },
+      orderBy: { detectedAt: 'desc' },
+      include: { invariant: true },
+    });
+    if (businessFailureIncident) break;
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  if (!businessFailureIncident) {
+    throw new Error('expected provisioning.failed to open a triageable incident');
+  }
+  console.log('business failure incident:', businessFailureIncident.id, businessFailureIncident.status);
+
+  const diagnosis = await app.inject({
+    method: 'POST',
+    url: `/api/v1/incidents/${businessFailureIncident.id}/diagnose`,
+    headers: auth,
+  });
+  console.log('diagnosis:', diagnosis.statusCode);
+  if (diagnosis.statusCode !== 200) throw new Error('diagnosis failed: ' + diagnosis.body);
+  const diagnosisData = j(diagnosis);
+  if (!diagnosisData.diagnosis?.rootCause?.includes('provisioning.failed')) {
+    throw new Error('diagnosis did not cite the failed business outcome');
+  }
+  if (!Array.isArray(diagnosisData.candidates) || diagnosisData.candidates.length === 0) {
+    throw new Error('diagnosis did not produce repair candidates');
+  }
+  console.log('repair candidates:', diagnosisData.candidates.length);
 
   // 7. drift summary + incidents endpoints reachable
   const summary = await app.inject({ method: 'GET', url: '/api/v1/drift/summary', headers: auth });

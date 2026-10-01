@@ -1,6 +1,6 @@
 # SHAPI product status
 
-Updated 2026-09-30. This is a current-state checklist, not a claim that the
+Updated 2026-10-01. This is a current-state checklist, not a claim that the
 product is production-ready. See [README.md](README.md) for setup and API details.
 
 ## Verified in this repository
@@ -14,6 +14,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - Webhook and SDK events feed behavioral invariants; drift detection and
   incident creation are implemented. Tenant-scoped API keys and invariant
   quotas are enforced.
+- A controlled live API check confirmed the core business-outcome flow:
+  `provisioning.failed` → `DETECTED` incident → `TRIAGED` diagnosis with repair
+  candidates. The backend E2E script now asserts this flow instead of checking
+  only HTTP status codes.
 - Diagnosis persists repair candidates once per newly detected incident.
   Replay and PR actions cannot reopen resolved or dismissed incidents.
 - Real GitHub repair PR creation is implemented for a persisted candidate with
@@ -36,11 +40,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Not complete
 
-1. **GitHub App deployment.** The local stack currently has token mode, not
-   `GITHUB_APP_ID` plus private-key credentials. A real App installation,
-   repository permissions, public webhook URL, and delivery test still require
-   operator-owned GitHub setup. Token mode is useful for local/operator use but
-   is not a substitute for tenant-isolated App installations.
+1. **GitHub App deployment.** The local stack now has a real App installation,
+   repository permissions, a public webhook URL, and a verified `200` delivery.
+   Full repair-PR verification still requires a mapped repair target and a
+   complete PR/CI/business-outcome demonstration.
 2. **Repository-aware repair workflow.** Invariants can now store an explicit
    `repairRepository` and `repairFilePath`, and a structured predicate edit
    is generated only for a mapped target. Existing invariants remain unmapped
