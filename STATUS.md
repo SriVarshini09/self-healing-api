@@ -9,8 +9,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   dashboard. On 2026-10-01, the backend was rebuilt from `master`; `/health`,
   `/ready`, and the dashboard returned 200.
 - GitHub Actions CI on `master` passed for the verified product code head
-  `1181d5d`:
-  [run 36941056895](https://github.com/SriVarshini09/self-healing-api/actions/runs/36941056895).
+  `6b2efca`:
+  [run 36941705399](https://github.com/SriVarshini09/self-healing-api/actions/runs/36941705399).
   CI checks workspace types, backend lint, package/backend unit tests, backend
   and dashboard builds, and Prisma schema validation.
 - Webhook and SDK events feed behavioral invariants; drift detection and
@@ -101,6 +101,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   authenticated requests, and dashboard browser smoke. The corresponding
   Docker production workflow passed:
   [run 36941056940](https://github.com/SriVarshini09/self-healing-api/actions/runs/36941056940).
+- The production dashboard smoke now verifies both direct API wiring and the
+  hosted-style same-origin `/api/v1` Nginx proxy, including runtime `config.js`
+  injection. The Docker production workflow passed this proxy check:
+  [run 36941705351](https://github.com/SriVarshini09/self-healing-api/actions/runs/36941705351).
 - The dashboard repair-candidate guard passed the full local readiness gate on
   2026-10-01: API liveness, database readiness, dashboard serving, GitHub App
   readiness, security checks, 20/20 authenticated requests, and browser smoke.
