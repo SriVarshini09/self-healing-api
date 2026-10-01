@@ -104,8 +104,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   the production dashboard's live command center, repair-target panel, and
   diagnosis modal.
 - A guarded demo mapping command now validates exact source preconditions and
-  required checks before configuring the reviewed Stripe predicate targets;
-  the provisioning invariant remains intentionally adapter-only.
+  required checks before configuring the reviewed Stripe predicate targets. It
+  can now also configure the exact demo provisioning adapter target, requiring
+  both `verify` and `business-outcome` checks.
 - The guarded deployment command now forwards the optional dashboard and
   sustained-capacity gates, allowing one release command to run the complete
   local readiness suite.
@@ -120,18 +121,20 @@ product is production-ready. See [README.md](README.md) for setup and API detail
    `repairRepository` and `repairFilePath`, and a structured predicate edit
    is generated only for a mapped target. Three reviewed Stripe predicate
    invariants are mapped to the demo repository and require `verify`; the
-   provisioning and GitHub invariants remain unmapped until their target
-   behavior is reviewed. Most other repair types are suggestions only. The
+   provisioning invariant now has a reviewed demo adapter target and requires
+   both `verify` and `business-outcome`. GitHub invariants remain unmapped until
+   their target behavior is reviewed. Most other repair types are suggestions only. The
    API supports a read-only patch preview, and the production dashboard
    displays its pinned source excerpts before a PR can be opened. The
    dashboard also edits and saves the explicit repository/file mapping.
-3. **End-to-end repair proof.** The business-outcome check now executes a
-   structured patch through a reusable target-app contract and a reviewed
-   adapter against the real demo-SaaS source, but it is not yet a generic
-   sandbox for arbitrary customer repositories. Each customer target still
-   needs its own reviewed adapter and full test command. Replay still tests a
-   user-entered event transformation, and PR #4 remains open for human review;
-   CI evidence is not the same as proving the business outcome in production.
+3. **End-to-end repair proof.** The provisioning invariant now generates a
+   structured patch only for the exact reviewed demo-SaaS target and requires
+   the target `business-outcome` check in addition to generic CI. This is still
+   not a generic sandbox for arbitrary customer repositories. Each customer
+   target still needs its own reviewed adapter and full test command. Replay
+   still tests a user-entered event transformation, and PR #4 remains open for
+   human review; CI evidence is not the same as proving the business outcome
+   in production.
 4. **Production operations.** Public deployment, secure secret storage,
    hosted tenant onboarding, and sustained capacity/load testing remain to be
    completed before a production launch. Backup/restore, security, and bounded
@@ -147,9 +150,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Next engineering priority
 
-Review target behavior for the remaining provisioning and GitHub invariants,
-then extend the target-app business-outcome harness beyond its current demo
-adapter before claiming arbitrary repository repairs are verified. The next
+Review target behavior for the remaining GitHub invariants, then extend the
+target-app business-outcome harness beyond its current demo adapter before
+claiming arbitrary repository repairs are verified. The next
 release blocker is still hosted deployment with secure secrets and
 tenant-isolated onboarding; local deployment and readiness gates are now
 repeatable. Do not claim a replay-verified fix prematurely.

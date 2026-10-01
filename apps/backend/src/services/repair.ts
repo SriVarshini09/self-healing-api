@@ -1,4 +1,11 @@
 import type { Incident, Integration, Invariant, Prisma } from '@prisma/client';
+import {
+  DEMO_SAAS_PROVISIONING_AFTER,
+  DEMO_SAAS_PROVISIONING_BEFORE,
+  DEMO_SAAS_PROVISIONING_PATH,
+  DEMO_SAAS_REPOSITORY,
+  isDemoSaasProvisioningTarget,
+} from '@shapi/repair-generation';
 import type { DiagnosisResult } from './diagnosis.js';
 
 export interface RepairCandidate {
@@ -34,6 +41,9 @@ export async function generateRepairCandidates(
     ];
   }
 
+  const businessOutcomeFix = generateDemoSaasBusinessOutcomeFix(invariant);
+  if (businessOutcomeFix) candidates.push(businessOutcomeFix);
+
   const predicateFix = generatePredicateFix(invariant, diagnosis);
   if (predicateFix) candidates.push(predicateFix);
 
@@ -47,6 +57,28 @@ export async function generateRepairCandidates(
   if (codeFix) candidates.push(codeFix);
 
   return candidates.sort((a, b) => b.confidence - a.confidence);
+}
+
+function generateDemoSaasBusinessOutcomeFix(invariant: Invariant): RepairCandidate | null {
+  if (invariant.id !== 'inv-stripe-provisioning') return null;
+  if (!isDemoSaasProvisioningTarget(invariant.repairRepository, invariant.repairFilePath)) {
+    return null;
+  }
+
+  return {
+    type: 'CODE_CHANGE',
+    description: 'Remove the reviewed silent provisioning failure branch',
+    diff: `- ${DEMO_SAAS_PROVISIONING_BEFORE.trimEnd().replace(/\n/gu, '\n- ')}\n+ ${DEMO_SAAS_PROVISIONING_AFTER.trimEnd().replace(/\n/gu, '\n+ ')}`,
+    files: [DEMO_SAAS_PROVISIONING_PATH],
+    repository: DEMO_SAAS_REPOSITORY,
+    confidence: 0.95,
+    changes: [{
+      kind: 'replace',
+      path: DEMO_SAAS_PROVISIONING_PATH,
+      before: DEMO_SAAS_PROVISIONING_BEFORE,
+      after: DEMO_SAAS_PROVISIONING_AFTER,
+    }],
+  };
 }
 
 function generatePredicateFix(

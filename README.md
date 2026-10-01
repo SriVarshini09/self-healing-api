@@ -302,9 +302,11 @@ For a bounded authenticated load baseline, run:
 - For this repository's local demo tenant, the reviewed Stripe predicate
   targets can be checked and configured repeatably with
   `./scripts/configure-demo-repair-targets.ps1 -EnvFile ./path/to/.env -Apply`.
-  That command maps only the predicate-backed Stripe examples to the seed file;
-  the provisioning invariant remains unmapped because it requires the reviewed
-  business-outcome adapter instead of a predicate edit.
+  Add `-IncludeProvisioningAdapter` to also map the reviewed provisioning
+  business-outcome patch to `apps/demo-saas/src/business-outcome.ts`; that
+  target requires both the generic `verify` check and the dedicated
+  `business-outcome` check before it can be considered verified. Customer
+  repositories still need their own reviewed adapter and test command.
 - `POST /github/incidents/:id/pr/preview` performs no writes. It returns the
   repository base SHA, bounded source/result excerpts, and a short-lived
   signed approval token only after the candidate applies cleanly at that

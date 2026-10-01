@@ -2,7 +2,11 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import ts from 'typescript';
-import { proveBusinessOutcomeRepair, type RepairChange } from './index.js';
+import {
+  DEMO_SAAS_PROVISIONING_PATH,
+  DEMO_SAAS_PROVISIONING_REPAIR,
+  proveBusinessOutcomeRepair,
+} from './index.js';
 
 type DemoUser = {
   id: string;
@@ -22,28 +26,9 @@ type DemoHandler = (
   failureMode: boolean,
 ) => ProvisioningOutcome;
 
-const targetPath = 'apps/demo-saas/src/business-outcome.ts';
+const targetPath = DEMO_SAAS_PROVISIONING_PATH;
 const targetFile = path.resolve(process.cwd(), '../../apps/demo-saas/src/business-outcome.ts');
 const originalSource = readFileSync(targetFile, 'utf8');
-const reviewedBefore = [
-  '  if (failureMode) {',
-  '    return {',
-  '      success: false,',
-  "      details: { reason: 'provisioning skipped (simulated bug)', customer },",
-  '    };',
-  '  }',
-].join('\n') + '\n';
-const reviewedAfter = [
-  '  // The reviewed repair removes the silent failure branch so payment',
-  "  // processing applies the user's provisioning outcome.",
-].join('\n') + '\n';
-
-const repair: RepairChange[] = [{
-  kind: 'replace',
-  path: targetPath,
-  before: reviewedBefore,
-  after: reviewedAfter,
-}];
 
 function loadDemoHandler(source: string): DemoHandler {
   const compiled = ts.transpileModule(source, {
@@ -72,7 +57,7 @@ describe('real demo-saas business-outcome adapter', () => {
     const proof = proveBusinessOutcomeRepair({
       files: { [targetPath]: originalSource },
       targetPath,
-      changes: repair,
+      changes: DEMO_SAAS_PROVISIONING_REPAIR,
       load: loadDemoHandler,
       createState: createUsers,
       run: (handler, users) => handler(users, 'cus_target', true),
@@ -89,7 +74,7 @@ describe('real demo-saas business-outcome adapter', () => {
     expect(() => proveBusinessOutcomeRepair({
       files: { [targetPath]: originalSource.replace('simulated bug', 'changed behavior') },
       targetPath,
-      changes: repair,
+      changes: DEMO_SAAS_PROVISIONING_REPAIR,
       load: loadDemoHandler,
       createState: createUsers,
       run: (handler, users) => handler(users, 'cus_target', true),

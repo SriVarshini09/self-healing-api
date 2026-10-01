@@ -10,6 +10,7 @@ param(
     'inv-stripe-subscription-active',
     'inv-stripe-refund-succeeded'
   ),
+  [switch]$IncludeProvisioningAdapter,
   [switch]$Apply
 )
 
@@ -42,36 +43,65 @@ $headers = @{ 'x-api-key' = $apiKey }
 $baseUrl = $ApiUrl.TrimEnd('/')
 $response = Invoke-RestMethod -Uri "$baseUrl/api/v1/invariants?pageSize=100" -Headers $headers
 $rows = @($response.data)
-$targetFile = Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..')) $FilePath
-if (-not (Test-Path -LiteralPath $targetFile)) { throw "Target file was not found locally: $targetFile" }
-$source = Get-Content -LiteralPath $targetFile -Raw
-
-$body = @{
-  repairRepository = $Repository
-  repairFilePath = $FilePath
-  repairRequiredChecks = @($RequiredChecks)
-} | ConvertTo-Json -Compress
-
-foreach ($id in $InvariantIds) {
-  $invariant = $rows | Where-Object { $_.id -eq $id } | Select-Object -First 1
-  if (-not $invariant) { throw "Invariant was not found for the authenticated tenant: $id" }
-  $occurrences = [regex]::Matches($source, [regex]::Escape([string]$invariant.predicateExpression)).Count
-  if ($occurrences -ne 1) {
-    throw "Target precondition for $id must occur exactly once in $FilePath; found $occurrences occurrences"
+$mappingSpecs = @(
+  [pscustomobject]@{
+    InvariantIds = @($InvariantIds)
+    FilePath = $FilePath
+    RequiredChecks = @($RequiredChecks)
+    ExpectedText = $null
   }
+)
+if ($IncludeProvisioningAdapter) {
+  $provisioningBefore = @(
+    '  if (failureMode) {',
+    '    return {',
+    '      success: false,',
+    "      details: { reason: 'provisioning skipped (simulated bug)', customer },",
+    '    };',
+    '  }'
+  ) -join "`n"
+  $provisioningBefore += "`n"
+  $mappingSpecs += [pscustomobject]@{
+    InvariantIds = @('inv-stripe-provisioning')
+    FilePath = 'apps/demo-saas/src/business-outcome.ts'
+    RequiredChecks = @('verify', 'business-outcome')
+    ExpectedText = $provisioningBefore
+  }
+}
 
-  if ($Apply) {
-    $updated = Invoke-RestMethod -Method Patch -Uri "$baseUrl/api/v1/invariants/$id" -Headers $headers -ContentType 'application/json' -Body $body
-    if ($updated.repairRepository -ne $Repository -or $updated.repairFilePath -ne $FilePath) {
-      throw "API did not persist the expected target for $id"
+$repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
+foreach ($spec in $mappingSpecs) {
+  $targetFile = Join-Path $repoRoot $spec.FilePath
+  if (-not (Test-Path -LiteralPath $targetFile)) { throw "Target file was not found locally: $targetFile" }
+  $source = Get-Content -LiteralPath $targetFile -Raw
+  foreach ($id in $spec.InvariantIds) {
+    $invariant = $rows | Where-Object { $_.id -eq $id } | Select-Object -First 1
+    if (-not $invariant) { throw "Invariant was not found for the authenticated tenant: $id" }
+    $expectedText = if ($null -ne $spec.ExpectedText) { [string]$spec.ExpectedText } else { [string]$invariant.predicateExpression }
+    $occurrences = [regex]::Matches($source, [regex]::Escape($expectedText)).Count
+    if ($occurrences -ne 1) {
+      throw "Target precondition for $id must occur exactly once in $($spec.FilePath); found $occurrences occurrences"
     }
-    $actualChecks = @($updated.repairRequiredChecks)
-    if ((Compare-Object -ReferenceObject @($RequiredChecks) -DifferenceObject $actualChecks)) {
-      throw "API did not persist the expected required checks for $id"
+
+    $body = @{
+      repairRepository = $Repository
+      repairFilePath = $spec.FilePath
+      repairRequiredChecks = @($spec.RequiredChecks)
+    } | ConvertTo-Json -Compress
+
+    if ($Apply) {
+      $updated = Invoke-RestMethod -Method Patch -Uri "$baseUrl/api/v1/invariants/$id" -Headers $headers -ContentType 'application/json' -Body $body
+      if ($updated.repairRepository -ne $Repository -or $updated.repairFilePath -ne $spec.FilePath) {
+        throw "API did not persist the expected target for $id"
+      }
+      $actualChecks = @($updated.repairRequiredChecks)
+      if ((Compare-Object -ReferenceObject @($spec.RequiredChecks) -DifferenceObject $actualChecks)) {
+        throw "API did not persist the expected required checks for $id"
+      }
+      Write-Output "Mapped $id -> $Repository/$($spec.FilePath) (checks: $($spec.RequiredChecks -join ', '))"
+    } else {
+      Write-Output "Would map $id -> $Repository/$($spec.FilePath) (checks: $($spec.RequiredChecks -join ', '))"
     }
-    Write-Output "Mapped $id -> $Repository/$FilePath (checks: $($RequiredChecks -join ', '))"
-  } else {
-    Write-Output "Would map $id -> $Repository/$FilePath (checks: $($RequiredChecks -join ', '))"
   }
 }
 
