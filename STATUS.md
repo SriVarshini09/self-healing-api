@@ -54,6 +54,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - GitHub App private keys can now be supplied directly, from a mounted secret
   file, or as one-line base64; startup validation requires exactly one source,
   which avoids multiline `.env` corruption in Windows and hosted secret stores.
+- GitHub readiness reporting and repair preview/PR authorization now use the
+  same resolved key-source logic, so the file and base64 forms work for the
+  actual hosted repair workflow—not only for startup validation.
 - The Docker deployment now includes explicit PowerShell backup and
   confirmation-gated restore runbooks for PostgreSQL, with backup artifacts
   excluded from Git.

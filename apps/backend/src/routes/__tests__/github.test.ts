@@ -123,6 +123,15 @@ const openRepairPrFromChangesMock = vi.fn();
 const previewRepairPrChangesMock = vi.fn();
 
 vi.mock('@shapi/github-integration', () => ({
+  hasGitHubAppConfiguration: () => Boolean(
+    process.env.GITHUB_APP_ID &&
+    (process.env.GITHUB_APP_PRIVATE_KEY || process.env.GITHUB_APP_PRIVATE_KEY_B64 || process.env.GITHUB_APP_PRIVATE_KEY_FILE),
+  ),
+  hasGitHubAppCredentials: (installationId: number) => Boolean(
+    Number(installationId) > 0 &&
+    process.env.GITHUB_APP_ID &&
+    (process.env.GITHUB_APP_PRIVATE_KEY || process.env.GITHUB_APP_PRIVATE_KEY_B64 || process.env.GITHUB_APP_PRIVATE_KEY_FILE),
+  ),
   verifyRepairPr: (...args: unknown[]) => verifyRepairPrMock(...args),
   openRepairPrFromChanges: (...args: unknown[]) => openRepairPrFromChangesMock(...args),
   previewRepairPrChanges: (...args: unknown[]) => previewRepairPrChangesMock(...args),
@@ -176,6 +185,8 @@ afterEach(async () => {
   delete process.env.GITHUB_TOKEN;
   delete process.env.GITHUB_APP_ID;
   delete process.env.GITHUB_APP_PRIVATE_KEY;
+  delete process.env.GITHUB_APP_PRIVATE_KEY_B64;
+  delete process.env.GITHUB_APP_PRIVATE_KEY_FILE;
   delete process.env.GITHUB_APP_SLUG;
 });
 
@@ -211,6 +222,14 @@ describe('GET /github/status', () => {
       repositoryCount: 1,
       appInstallUrl: 'https://github.com/apps/shapi-self-healing/installations/new',
     });
+  });
+
+  it('reports App readiness when the key is supplied as base64', async () => {
+    delete process.env.GITHUB_APP_PRIVATE_KEY;
+    process.env.GITHUB_APP_PRIVATE_KEY_B64 = Buffer.from('-----BEGIN PRIVATE KEY-----\nkey\n-----END PRIVATE KEY-----').toString('base64');
+    const res = await app.inject({ method: 'GET', url: '/github/status' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ mode: 'app', appCredentialsConfigured: true });
   });
 });
 

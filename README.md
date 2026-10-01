@@ -403,6 +403,9 @@ For a bounded authenticated load baseline, run:
 
   The explicit `GITHUB_TOKEN` mode remains available for
   local/operator deployments and synthetic token installations.
+- The dashboard readiness status and the repair preview/PR routes resolve the
+  same direct, file, or base64 key source, so a hosted deployment using
+  `GITHUB_APP_PRIVATE_KEY_B64` is authorized consistently end to end.
 - If a GitHub App is unavailable, local/operator mode can use `GITHUB_TOKEN`
   together with `GITHUB_ACCOUNT_LOGIN` and an explicit comma-separated
   `GITHUB_REPOSITORIES` allow-list. This mode never infers repository access

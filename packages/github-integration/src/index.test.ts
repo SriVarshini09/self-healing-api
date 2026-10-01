@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { verifyWebhookSignature, buildPrBody, shouldAutoMerge, openRepairPr, openRepairPrFromChanges, previewRepairPrChanges, verifyPullRequest, verifyRepairPr, hasGitHubAppCredentials, listInstallationRepositories } from './index.js';
+import { verifyWebhookSignature, buildPrBody, shouldAutoMerge, openRepairPr, openRepairPrFromChanges, previewRepairPrChanges, verifyPullRequest, verifyRepairPr, hasGitHubAppConfiguration, hasGitHubAppCredentials, listInstallationRepositories } from './index.js';
 
 afterEach(() => {
   delete process.env.GITHUB_TOKEN;
@@ -17,6 +17,7 @@ describe('GitHub App authentication configuration', () => {
   it('requires a positive installation id and both App credentials', () => {
     process.env.GITHUB_APP_ID = '12345';
     process.env.GITHUB_APP_PRIVATE_KEY = 'private-key';
+    expect(hasGitHubAppConfiguration()).toBe(true);
     expect(hasGitHubAppCredentials(9876)).toBe(true);
     expect(hasGitHubAppCredentials(-1)).toBe(false);
     expect(hasGitHubAppCredentials()).toBe(false);
@@ -25,6 +26,7 @@ describe('GitHub App authentication configuration', () => {
   it('accepts a base64 key source for .env-safe configuration', () => {
     process.env.GITHUB_APP_ID = '12345';
     process.env.GITHUB_APP_PRIVATE_KEY_B64 = Buffer.from('-----BEGIN PRIVATE KEY-----\nkey\n-----END PRIVATE KEY-----').toString('base64');
+    expect(hasGitHubAppConfiguration()).toBe(true);
     expect(hasGitHubAppCredentials(9876)).toBe(true);
   });
 
@@ -35,6 +37,7 @@ describe('GitHub App authentication configuration', () => {
       fs.writeFileSync(keyPath, '-----BEGIN PRIVATE KEY-----\nkey\n-----END PRIVATE KEY-----\n', 'utf8');
       process.env.GITHUB_APP_ID = '12345';
       process.env.GITHUB_APP_PRIVATE_KEY_FILE = keyPath;
+      expect(hasGitHubAppConfiguration()).toBe(true);
       expect(hasGitHubAppCredentials(9876)).toBe(true);
     } finally {
       fs.rmSync(directory, { recursive: true, force: true });

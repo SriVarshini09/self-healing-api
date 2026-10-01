@@ -4,7 +4,7 @@ import { GitHubPRStatus, IncidentStatus, IntegrationType } from '@prisma/client'
 import crypto from 'crypto';
 import { z } from 'zod';
 import { tenantIdFor } from '../utils/auth-context.js';
-import { hasGitHubAppCredentials, listInstallationRepositories } from '@shapi/github-integration';
+import { hasGitHubAppConfiguration, hasGitHubAppCredentials, listInstallationRepositories } from '@shapi/github-integration';
 
 type JsonRecord = Record<string, unknown>;
 
@@ -265,7 +265,7 @@ export async function githubRoutes(app: FastifyInstance) {
         select: { githubInstallationId: true, repositories: true },
       });
     const repositories = new Set(installations.flatMap(installation => installation.repositories));
-    const appCredentialsConfigured = Boolean(process.env.GITHUB_APP_ID && process.env.GITHUB_APP_PRIVATE_KEY);
+    const appCredentialsConfigured = hasGitHubAppConfiguration();
     const tokenConfigured = Boolean(
       process.env.GITHUB_TOKEN &&
       process.env.GITHUB_ACCOUNT_LOGIN &&
@@ -360,9 +360,7 @@ export async function githubRoutes(app: FastifyInstance) {
     const fullRepo = repository.includes('/') ? repository : `${installation.accountLogin}/${repository}`;
     if (candidate.repository !== fullRepo) return reply.code(409).send({ error: 'Repair candidate is not mapped to the selected repository' });
     if (!installation.repositories.includes(fullRepo)) return reply.code(403).send({ error: 'Repository is not included in this GitHub installation' });
-    const hasAppAuth = Boolean(
-      process.env.GITHUB_APP_ID && process.env.GITHUB_APP_PRIVATE_KEY && Number(installation.githubInstallationId) > 0,
-    );
+    const hasAppAuth = hasGitHubAppCredentials(Number(installation.githubInstallationId));
     if (!process.env.GITHUB_TOKEN && !hasAppAuth) {
       return reply.code(503).send({ error: 'GitHub credentials are required to preview a real repository patch' });
     }
@@ -440,11 +438,7 @@ export async function githubRoutes(app: FastifyInstance) {
     const changes = repairChangesSchema.safeParse(candidate.changes);
     if (!changes.success) return reply.code(409).send({ error: 'Selected repair candidate has no applicable file changes; review it manually' });
 
-    const hasAppAuth = Boolean(
-      process.env.GITHUB_APP_ID &&
-      process.env.GITHUB_APP_PRIVATE_KEY &&
-      Number(installation.githubInstallationId) > 0,
-    );
+    const hasAppAuth = hasGitHubAppCredentials(Number(installation.githubInstallationId));
     if (!process.env.GITHUB_TOKEN && !hasAppAuth) {
       return reply.code(503).send({ error: 'GitHub token or App installation credentials are required to create real repair PRs' });
     }

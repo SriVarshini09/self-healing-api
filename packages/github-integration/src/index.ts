@@ -45,10 +45,17 @@ export function getGitHubAppPrivateKey(): string | undefined {
 }
 
 export function hasGitHubAppCredentials(installationId?: InstallationId): boolean {
+  const numericInstallationId = Number(installationId);
+  return hasGitHubAppConfiguration()
+    && Number.isSafeInteger(numericInstallationId)
+    && numericInstallationId > 0;
+}
+
+/** True when the App id and any supported private-key source are usable. */
+export function hasGitHubAppConfiguration(): boolean {
   const appId = process.env.GITHUB_APP_ID;
   const privateKey = getGitHubAppPrivateKey();
-  const numericInstallationId = Number(installationId);
-  return Boolean(appId && privateKey && Number.isSafeInteger(numericInstallationId) && numericInstallationId > 0);
+  return Boolean(appId && privateKey);
 }
 
 export interface GitHubInstallationAccess {
