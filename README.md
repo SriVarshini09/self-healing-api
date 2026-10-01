@@ -96,6 +96,14 @@ pass the matching `-EnvFile`, `-ComposeFile`, `-ProjectName`, `-Database`, and
 `-Username` parameters. The scripts read `POSTGRES_USER` from the env file by
 default and pass it explicitly to PostgreSQL.
 
+To verify the full backup/restore path without touching the live database, run
+the confirmation-gated drill. It creates a temporary database, restores the
+backup, compares representative row counts, and removes both temporary assets:
+
+```powershell
+./scripts/backup-restore-drill.ps1 -EnvFile ./path/to/.env -ConfirmDrill
+```
+
 ### Deployment smoke check
 
 After starting the production Compose stack, run the non-destructive smoke

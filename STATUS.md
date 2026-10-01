@@ -62,6 +62,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - The PostgreSQL backup and restore runbooks pass the configured database role
   explicitly; a live drill caught and corrected the previous container-user
   default that caused `pg_dump` to try the nonexistent `root` role.
+- A confirmation-gated backup/restore drill now restores into a temporary
+  database, compares representative tenant, integration, incident, alert,
+  webhook, and tracked-event counts, and removes its temporary artifacts.
 - PR verification now returns the exact GitHub check-run evidence and head
   commit used to determine CI status, and persists that evidence for audit
   after reload. Missing, running, or failing checks remain unverified.
@@ -98,10 +101,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
    user-entered event transformation, and PR #4 remains open for human review;
    CI evidence is not the same as proving the business outcome in production.
 4. **Production operations.** Public deployment, secure secret storage,
-   backup/restore drills, tenant onboarding, and sustained capacity/load testing
-   remain to be completed before a production launch. Repeatable security and
-   bounded load smoke checks now cover authentication rejection, security
-   headers, alert-status output, and concurrent authenticated requests.
+   tenant onboarding, and sustained capacity/load testing remain to be
+   completed before a production launch. Backup/restore, security, and bounded
+   load drills are now repeatable; secure secret storage and public deployment
+   still require a real hosting environment.
 5. **Dashboard data fidelity.** The production command view now uses only live
    SHAPI incidents, shows exact active/severity/integration/invariant counts,
    and avoids presenting invented regions, map coordinates, correlation
@@ -115,8 +118,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 Map the remaining production invariants to reviewed target files and extend the
 target-app business-outcome harness beyond its contract fixture before claiming
 arbitrary repository repairs are verified. Then run sustained capacity tests
-and complete backup/restore and tenant-onboarding drills. Do not claim a
-replay-verified fix prematurely.
+and complete tenant-onboarding drills. Do not claim a replay-verified fix
+prematurely.
 
 ## Local checks
 
