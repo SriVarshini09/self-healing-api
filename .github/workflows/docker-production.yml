@@ -36,6 +36,9 @@ jobs:
       POSTGRES_DB: shapi_ci
       JWT_SECRET: shapi_ci_jwt_secret_0123456789_abcdefghijklmnopqrstuvwxyz
       VITE_API_URL: http://localhost:3001/api/v1
+      # GitHub-hosted runners expose GITHUB_APP_SLUG in the runner environment.
+      # Keep the CI stack in tokenless mode unless App credentials are supplied.
+      GITHUB_APP_SLUG: ''
     steps:
       - uses: actions/checkout@v7
 
