@@ -69,6 +69,10 @@ vi.mock('../../utils/prisma.js', () => ({
       }]),
     },
     gitHubInstallation: {
+      findMany: vi.fn(async () => [{
+        id: 'install-1', githubInstallationId: BigInt(166689576),
+        accountLogin: 'SriVarshini09', repositories: ['SriVarshini09/self-healing-api'],
+      }]),
       findFirst: vi.fn(async ({ where }: { where: { id: string } }) =>
         where.id === 'install-1' ? {
           id: 'install-1', githubInstallationId: BigInt(-1),
@@ -149,6 +153,9 @@ beforeEach(async () => {
   previewRepairPrChangesMock.mockReset();
   process.env.GITHUB_WEBHOOK_SECRET_APP = 'test-secret';
   process.env.GITHUB_TOKEN = 'test-token';
+  process.env.GITHUB_APP_ID = '5142476';
+  process.env.GITHUB_APP_PRIVATE_KEY = 'test-private-key';
+  process.env.GITHUB_APP_SLUG = 'shapi-self-healing';
   app = Fastify();
   app.addHook('onRequest', async request => {
     (request as AuthenticatedRequest).shapiAuth = {
@@ -167,6 +174,9 @@ afterEach(async () => {
   await app.close();
   delete process.env.GITHUB_WEBHOOK_SECRET_APP;
   delete process.env.GITHUB_TOKEN;
+  delete process.env.GITHUB_APP_ID;
+  delete process.env.GITHUB_APP_PRIVATE_KEY;
+  delete process.env.GITHUB_APP_SLUG;
 });
 
 function signedHeaders(payload: Record<string, unknown>, event: string) {
@@ -188,6 +198,21 @@ function incident(id: string): FakeIncident {
   if (!found) throw new Error(`missing incident ${id}`);
   return found;
 }
+
+describe('GET /github/status', () => {
+  it('reports App readiness and the direct installation URL', async () => {
+    const res = await app.inject({ method: 'GET', url: '/github/status' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      mode: 'app',
+      appCredentialsConfigured: true,
+      webhookConfigured: true,
+      realInstallations: 1,
+      repositoryCount: 1,
+      appInstallUrl: 'https://github.com/apps/shapi-self-healing/installations/new',
+    });
+  });
+});
 
 const passingCi = {
   verified: true,
