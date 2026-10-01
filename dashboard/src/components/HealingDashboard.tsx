@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import {
-  Activity,
   Bell,
   Check,
   ChevronDown,
@@ -182,25 +181,6 @@ function GitHubSetupGuide({ status }: { status: GitHubStatus | null }) {
   );
 }
 
-function Sparkline({ values }: { values: number[] }) {
-  const points = values
-    .map((value, index) => `${(index / (values.length - 1)) * 100},${30 - value}`)
-    .join(' ');
-  return (
-    <svg viewBox="0 0 100 32" className="h-8 w-[72px] shrink-0 overflow-visible" aria-hidden="true">
-      <polyline
-        points={points}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        vectorEffect="non-scaling-stroke"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 function incidentTone(severity: string): 'critical' | 'elevated' | 'observed' {
   return severity === 'CRITICAL' || severity === 'HIGH'
     ? 'critical'
@@ -350,7 +330,6 @@ function RepairTargetPanel() {
 }
 
 export function HealingDashboard() {
-  const [liveRequests, setLiveRequests] = useState(2174);
   const [paused, setPaused] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -677,6 +656,11 @@ export function HealingDashboard() {
         if (active) setApiError(error instanceof Error ? error.message : 'SHAPI API unavailable');
       }
     };
+    if (paused) {
+      return () => {
+        active = false;
+      };
+    }
     void load();
     const timer = window.setInterval(() => {
       void load();
@@ -685,17 +669,6 @@ export function HealingDashboard() {
       active = false;
       window.clearInterval(timer);
     };
-  }, []);
-  useEffect(() => {
-    if (paused) return;
-    const timer = window.setInterval(
-      () =>
-        setLiveRequests(value =>
-          Math.max(1800, Math.min(2600, value + Math.round((Math.random() - 0.5) * 24)))
-        ),
-      2200
-    );
-    return () => window.clearInterval(timer);
   }, [paused]);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -740,13 +713,12 @@ export function HealingDashboard() {
   const affectedIntegrations = new Set(activeIncidents.map(incident => incident.integrationId)).size;
   const metrics = [
     {
-      label: 'API availability',
-      value: '99.94',
-      suffix: '%',
-      badge: '+0.03%',
-      icon: ShieldCheck,
+      label: 'SHAPI connection',
+      value: liveSnapshot ? 'LIVE' : '—',
+      suffix: '',
+      badge: liveSnapshot ? '10s refresh' : apiError ? 'unavailable' : 'connecting',
+      icon: HeartPulse,
       tone: 'success',
-      data: [17, 17, 18, 17, 18, 18, 19, 18, 19, 19],
     },
     {
       label: 'Active incidents',
@@ -755,25 +727,22 @@ export function HealingDashboard() {
       badge: liveSnapshot ? `${activeIncidentCount} live` : 'connecting',
       icon: CircleAlert,
       tone: 'critical',
-      data: [10, 9, 13, 8, 16, 18, 13, 14, 13, 13],
     },
     {
-      label: 'Healing actions',
-      value: String(healingActionCount),
+      label: 'Monitored integrations',
+      value: String(liveSnapshot?.summary.monitoredIntegrations ?? '—'),
       suffix: '',
-      badge: liveSnapshot ? 'live incidents' : 'preview',
-      icon: GitBranch,
-      tone: 'warning',
-      data: [8, 8, 8, 10, 20, 10, 15, 16, 16, 16],
-    },
-    {
-      label: 'Requests / min',
-      value: liveRequests.toLocaleString(),
-      suffix: '',
-      badge: '+12.8%',
-      icon: Activity,
+      badge: liveSnapshot ? 'live SHAPI' : 'connecting',
+      icon: Network,
       tone: 'observed',
-      data: [9, 12, 11, 14, 13, 16, 14, 18, 20, 22],
+    },
+    {
+      label: 'Invariants monitored',
+      value: String(liveSnapshot?.summary.totalInvariants ?? '—'),
+      suffix: '',
+      badge: liveSnapshot ? 'behavioral checks' : 'connecting',
+      icon: ShieldCheck,
+      tone: 'success',
     },
   ];
 
@@ -936,9 +905,6 @@ export function HealingDashboard() {
                     {metric.value}
                     <span className="ml-0.5 text-sm">{metric.suffix}</span>
                   </p>
-                  <div className={`spark-${metric.tone}`}>
-                    <Sparkline values={metric.data} />
-                  </div>
                 </div>
               </article>
             ))}
