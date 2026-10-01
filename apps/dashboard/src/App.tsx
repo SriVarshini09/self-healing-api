@@ -652,6 +652,7 @@ type GitHubStatus = {
   realInstallations: number;
   installationCount: number;
   repositoryCount: number;
+  appInstallUrl: string | null;
 };
 
 function GitHub({ refreshKey }: { refreshKey: number }) {
@@ -721,6 +722,14 @@ function GitHub({ refreshKey }: { refreshKey: number }) {
           <div><div className="stat-num">{status?.repositoryCount ?? '—'}</div><div className="stat-label">Accessible repositories</div></div>
         </div>
         <p className="muted">{status?.message ?? 'Loading GitHub status…'}</p>
+        {status?.appInstallUrl && (
+          <div className="form-row">
+            <a className="secondary button-link" href={status.appInstallUrl} target="_blank" rel="noreferrer">
+              Install or change repository access
+            </a>
+            <span className="muted">Use this when a new repository or organization needs access.</span>
+          </div>
+        )}
       </div>
 
       <div className="card">

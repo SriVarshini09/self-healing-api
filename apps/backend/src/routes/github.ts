@@ -290,6 +290,7 @@ export async function githubRoutes(app: FastifyInstance) {
         : mode === 'simulated'
           ? 'Development simulation is active; real PRs require GitHub credentials.'
           : 'Configure a GitHub App installation or an operator token before creating real PRs.';
+    const appSlug = process.env.GITHUB_APP_SLUG?.trim();
 
     return reply.send({
       mode,
@@ -300,6 +301,7 @@ export async function githubRoutes(app: FastifyInstance) {
       realInstallations,
       installationCount: installations.length,
       repositoryCount: repositories.size,
+      appInstallUrl: appSlug ? `https://github.com/apps/${appSlug}/installations/new` : null,
     });
   });
 

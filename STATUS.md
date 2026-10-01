@@ -49,6 +49,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - The Docker deployment now includes explicit PowerShell backup and
   confirmation-gated restore runbooks for PostgreSQL, with backup artifacts
   excluded from Git.
+- GitHub App onboarding now exposes a configured `GITHUB_APP_SLUG` as a direct
+  install/repository-access link in the dashboard's GitHub operations screen.
 - PR verification now returns the exact GitHub check-run evidence and head
   commit used to determine CI status, and persists that evidence for audit
   after reload. Missing, running, or failing checks remain unverified.

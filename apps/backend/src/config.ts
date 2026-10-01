@@ -39,6 +39,7 @@ const configSchema = z.object({
   // GitHub App
   GITHUB_APP_ID: z.string().optional(),
   GITHUB_APP_PRIVATE_KEY: z.string().optional(),
+  GITHUB_APP_SLUG: z.string().regex(/^[a-z0-9][a-z0-9-]*$/).optional(),
   GITHUB_WEBHOOK_SECRET_APP: z.string().optional(),
   GITHUB_APP_INTEGRATION_ID: z.string().optional(),
   // Optional local/operator token mode for repositories where a GitHub App is
