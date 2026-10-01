@@ -103,6 +103,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - The readiness gate now also includes an opt-in read-only browser smoke for
   the production dashboard's live command center, repair-target panel, and
   diagnosis modal.
+- A guarded demo mapping command now validates exact source preconditions and
+  required checks before configuring the reviewed Stripe predicate targets;
+  the provisioning invariant remains intentionally adapter-only.
 
 ## Not complete
 

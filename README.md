@@ -295,6 +295,12 @@ For a bounded authenticated load baseline, run:
   must contain the current predicate text exactly once. Existing unmapped
   invariants continue to produce manual-review suggestions; SHAPI never
   guesses a repository file path.
+- For this repository's local demo tenant, the reviewed Stripe predicate
+  targets can be checked and configured repeatably with
+  `./scripts/configure-demo-repair-targets.ps1 -EnvFile ./path/to/.env -Apply`.
+  That command maps only the predicate-backed Stripe examples to the seed file;
+  the provisioning invariant remains unmapped because it requires the reviewed
+  business-outcome adapter instead of a predicate edit.
 - `POST /github/incidents/:id/pr/preview` performs no writes. It returns the
   repository base SHA, bounded source/result excerpts, and a short-lived
   signed approval token only after the candidate applies cleanly at that
