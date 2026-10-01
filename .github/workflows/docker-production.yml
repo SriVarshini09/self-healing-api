@@ -42,6 +42,7 @@ jobs:
       POSTGRES_DB: shapi_ci
       JWT_SECRET: shapi_ci_jwt_secret_0123456789_abcdefghijklmnopqrstuvwxyz
       VITE_API_URL: http://localhost:3001/api/v1
+      SHAPI_CI_API_KEY: shapi_ci_api_key_20261001
       # GitHub-hosted runners expose GITHUB_APP_SLUG in the runner environment.
       # Keep the CI stack in tokenless mode unless App credentials are supplied.
       GITHUB_APP_SLUG: ''
@@ -78,6 +79,33 @@ jobs:
           docker compose -f docker-compose.production.yml ps
           docker compose -f docker-compose.production.yml logs --no-color --tail=100 backend postgres dashboard
           exit 1
+
+      - name: Verify authenticated security and load behavior
+        run: |
+          set -euo pipefail
+          docker compose -f docker-compose.production.yml exec -T \
+            -e SHAPI_API_KEY="$SHAPI_CI_API_KEY" \
+            backend ./apps/backend/node_modules/.bin/tsx apps/backend/prisma/seed.ts
+
+          unauthenticated_status=$(curl -sS -o /dev/null -w '%{http_code}' \
+            http://127.0.0.1:3001/api/v1/alerts/status)
+          invalid_status=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -H 'x-api-key: invalid-ci-key' \
+            http://127.0.0.1:3001/api/v1/alerts/status)
+          metrics_status=$(curl -sS -o /dev/null -w '%{http_code}' \
+            http://127.0.0.1:3001/metrics)
+
+          test "$unauthenticated_status" = '401'
+          test "$invalid_status" = '401'
+          test "$metrics_status" = '404'
+
+          trap 'rm -f .ci-api.env' EXIT
+          printf 'SHAPI_API_KEY=%s\n' "$SHAPI_CI_API_KEY" > .ci-api.env
+          node scripts/load-smoke.mjs \
+            --url http://127.0.0.1:3001 \
+            --env-file .ci-api.env \
+            --requests 20 \
+            --concurrency 5
 
       - name: Tear down production stack
         if: always()
