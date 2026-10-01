@@ -1,5 +1,6 @@
 import express from 'express';
 import { Shapi } from '@shapi/sdk';
+import { applyProvisioningOutcome, type DemoUser } from './business-outcome.js';
 
 const PORT = Number(process.env.DEMO_PORT ?? 3000);
 const SHAPI_URL = process.env.SHAPI_URL ?? 'http://localhost:3001';
@@ -8,7 +9,7 @@ const SHAPI_KEY = process.env.SHAPI_API_KEY ?? 'shapi_demo_local_d3v_k3y_9f2c';
 const shapi = new Shapi({ apiKey: SHAPI_KEY, apiUrl: SHAPI_URL, environment: 'development' });
 
 // In-memory "database" for demo
-const users = new Map<string, { id: string; email: string; plan: string; provisioned: boolean }>();
+const users = new Map<string, DemoUser>();
 let failureMode = false; // when true, provisioning silently fails but webhook returns 200
 
 const app = express();
@@ -67,16 +68,8 @@ app.post('/webhooks/stripe', async (req, res) => {
         // (Tracking a lossy subset here once caused a false payment violation.)
         { ...(event as Record<string, unknown>), customer, amount_paid: amount },
         async () => {
-          // THE BUG: returns 200 OK but silently skips provisioning when failureMode is on
-          if (failureMode) {
-            return { success: false, details: { reason: 'provisioning skipped (simulated bug)', customer } };
-          }
-          const u = users.get(customer ?? '');
-          if (u) {
-            u.provisioned = true;
-            return { success: true, details: { userId: customer, plan: u.plan } };
-          }
-          return { success: false, details: { reason: 'unknown customer', customer } };
+          // THE BUG: returns 200 OK but silently skips provisioning when failureMode is on.
+          return applyProvisioningOutcome(users, customer, failureMode);
         },
       );
     } catch {

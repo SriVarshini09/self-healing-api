@@ -35,6 +35,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - On 2026-10-01, the live Docker stack completed a read-only dashboard preview
   against the real installation and returned the current `master` SHA, one
   changed file, and a signed preview approval token without creating a PR.
+- The demo SaaS now has a dedicated business-outcome regression check proving
+  that the simulated provisioning failure leaves the user unprovisioned and
+  that the corrected handler recovers the same user. GitHub Actions runs this
+  as a separate `business-outcome` check.
 - PR verification now returns the exact GitHub check-run evidence and head
   commit used to determine CI status, and persists that evidence for audit
   after reload. Missing, running, or failing checks remain unverified.
@@ -62,10 +66,11 @@ product is production-ready. See [README.md](README.md) for setup and API detail
    supports a read-only patch preview, and the production dashboard displays
    its pinned source excerpts before a PR can be opened. The dashboard also
    edits and saves the explicit repository/file mapping.
-3. **End-to-end repair proof.** Replay currently tests a user-entered event
-   transformation; it does not execute a proposed code patch against the
-   target application's tests. The real PR and CI verification path is now
-   proven, but the repair is not merged and CI success is not the same as
+3. **End-to-end repair proof.** The repository now has a dedicated business-
+   outcome regression check, but replay still tests a user-entered event
+   transformation rather than executing a proposed code patch against the
+   target application's full test suite. The real PR and CI verification path
+   is proven, but the repair is not merged and CI success is not the same as
    proving the business outcome in production.
 4. **Production operations.** Public deployment, secret management, database
    backup/restore drills, tenant onboarding, alert delivery, and security/load

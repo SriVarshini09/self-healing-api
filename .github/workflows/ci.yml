@@ -56,3 +56,23 @@ jobs:
         run: pnpm --filter @shapi/backend exec prisma validate
         env:
           DATABASE_URL: postgresql://shapi:shapi@localhost:5432/shapi?schema=public
+
+  business-outcome:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9.0.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Run business-outcome regression
+        run: pnpm --filter @shapi/demo-saas test -- src/index.test.ts
