@@ -70,7 +70,11 @@ try {
   } else {
     & $readinessScript -ApiUrl $ApiUrl -DashboardUrl $DashboardUrl -EnvFile $EnvFile -ComposeFile $ComposeFile -ProjectName $ProjectName -Requests $Requests -Concurrency $Concurrency
   }
-  if (-not $?) { throw 'Production readiness checks failed' }
+  $readinessSucceeded = $?
+  $readinessExitCode = $LASTEXITCODE
+  if (-not $readinessSucceeded -or $readinessExitCode -ne 0) {
+    throw "Production readiness checks failed$(if ($readinessExitCode -ne 0) { " with exit code $readinessExitCode" })"
+  }
 } catch {
   Write-Warning "Production deployment verification failed: $($_.Exception.Message)"
   Write-Host 'Service status:'

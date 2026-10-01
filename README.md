@@ -143,6 +143,19 @@ requests at concurrency 20. Increase `-Requests` and `-Concurrency` only as a
 deliberate capacity test; this readiness gate is not a substitute for sustained
 load testing in the hosting environment.
 
+For a sustained local or staging capacity check, enable the duration-based
+smoke test. It keeps authenticated requests in flight for the requested period
+and fails if the observed error rate exceeds the limit:
+
+```powershell
+./scripts/production-readiness.ps1 -EnvFile ./path/to/.env -RequireGitHubApp -IncludeCapacitySmoke -DurationSeconds 60 -CapacityConcurrency 1 -CapacityDelayMs 100 -MaxErrorRate 0
+```
+
+The delay is useful when the authenticated endpoint's API rate limit is lower
+than the desired concurrency. Run sustained tests against a staging/hosted
+environment before using larger durations or concurrency; the check is
+intentionally opt-in for release gates.
+
 Open:
 
 - API docs: http://localhost:3001/docs

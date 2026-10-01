@@ -97,6 +97,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - A guarded `scripts/deploy-production.ps1` command now validates Compose,
   starts services, waits for API/dashboard readiness, and invokes that release
   gate with bounded failure diagnostics.
+- The readiness gate now includes an opt-in duration-based capacity smoke that
+  reports throughput, latency, status counts, and an enforced error-rate limit;
+  hosted sustained-capacity results are still outstanding.
 
 ## Not complete
 
