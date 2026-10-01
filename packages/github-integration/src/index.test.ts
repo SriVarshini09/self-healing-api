@@ -6,6 +6,8 @@ afterEach(() => {
   delete process.env.GITHUB_TOKEN;
   delete process.env.GITHUB_APP_ID;
   delete process.env.GITHUB_APP_PRIVATE_KEY;
+  delete process.env.GITHUB_APP_PRIVATE_KEY_FILE;
+  delete process.env.GITHUB_APP_PRIVATE_KEY_B64;
 });
 
 describe('GitHub App authentication configuration', () => {
@@ -15,6 +17,12 @@ describe('GitHub App authentication configuration', () => {
     expect(hasGitHubAppCredentials(9876)).toBe(true);
     expect(hasGitHubAppCredentials(-1)).toBe(false);
     expect(hasGitHubAppCredentials()).toBe(false);
+  });
+
+  it('accepts a base64 key source for .env-safe configuration', () => {
+    process.env.GITHUB_APP_ID = '12345';
+    process.env.GITHUB_APP_PRIVATE_KEY_B64 = Buffer.from('-----BEGIN PRIVATE KEY-----\nkey\n-----END PRIVATE KEY-----').toString('base64');
+    expect(hasGitHubAppCredentials(9876)).toBe(true);
   });
 
   it('lists repositories from an installation-scoped client', async () => {

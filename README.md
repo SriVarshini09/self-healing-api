@@ -323,9 +323,14 @@ For a bounded authenticated load baseline, run:
   check must complete successfully in addition to generic CI before a repair
   becomes verified. The dashboard exposes this field beside the repository
   and file mapping.
-- When `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, and a real GitHub App
+- When `GITHUB_APP_ID`, one GitHub App private-key source, and a real GitHub App
   installation are configured, PR creation and CI verification use a short-lived
-  installation token. The explicit `GITHUB_TOKEN` mode remains available for
+  installation token. The key may be supplied directly with
+  `GITHUB_APP_PRIVATE_KEY`, from a mounted secret file with
+  `GITHUB_APP_PRIVATE_KEY_FILE`, or as one-line base64 with
+  `GITHUB_APP_PRIVATE_KEY_B64`; configure only one source. The file/base64 forms
+  avoid multiline PEM corruption in Windows `.env` files and hosted secret
+  managers. The explicit `GITHUB_TOKEN` mode remains available for
   local/operator deployments and synthetic token installations.
 - If a GitHub App is unavailable, local/operator mode can use `GITHUB_TOKEN`
   together with `GITHUB_ACCOUNT_LOGIN` and an explicit comma-separated

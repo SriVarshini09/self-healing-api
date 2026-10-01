@@ -1,5 +1,6 @@
 // @shapi/github-integration - verified PR workflow helpers
 import crypto from 'crypto';
+import fs from 'node:fs';
 import { createAppAuth } from '@octokit/auth-app';
 import { Octokit } from '@octokit/rest';
 import { applyRepairChanges, RepairChangeError, validateRepairChanges, type RepairChange } from '@shapi/repair-generation';
@@ -11,9 +12,41 @@ function normalizedPrivateKey(value: string): string {
   return value.replace(/\\n/g, '\n');
 }
 
+/**
+ * Resolve the App key from a direct value, a mounted secret file, or a
+ * base64-encoded environment value. The latter two forms avoid multiline
+ * PEM corruption in Windows .env files and hosted secret managers.
+ */
+export function getGitHubAppPrivateKey(): string | undefined {
+  const direct = process.env.GITHUB_APP_PRIVATE_KEY?.trim();
+  if (direct) return normalizedPrivateKey(direct);
+
+  const encoded = process.env.GITHUB_APP_PRIVATE_KEY_B64?.trim();
+  if (encoded) {
+    try {
+      const decoded = Buffer.from(encoded, 'base64').toString('utf8').trim();
+      if (decoded.includes('PRIVATE KEY')) return decoded;
+    } catch {
+      // Fall through so invalid optional sources fail the App readiness check.
+    }
+  }
+
+  const filePath = process.env.GITHUB_APP_PRIVATE_KEY_FILE?.trim();
+  if (filePath) {
+    try {
+      const fileValue = fs.readFileSync(filePath, 'utf8').trim();
+      if (fileValue) return normalizedPrivateKey(fileValue);
+    } catch {
+      // Treat an unreadable optional source as unavailable credentials.
+    }
+  }
+
+  return undefined;
+}
+
 export function hasGitHubAppCredentials(installationId?: InstallationId): boolean {
   const appId = process.env.GITHUB_APP_ID;
-  const privateKey = process.env.GITHUB_APP_PRIVATE_KEY;
+  const privateKey = getGitHubAppPrivateKey();
   const numericInstallationId = Number(installationId);
   return Boolean(appId && privateKey && Number.isSafeInteger(numericInstallationId) && numericInstallationId > 0);
 }
@@ -56,11 +89,12 @@ function createGitHubClient(
   if (token) return new Octokit({ auth: token });
 
   if (hasGitHubAppCredentials(installationId)) {
+    const privateKey = getGitHubAppPrivateKey();
     return new Octokit({
       authStrategy: createAppAuth,
       auth: {
         appId: process.env.GITHUB_APP_ID!,
-        privateKey: normalizedPrivateKey(process.env.GITHUB_APP_PRIVATE_KEY!),
+        privateKey: privateKey!,
         installationId: Number(installationId),
       },
     });

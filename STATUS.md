@@ -52,6 +52,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - Production startup now fails closed when placeholder JWT secrets or partial
   GitHub App/token credentials are supplied, preventing an unsafe deployment
   from appearing healthy.
+- GitHub App private keys can now be supplied directly, from a mounted secret
+  file, or as one-line base64; startup validation requires exactly one source,
+  which avoids multiline `.env` corruption in Windows and hosted secret stores.
 - The Docker deployment now includes explicit PowerShell backup and
   confirmation-gated restore runbooks for PostgreSQL, with backup artifacts
   excluded from Git.

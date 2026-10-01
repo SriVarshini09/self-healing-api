@@ -3,6 +3,8 @@ export type ProductionConfigInput = {
   JWT_SECRET: string;
   GITHUB_APP_ID?: string;
   GITHUB_APP_PRIVATE_KEY?: string;
+  GITHUB_APP_PRIVATE_KEY_FILE?: string;
+  GITHUB_APP_PRIVATE_KEY_B64?: string;
   GITHUB_WEBHOOK_SECRET_APP?: string;
   GITHUB_TOKEN?: string;
   GITHUB_ACCOUNT_LOGIN?: string;
@@ -23,9 +25,17 @@ export function productionConfigIssues(input: ProductionConfigInput): string[] {
     issues.push('JWT_SECRET must be replaced with a unique production secret');
   }
 
-  const appFields = [input.GITHUB_APP_ID, input.GITHUB_APP_PRIVATE_KEY, input.GITHUB_WEBHOOK_SECRET_APP];
-  if (appFields.some(present) && appFields.some(value => !present(value))) {
-    issues.push('GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY, and GITHUB_WEBHOOK_SECRET_APP must be configured together');
+  const appPrivateKeySources = [
+    input.GITHUB_APP_PRIVATE_KEY,
+    input.GITHUB_APP_PRIVATE_KEY_FILE,
+    input.GITHUB_APP_PRIVATE_KEY_B64,
+  ];
+  const appConfigured = [input.GITHUB_APP_ID, input.GITHUB_WEBHOOK_SECRET_APP, ...appPrivateKeySources].some(present);
+  if (appConfigured && (!present(input.GITHUB_APP_ID) || !present(input.GITHUB_WEBHOOK_SECRET_APP) || !appPrivateKeySources.some(present))) {
+    issues.push('GITHUB_APP_ID, one GitHub App private-key source, and GITHUB_WEBHOOK_SECRET_APP must be configured together');
+  }
+  if (appPrivateKeySources.filter(present).length > 1) {
+    issues.push('Configure only one GitHub App private-key source: GITHUB_APP_PRIVATE_KEY, GITHUB_APP_PRIVATE_KEY_FILE, or GITHUB_APP_PRIVATE_KEY_B64');
   }
 
   const tokenFields = [input.GITHUB_TOKEN, input.GITHUB_ACCOUNT_LOGIN, input.GITHUB_REPOSITORIES];

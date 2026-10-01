@@ -21,7 +21,34 @@ describe('productionConfigIssues', () => {
 
   it('rejects partial GitHub App credentials', () => {
     expect(productionConfigIssues({ ...safe, GITHUB_APP_ID: '5142476' })).toContain(
-      'GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY, and GITHUB_WEBHOOK_SECRET_APP must be configured together',
+      'GITHUB_APP_ID, one GitHub App private-key source, and GITHUB_WEBHOOK_SECRET_APP must be configured together',
+    );
+  });
+
+  it('accepts a file or base64 private-key source', () => {
+    expect(productionConfigIssues({
+      ...safe,
+      GITHUB_APP_ID: '5142476',
+      GITHUB_APP_PRIVATE_KEY_FILE: '/run/secrets/github-app-key',
+      GITHUB_WEBHOOK_SECRET_APP: 'webhook-secret',
+    })).toEqual([]);
+    expect(productionConfigIssues({
+      ...safe,
+      GITHUB_APP_ID: '5142476',
+      GITHUB_APP_PRIVATE_KEY_B64: 'base64-key',
+      GITHUB_WEBHOOK_SECRET_APP: 'webhook-secret',
+    })).toEqual([]);
+  });
+
+  it('rejects multiple private-key sources', () => {
+    expect(productionConfigIssues({
+      ...safe,
+      GITHUB_APP_ID: '5142476',
+      GITHUB_APP_PRIVATE_KEY: 'private-key',
+      GITHUB_APP_PRIVATE_KEY_B64: 'base64-key',
+      GITHUB_WEBHOOK_SECRET_APP: 'webhook-secret',
+    })).toContain(
+      'Configure only one GitHub App private-key source: GITHUB_APP_PRIVATE_KEY, GITHUB_APP_PRIVATE_KEY_FILE, or GITHUB_APP_PRIVATE_KEY_B64',
     );
   });
 
