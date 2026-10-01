@@ -9,8 +9,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   dashboard. On 2026-10-01, the backend was rebuilt from `master`; `/health`,
   `/ready`, and the dashboard returned 200.
 - GitHub Actions CI on `master` passed for the current verified product code
-  head `84f3cc2`, including the repair-readiness release-gate integration:
-  [run 36942589056](https://github.com/SriVarshini09/self-healing-api/actions/runs/36942589056).
+  head `06372c3`, including the repair-readiness release-gate integration:
+  [run 36943193331](https://github.com/SriVarshini09/self-healing-api/actions/runs/36943193331).
   CI checks workspace types, backend lint, package/backend unit tests, backend
   and dashboard builds, and Prisma schema validation.
 - Webhook and SDK events feed behavioral invariants; drift detection and
@@ -88,6 +88,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   dashboard stack, verifies API and dashboard readiness, and tears it down on
   relevant changes. The current run passed on 2026-10-01:
   [run 36938673777](https://github.com/SriVarshini09/self-healing-api/actions/runs/36938673777).
+- Docker production CI now also runs when deployment scripts, Render Blueprint
+  configuration, or provider deployment assets change. The filter change passed
+  the full image build, stack startup, readiness verification, and teardown:
+  [run 36943193335](https://github.com/SriVarshini09/self-healing-api/actions/runs/36943193335).
 - Optional GitHub App configuration now treats an empty `GITHUB_APP_SLUG` as
   unset, so tokenless CI and deployments do not fail schema validation while
   real App credentials remain validated when supplied.
