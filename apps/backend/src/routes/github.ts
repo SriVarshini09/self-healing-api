@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../utils/prisma.js';
-import { GitHubPRStatus, IncidentStatus, IntegrationType } from '@prisma/client';
+import { GitHubPRStatus, IncidentStatus, IntegrationType, Prisma, WebhookEventStatus } from '@prisma/client';
 import crypto from 'crypto';
 import { z } from 'zod';
 import { tenantIdFor } from '../utils/auth-context.js';
@@ -169,12 +169,59 @@ export async function githubRoutes(app: FastifyInstance) {
       }
     }
 
-    if (event === 'installation') await handleInstallationEvent(payload, integration.id);
-    if (event === 'pull_request') await handlePullRequestEvent(payload, integration.id);
-    if (event === 'push') await handlePushEvent(payload);
-    if (event === 'workflow_run') await handleWorkflowRunEvent(payload, integration.id);
+    const existing = delivery
+      ? await prisma.webhookEvent.findFirst({ where: { integrationId: integration.id, providerEventId: delivery } })
+      : null;
+    if (existing) return reply.send({ received: true, delivery, eventId: existing.id, duplicate: true });
 
-    return reply.send({ received: true, delivery });
+    let webhookEvent;
+    try {
+      webhookEvent = await prisma.webhookEvent.create({
+        data: {
+          integrationId: integration.id,
+          eventType: event || 'unknown',
+          providerEventId: delivery || null,
+          payload: payload as Prisma.InputJsonValue,
+          headers: headers as Prisma.InputJsonValue,
+          status: WebhookEventStatus.RECEIVED,
+        },
+      });
+    } catch (error) {
+      // The delivery id is unique per integration. If two retries race before
+      // either can be observed by findFirst, let the unique constraint turn
+      // the second request into the same safe duplicate acknowledgment.
+      if (delivery && error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const raced = await prisma.webhookEvent.findFirst({
+          where: { integrationId: integration.id, providerEventId: delivery },
+        });
+        if (raced) return reply.send({ received: true, delivery, eventId: raced.id, duplicate: true });
+      }
+      throw error;
+    }
+
+    try {
+      if (event === 'installation') await handleInstallationEvent(payload, integration.id);
+      if (event === 'pull_request') await handlePullRequestEvent(payload, integration.id);
+      if (event === 'push') await handlePushEvent(payload);
+      if (event === 'workflow_run') await handleWorkflowRunEvent(payload, integration.id);
+
+      await prisma.webhookEvent.update({
+        where: { id: webhookEvent.id },
+        data: { status: WebhookEventStatus.COMPLETED, processedAt: new Date() },
+      });
+    } catch (error) {
+      await prisma.webhookEvent.update({
+        where: { id: webhookEvent.id },
+        data: {
+          status: WebhookEventStatus.FAILED,
+          processedAt: new Date(),
+          errorMessage: error instanceof Error ? error.message : 'GitHub webhook processing failed',
+        },
+      });
+      throw error;
+    }
+
+    return reply.send({ received: true, delivery, eventId: webhookEvent.id });
   });
 
   app.get('/github/installations', async (request, reply) => {
@@ -647,7 +694,10 @@ async function handlePullRequestEvent(payload: Record<string, unknown>, integrat
 }
 
 async function handlePushEvent(_payload: Record<string, unknown>) {
-  // Placeholder: could trigger replay jobs on push
+  // Push events are recorded for audit, but intentionally do not mutate repair
+  // state: a push payload does not identify which open SHAPI PR (if any) owns
+  // the branch. workflow_run and pull_request events are authoritative for
+  // verification and lifecycle transitions.
 }
 
 async function handleWorkflowRunEvent(payload: Record<string, unknown>, integrationId: string) {

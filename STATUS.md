@@ -7,9 +7,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 - The local production Docker stack runs PostgreSQL, the backend, and the
   dashboard. On 2026-10-01, the backend was rebuilt from `master` at
-  `46e1317`; `/health`, `/ready`, and the dashboard returned 200.
-- GitHub Actions CI on `master` passed for the current head `b467976`:
-  [run 36931629425](https://github.com/SriVarshini09/self-healing-api/actions/runs/36931629425).
+  `53ae603`; `/health`, `/ready`, and the dashboard returned 200.
+- GitHub Actions CI on `master` passed for the current head `53ae603`:
+  [run 36931847870](https://github.com/SriVarshini09/self-healing-api/actions/runs/36931847870).
   CI checks workspace types, backend lint, package/backend unit tests, backend
   and dashboard builds, and Prisma schema validation.
 - Webhook and SDK events feed behavioral invariants; drift detection and
@@ -60,6 +60,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - The production dashboard setup guide now lists the same three key-source
   options and recommends the hosted-safe base64/file forms, avoiding a setup
   path that would still instruct operators to paste multiline PEM values.
+- GitHub App webhook deliveries are now persisted and deduplicated by
+  `X-GitHub-Delivery`; retries acknowledge the recorded event without
+  repeating lifecycle processing, while completed/failed processing remains
+  auditable in the existing webhook-event table.
 - The Docker deployment now includes explicit PowerShell backup and
   confirmation-gated restore runbooks for PostgreSQL, with backup artifacts
   excluded from Git.

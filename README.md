@@ -416,6 +416,12 @@ For a bounded authenticated load baseline, run:
   permissions, set `GITHUB_WEBHOOK_SECRET_APP`, and point the App webhook to
   `/api/v1/github/webhook` on the public API URL. Reopen the dashboard's GitHub
   readiness panel to confirm it reports `app`.
+- GitHub webhook deliveries are persisted with their `X-GitHub-Delivery` id.
+  Retries return the original event id with `duplicate: true` and do not repeat
+  lifecycle processing. Completed and failed processing states remain available
+  in the webhook-event audit trail. Push events are recorded but do not mutate
+  repair state because only workflow-run and pull-request events identify the
+  authoritative repair lifecycle.
 - The backend runs a scheduled invariant-window evaluator (default every 60 seconds;
   configure with `INVARIANT_EVALUATION_INTERVAL_SEC`) and uses weighted baseline/current
   trial counts for drift calculations.

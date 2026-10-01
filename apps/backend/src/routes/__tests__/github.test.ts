@@ -10,6 +10,16 @@ import type { AuthenticatedRequest } from '../../utils/auth-context.js';
 // gitHubPullRequest (findUnique/findFirst/update) and incident (update),
 // so the fake implements exactly that surface.
 // ---------------------------------------------------------------------------
+interface FakeWebhookEvent {
+  id: string;
+  integrationId: string;
+  eventType: string;
+  providerEventId: string | null;
+  status: string;
+  processedAt?: Date | null;
+  errorMessage?: string | null;
+}
+
 interface FakePr {
   id: string;
   prNumber: number;
@@ -47,7 +57,12 @@ type FakePrWhere = { id?: string; prNumber?: number; repository?: string; status
 type FakePrUpdateArgs = { where: { id: string }; data: Partial<FakePr> };
 type FakeIncidentUpdateArgs = { where: { id: string }; data: Partial<FakeIncident> };
 
-const db = { prs: [] as FakePr[], incidents: [] as FakeIncident[], candidates: [] as FakeCandidate[] };
+const db = {
+  prs: [] as FakePr[],
+  incidents: [] as FakeIncident[],
+  candidates: [] as FakeCandidate[],
+  webhookEvents: [] as FakeWebhookEvent[],
+};
 
 function matchesPr(p: FakePr, where: Record<string, unknown>): boolean {
   if (where.id !== undefined && p.id !== where.id) return false;
@@ -95,6 +110,21 @@ vi.mock('../../utils/prisma.js', () => ({
         const created = { ...data, id: 'new-pr', verified: false };
         db.prs.push(created);
         return created;
+      }),
+    },
+    webhookEvent: {
+      findFirst: vi.fn(async ({ where }: { where: { integrationId: string; providerEventId: string } }) =>
+        db.webhookEvents.find(event => event.integrationId === where.integrationId && event.providerEventId === where.providerEventId) ?? null),
+      create: vi.fn(async ({ data }: { data: Omit<FakeWebhookEvent, 'id'> }) => {
+        const created = { ...data, id: `delivery-${db.webhookEvents.length + 1}` };
+        db.webhookEvents.push(created);
+        return created;
+      }),
+      update: vi.fn(async ({ where, data }: { where: { id: string }; data: Partial<FakeWebhookEvent> }) => {
+        const event = db.webhookEvents.find(item => item.id === where.id);
+        if (!event) throw new Error('Webhook event not found');
+        Object.assign(event, data);
+        return event;
       }),
     },
     incident: {
@@ -151,6 +181,7 @@ function seedDb() {
     { id: 'inc-2', status: 'REPAIRED', resolvedAt: null, title: 'Incident two', rootCause: 'cause', suggestedFix: 'fix', invariant: { repairRequiredChecks: ['target-tests'] } },
   ];
   db.candidates = [];
+  db.webhookEvents = [];
 }
 
 let app: FastifyInstance;
@@ -196,6 +227,10 @@ function signedHeaders(payload: Record<string, unknown>, event: string) {
     'x-github-event': event,
     'x-hub-signature-256': `sha256=${createHmac('sha256', 'test-secret').update(body).digest('hex')}`,
   };
+}
+
+function signedHeadersWithDelivery(payload: Record<string, unknown>, event: string, delivery: string) {
+  return { ...signedHeaders(payload, event), 'x-github-delivery': delivery };
 }
 
 function pr(id: string): FakePr {
@@ -596,5 +631,41 @@ describe('pull_request merge webhook lifecycle path', () => {
     // The sibling PR/incident are untouched.
     expect(pr('pr-2').status).toBe('OPEN');
     expect(incident('inc-2').status).toBe('REPAIRED');
+  });
+});
+
+describe('GitHub webhook delivery recording', () => {
+  it('records a completed delivery and acknowledges a retry without reprocessing it', async () => {
+    verifyRepairPrMock.mockResolvedValue(passingCi);
+    const payload = {
+      action: 'completed',
+      repository: { full_name: 'acme/demo' },
+      workflow_run: { conclusion: 'success', pull_requests: [{ number: 10 }] },
+    };
+
+    const first = await app.inject({
+      method: 'POST',
+      url: '/github/webhook',
+      headers: signedHeadersWithDelivery(payload, 'workflow_run', 'delivery-1'),
+      payload,
+    });
+    const retry = await app.inject({
+      method: 'POST',
+      url: '/github/webhook',
+      headers: signedHeadersWithDelivery(payload, 'workflow_run', 'delivery-1'),
+      payload,
+    });
+
+    expect(first.statusCode).toBe(200);
+    expect(first.json()).toMatchObject({ received: true, eventId: 'delivery-1' });
+    expect(retry.statusCode).toBe(200);
+    expect(retry.json()).toMatchObject({ received: true, eventId: 'delivery-1', duplicate: true });
+    expect(verifyRepairPrMock).toHaveBeenCalledTimes(1);
+    expect(db.webhookEvents).toHaveLength(1);
+    expect(db.webhookEvents[0]).toMatchObject({
+      providerEventId: 'delivery-1',
+      eventType: 'workflow_run',
+      status: 'COMPLETED',
+    });
   });
 });
