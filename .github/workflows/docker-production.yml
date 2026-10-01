@@ -10,6 +10,9 @@ on:
       - apps/backend/prisma/**
       - dashboard/**
       - packages/**
+      - scripts/**
+      - deploy/**
+      - render.yaml
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
@@ -22,6 +25,9 @@ on:
       - apps/backend/prisma/**
       - dashboard/**
       - packages/**
+      - scripts/**
+      - deploy/**
+      - render.yaml
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
