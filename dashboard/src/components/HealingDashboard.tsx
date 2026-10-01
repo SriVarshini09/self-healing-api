@@ -1427,20 +1427,39 @@ export function HealingDashboard() {
                     Supported replay operations: add_field, modify_field, remove_field.
                   </p>
                   <div className="mt-2 space-y-2">
-                    {diagnosisResult.candidates.map(candidate => (
-                      <div
-                        key={`${candidate.type}-${candidate.description}`}
-                        className="rounded border border-border bg-secondary/30 p-2 text-xs"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span>{candidate.description}</span>
-                          <span className="font-mono text-success">
-                            {Math.round(candidate.confidence * 100)}%
-                          </span>
-                        </div>
-                        <p className="mt-1 font-mono text-[10px] text-muted-foreground">
-                          {candidate.type} · {candidate.files.join(', ') || 'manual review'}
-                        </p>
+                    {diagnosisResult.candidates.map(candidate => {
+                      const isActionableRepair = Boolean(candidate.repository && candidate.changes?.length);
+                      return (
+                        <div
+                          key={`${candidate.type}-${candidate.description}`}
+                          className="rounded border border-border bg-secondary/30 p-2 text-xs"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span>{candidate.description}</span>
+                            <span className="font-mono text-success">
+                              {Math.round(candidate.confidence * 100)}%
+                            </span>
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-2 font-mono text-[10px]">
+                            <span className="text-muted-foreground">
+                              {candidate.type} · {candidate.files.join(', ') || 'no mapped files'}
+                            </span>
+                            <span
+                              className={
+                                isActionableRepair
+                                  ? 'rounded border border-success/40 px-1.5 py-0.5 text-success'
+                                  : 'rounded border border-critical/40 px-1.5 py-0.5 text-critical'
+                              }
+                            >
+                              {isActionableRepair ? 'PR-READY AFTER REVIEW' : 'MANUAL REVIEW'}
+                            </span>
+                          </div>
+                          {!isActionableRepair && (
+                            <p className="mt-2 rounded border border-critical/20 bg-critical/5 p-2 text-[10px] leading-relaxed text-critical">
+                              No mapped repository patch is available. SHAPI will not preview or
+                              create a GitHub PR for this candidate automatically.
+                            </p>
+                          )}
                         {repairPreview?.candidateId === candidate.id && (
                           <div className="mt-2 space-y-2 rounded border border-success/30 bg-success/5 p-2">
                             <p className="font-mono text-[10px] text-success">
@@ -1495,8 +1514,9 @@ export function HealingDashboard() {
                               Boolean(previewBusy) ||
                               githubLoading ||
                               githubInstallations.length === 0 ||
-                              !candidate.changes?.length
+                              !isActionableRepair
                             }
+                            title={isActionableRepair ? 'Preview the exact repository patch' : 'Manual review required: no mapped repository patch'}
                           >
                             {previewBusy === candidate.id ? 'Previewing…' : 'Preview patch'}
                           </Button>
@@ -1507,21 +1527,23 @@ export function HealingDashboard() {
                               prBusy ||
                               githubLoading ||
                               githubInstallations.length === 0 ||
-                              !candidate.changes?.length ||
+                              !isActionableRepair ||
                               reviewedPreviewCandidateId !== candidate.id
                             }
+                            title={isActionableRepair ? 'Create a PR after reviewing the exact patch' : 'Manual review required: no mapped repository patch'}
                           >
                             {prBusy
                               ? 'Creating…'
                               : reviewedPreviewCandidateId === candidate.id
                                 ? 'Create PR'
-                                : candidate.changes?.length
+                                : isActionableRepair
                                   ? 'Review preview first'
                                   : 'Manual review'}
                           </Button>
                         </div>
-                      </div>
-                    ))}
+                        </div>
+                      );
+                    })}
                   </div>
                   {replayMessage && (
                     <p className="mt-2 text-xs text-muted-foreground">{replayMessage}</p>
