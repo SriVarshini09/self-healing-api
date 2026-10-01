@@ -161,6 +161,7 @@ model Incident {
   replayJobs      ReplayJob[]
   repairCandidates RepairCandidate[]
   githubPRs       GitHubPullRequest[]
+  alertDeliveries AlertDelivery[]
 
   @@index([integrationId, status])
   @@index([invariantId])
@@ -181,6 +182,32 @@ enum IncidentStatus {
   REPAIRED
   RESOLVED
   DISMISSED
+}
+
+model AlertDelivery {
+  id             String              @id @default(uuid())
+  incidentId     String
+  incident       Incident            @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  channel        String              @default("webhook")
+  status         AlertDeliveryStatus @default(PENDING)
+  attempts       Int                 @default(0)
+  nextAttemptAt  DateTime            @default(now())
+  lastError      String?             @db.Text
+  httpStatus     Int?
+  deliveredAt    DateTime?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@unique([incidentId, channel])
+  @@index([status, nextAttemptAt])
+}
+
+enum AlertDeliveryStatus {
+  PENDING
+  PROCESSING
+  DELIVERED
+  RETRYING
+  FAILED
 }
 
 model DriftDetectionConfig {

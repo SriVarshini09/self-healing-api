@@ -31,6 +31,17 @@ describe('productionConfigIssues', () => {
     );
   });
 
+  it('requires a signing secret when production alert delivery is enabled', () => {
+    expect(productionConfigIssues({ ...safe, ALERT_WEBHOOK_URL: 'https://alerts.example.test/shapi' })).toContain(
+      'ALERT_WEBHOOK_URL requires ALERT_WEBHOOK_SECRET for signed production delivery',
+    );
+    expect(productionConfigIssues({
+      ...safe,
+      ALERT_WEBHOOK_URL: 'https://alerts.example.test/shapi',
+      ALERT_WEBHOOK_SECRET: 'a'.repeat(32),
+    })).not.toContain('ALERT_WEBHOOK_URL requires ALERT_WEBHOOK_SECRET for signed production delivery');
+  });
+
   it('does not apply production guards in development', () => {
     expect(productionConfigIssues({ NODE_ENV: 'development', JWT_SECRET: 'your-super-secret' })).toEqual([]);
   });

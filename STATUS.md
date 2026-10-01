@@ -74,6 +74,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   operator to preview and explicitly confirm that exact patch before enabling
   its Create PR action; the API requires a short-lived signed approval for
   the same incident, candidate, repository, branch, and commit.
+- Incident alerts now use a durable, retryable webhook outbox with HMAC-SHA256
+  signatures, bounded backoff, tenant-scoped status reporting, and fail-closed
+  production configuration when a URL is supplied without a secret.
 
 ## Not complete
 
@@ -95,8 +98,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
    user-entered event transformation, and PR #4 remains open for human review;
    CI evidence is not the same as proving the business outcome in production.
 4. **Production operations.** Public deployment, secure secret storage,
-   backup/restore drills, tenant onboarding, alert delivery, and security/load
-   testing remain to be completed before a production launch.
+   backup/restore drills, tenant onboarding, and security/load testing remain
+   to be completed before a production launch. Alert delivery is implemented,
+   but still needs a real receiver and an end-to-end delivery drill.
 5. **Dashboard data fidelity.** The production command view now uses only live
    SHAPI incidents, shows exact active/severity/integration/invariant counts,
    and avoids presenting invented regions, map coordinates, correlation
@@ -109,8 +113,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 Map the remaining production invariants to reviewed target files and extend the
 target-app business-outcome harness beyond its contract fixture before claiming
-arbitrary repository repairs are verified. Then add production alert delivery
-and security/load checks. Do not claim a replay-verified fix prematurely.
+arbitrary repository repairs are verified. Then run the alert delivery drill
+and add security/load checks. Do not claim a replay-verified fix prematurely.
 
 ## Local checks
 

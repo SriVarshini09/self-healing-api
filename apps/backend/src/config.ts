@@ -48,6 +48,11 @@ const configSchema = z.object({
   GITHUB_TOKEN: z.string().optional(),
   GITHUB_ACCOUNT_LOGIN: z.string().optional(),
   GITHUB_REPOSITORIES: z.string().optional(),
+  // Optional signed incident alert sink. The outbox remains disabled when unset.
+  ALERT_WEBHOOK_URL: z.preprocess(value => value === '' ? undefined : value, z.string().url().optional()),
+  ALERT_WEBHOOK_SECRET: z.preprocess(value => value === '' ? undefined : value, z.string().optional()),
+  ALERT_WEBHOOK_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
+  ALERT_WEBHOOK_MAX_ATTEMPTS: z.coerce.number().int().positive().default(3),
   // Frontend URLs
   DASHBOARD_URL: z.string().url().default('http://localhost:5173'),
   DEMO_SAAS_URL: z.string().url().default('http://localhost:3000')

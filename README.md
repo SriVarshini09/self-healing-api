@@ -169,6 +169,7 @@ browser session instead.
 - `GET/POST /integrations`, `GET/PATCH/DELETE /integrations/:id`, webhook-events, webhook-url
 - `GET/POST /invariants`, `GET/PATCH/DELETE /invariants/:id`, `POST /invariants/:id/evaluate`, `GET /invariants/:id/evaluations`
 - `GET /incidents`, `GET/PATCH /incidents/:id`, `GET /incidents/:id/timeline`, `POST /incidents/:id/diagnose`, `POST /incidents/:id/replay`
+- `GET /alerts/status` reports the tenant-scoped durable alert outbox state
 - `GET/PATCH /drift/config/:integrationId`, `GET /drift/results`, `POST /drift/check/:invariantId`, `GET /drift/summary`
 - `POST /github/webhook`, GitHub status/installations, `POST /github/installations/sync`, `POST /github/incidents/:id/pr/preview`, incident PRs, PR verify
 - `POST /sdk/track`, `GET /sdk/events`
@@ -271,6 +272,14 @@ Typechecks: `pnpm -r typecheck`. Builds verified: backend `tsc`, dashboard `tsc 
 - `DATABASE_URL` uses the `postgresql://` scheme; backend loads repo-root `.env` via `dotenv`.
 - `/health` is a liveness check, `/ready` verifies database connectivity, and
   `/metrics` exposes Prometheus-compatible request counters.
+- Optional incident alerts use `ALERT_WEBHOOK_URL` and
+  `ALERT_WEBHOOK_SECRET`. New drift incidents enter a durable outbox; the
+  scheduler sends signed `incident.detected` JSON with HMAC-SHA256 in
+  `x-shapi-alert-signature`, retries transient failures with bounded backoff,
+  and reports pending/retry/delivered/failed counts through `/alerts/status`.
+  Leave the URL empty to disable delivery. Production rejects a URL without
+  its signing secret, and receivers must verify the signature against the
+  exact request body.
 - Unit tests, typechecks, backend lint, and the dashboard production build are
   run in CI/local verification. Live Postgres E2E requires Docker or a configured
   external database and is intentionally not claimed by the repository docs.
@@ -299,6 +308,9 @@ incident. Neither action can reopen resolved or dismissed incidents.
   assigned across tenants. Install the App on the target repository and grant
   Contents read/write, Pull requests read/write, Checks read-only, and Metadata
   read-only permissions.
+- Alerts: set `ALERT_WEBHOOK_URL` and a strong `ALERT_WEBHOOK_SECRET`, then
+  verify the receiver accepts the signed `incident.detected` payload and
+  confirm `/api/v1/alerts/status` moves deliveries to `delivered`.
 - Multi-tenant predicates: tune the per-tenant quota for deployment size and
   monitor `isolated-vm` resource use under real traffic.
 - Auth: rotate `SHAPI_API_KEY` per environment; set `VITE_SHAPI_API_KEY` to match.

@@ -4,6 +4,8 @@ import type { Prisma } from '@prisma/client';
 import { IncidentSeverity, IncidentStatus } from '@prisma/client';
 import { detectDrift } from '@shapi/drift-detection';
 import { tenantIdFor } from '../utils/auth-context.js';
+import { enqueueIncidentAlert } from '../services/alerts.js';
+import { logger } from '../utils/logger.js';
 
 export async function driftRoutes(app: FastifyInstance) {
   app.get('/drift/config/:integrationId', async (request, reply) => {
@@ -196,7 +198,7 @@ async function createDriftIncident(
         ? IncidentSeverity.HIGH
         : IncidentSeverity.MEDIUM;
 
-  await prisma.incident.create({
+  const incident = await prisma.incident.create({
     data: {
       integrationId: invariant.integrationId,
       invariantId,
@@ -206,4 +208,10 @@ async function createDriftIncident(
       status: IncidentStatus.DETECTED,
     },
   });
+  try {
+    await enqueueIncidentAlert(incident.id);
+  } catch (error) {
+    // Incident detection must remain available even if the alert outbox is unavailable.
+    logger.error({ incidentId: incident.id, error }, 'Could not enqueue incident alert');
+  }
 }

@@ -7,6 +7,8 @@ export type ProductionConfigInput = {
   GITHUB_TOKEN?: string;
   GITHUB_ACCOUNT_LOGIN?: string;
   GITHUB_REPOSITORIES?: string;
+  ALERT_WEBHOOK_URL?: string;
+  ALERT_WEBHOOK_SECRET?: string;
 };
 
 function present(value: string | undefined): boolean {
@@ -29,6 +31,10 @@ export function productionConfigIssues(input: ProductionConfigInput): string[] {
   const tokenFields = [input.GITHUB_TOKEN, input.GITHUB_ACCOUNT_LOGIN, input.GITHUB_REPOSITORIES];
   if (tokenFields.some(present) && tokenFields.some(value => !present(value))) {
     issues.push('GITHUB_TOKEN, GITHUB_ACCOUNT_LOGIN, and GITHUB_REPOSITORIES must be configured together');
+  }
+
+  if (present(input.ALERT_WEBHOOK_URL) && !present(input.ALERT_WEBHOOK_SECRET)) {
+    issues.push('ALERT_WEBHOOK_URL requires ALERT_WEBHOOK_SECRET for signed production delivery');
   }
 
   return issues;
