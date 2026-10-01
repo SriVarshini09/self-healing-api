@@ -539,13 +539,28 @@ function Incidents({ refreshKey, bump }: { refreshKey: number; bump: () => void 
             {selected.repairCandidates?.length > 0 && (
               <>
                 <h4>Repair candidates</h4>
-                {selected.repairCandidates.map((r: any) => (
-                  <div key={r.id} className="row">
-                    <Badge text={r.verified ? 'VERIFIED' : r.type} tone={r.verified ? 'green' : 'gray'} />
-                    <span>{r.description} ({Math.round(r.confidence * 100)}%)</span>
-                    {r.repository && r.changes && <button className="secondary" disabled={busy !== null} onClick={() => void previewRepair(r)}>{busy === `preview:${r.id}` ? 'Loading preview…' : 'Preview repair'}</button>}
-                  </div>
-                ))}
+                {selected.repairCandidates.map((r: any) => {
+                  const isActionableRepair = Boolean(r.repository && Array.isArray(r.changes) && r.changes.length > 0);
+                  return (
+                    <div key={r.id} className="row">
+                      <Badge
+                        text={r.verified ? 'VERIFIED' : isActionableRepair ? 'PR-READY AFTER REVIEW' : 'MANUAL REVIEW'}
+                        tone={r.verified ? 'green' : isActionableRepair ? 'amber' : 'red'}
+                      />
+                      <span>{r.description} ({Math.round(r.confidence * 100)}%)</span>
+                      {!isActionableRepair && (
+                        <span className="muted">
+                          No mapped repository patch; SHAPI will not create a PR automatically.
+                        </span>
+                      )}
+                      {isActionableRepair && (
+                        <button className="secondary" disabled={busy !== null} onClick={() => void previewRepair(r)}>
+                          {busy === `preview:${r.id}` ? 'Loading preview…' : 'Preview repair'}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
               </>
             )}
             {selected.githubPRs?.length > 0 && (
