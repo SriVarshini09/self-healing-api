@@ -43,6 +43,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   that the simulated provisioning failure leaves the user unprovisioned and
   that the corrected handler recovers the same user. GitHub Actions runs this
   as a separate `business-outcome` check.
+- The `business-outcome` check now also applies a structured repair change to a
+  target-app provisioning source fixture, executes the patched handler, and
+  proves the same user becomes provisioned. It fails closed when the reviewed
+  source precondition has drifted.
 - Production startup now fails closed when placeholder JWT secrets or partial
   GitHub App/token credentials are supplied, preventing an unsafe deployment
   from appearing healthy.
@@ -81,12 +85,11 @@ product is production-ready. See [README.md](README.md) for setup and API detail
    supports a read-only patch preview, and the production dashboard displays
    its pinned source excerpts before a PR can be opened. The dashboard also
    edits and saves the explicit repository/file mapping.
-3. **End-to-end repair proof.** The repository now has a dedicated business-
-   outcome regression check, but replay still tests a user-entered event
-   transformation rather than executing a proposed code patch against the
-   target application's full test suite. The real PR and CI verification path
-   is proven, but the repair is not merged and CI success is not the same as
-   proving the business outcome in production.
+3. **End-to-end repair proof.** The business-outcome check now executes a
+   structured patch against a target-app contract fixture, but it is not yet a
+   generic sandbox for arbitrary customer repositories. Replay still tests a
+   user-entered event transformation, and PR #4 remains open for human review;
+   CI evidence is not the same as proving the business outcome in production.
 4. **Production operations.** Public deployment, secure secret storage,
    backup/restore drills, tenant onboarding, alert delivery, and security/load
    testing remain to be completed before a production launch.
@@ -97,8 +100,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 ## Next engineering priority
 
 Use the required-check contract with a real GitHub App and target repository
-workflow, then add a true business-outcome test rather than treating CI
-success alone as proof. Do not claim a replay-verified fix prematurely.
+workflow, then extend the target-app business-outcome harness beyond its
+contract fixture before claiming arbitrary repository repairs are verified.
+Do not claim a replay-verified fix prematurely.
 
 ## Local checks
 

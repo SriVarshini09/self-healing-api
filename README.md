@@ -127,6 +127,12 @@ pnpm --filter @shapi/demo-saas simulate:drift
 Then in the dashboard: **incidents → select incident → Diagnose + suggest repairs**,
 inspect the timeline, replay results, and repair candidates.
 
+The `business-outcome` CI check also runs a target-application contract proof:
+it applies a structured repair change to a provisioning source fixture, executes
+the patched handler, and verifies that the same user becomes provisioned. This
+is a bounded proof of the repair mechanism; it is not a substitute for running
+the full test suite of every customer repository.
+
 ## Auth
 
 All `/api/v1` routes except third-party webhook receivers require `x-api-key`

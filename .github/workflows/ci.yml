@@ -75,4 +75,6 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run business-outcome regression
-        run: pnpm --filter @shapi/demo-saas test -- src/index.test.ts
+        run: |
+          pnpm --filter @shapi/demo-saas test -- src/index.test.ts
+          pnpm --filter @shapi/repair-generation test -- src/business-outcome-proof.test.ts
