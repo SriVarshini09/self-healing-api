@@ -124,8 +124,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 1. **Production GitHub App deployment.** The local stack now has a real App
    installation, repository permissions, a public webhook URL, and a verified
-   `200` delivery. Production rollout still needs hosted deployment, secure
-   secret management, and hosted tenant-isolated onboarding.
+   `200` delivery. A provider-specific Render Blueprint is now committed for
+   the API, dashboard, and PostgreSQL. Production rollout still needs a Render
+   workspace to apply it, secure secret entry, hosted tenant-isolated
+   onboarding, and public webhook verification.
 2. **Repository-aware repair workflow.** Invariants can now store an explicit
    `repairRepository` and `repairFilePath`, and a structured predicate edit
    is generated only for a mapped target. Three reviewed Stripe predicate
@@ -161,10 +163,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 Review target behavior for the remaining GitHub invariants, then extend the
 target-app business-outcome harness beyond its current demo adapter before
-claiming arbitrary repository repairs are verified. The next
-release blocker is still hosted deployment with secure secrets and
-tenant-isolated onboarding; local deployment and readiness gates are now
-repeatable. Do not claim a replay-verified fix prematurely.
+claiming arbitrary repository repairs are verified. The next release blocker is
+still applying the hosted Blueprint with secure secrets and tenant-isolated
+onboarding; local deployment and readiness gates are now repeatable. Do not
+claim a replay-verified fix prematurely.
 
 ## Local checks
 

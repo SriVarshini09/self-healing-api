@@ -1,0 +1,76 @@
+# Render Blueprint for the provider-neutral SHAPI production stack.
+#
+# Apply this Blueprint from the Render Dashboard, then fill the sync:false
+# values before the first deploy. The backend entrypoint runs Prisma
+# migrations before starting the API. The dashboard injects its API URL at
+# container start, so its URL can be set after Render assigns the API service
+# hostname without rebuilding the frontend image.
+
+previews:
+  generation: none
+
+databases:
+  - name: shapi-postgres
+    databaseName: shapi
+    user: shapi
+    plan: free
+    region: oregon
+
+services:
+  - type: web
+    name: shapi-api
+    runtime: docker
+    dockerfilePath: ./docker/backend.Dockerfile
+    dockerContext: .
+    plan: free
+    region: oregon
+    healthCheckPath: /ready
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: shapi-postgres
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SHAPI_BOOTSTRAP_TOKEN
+        sync: false
+      - key: DASHBOARD_URL
+        sync: false
+      - key: DEMO_SAAS_URL
+        sync: false
+      - key: GITHUB_APP_ID
+        sync: false
+      - key: GITHUB_APP_PRIVATE_KEY_B64
+        sync: false
+      - key: GITHUB_APP_SLUG
+        sync: false
+      - key: GITHUB_WEBHOOK_SECRET_APP
+        sync: false
+      - key: GITHUB_APP_INTEGRATION_ID
+        sync: false
+      - key: ALERT_WEBHOOK_URL
+        sync: false
+      - key: ALERT_WEBHOOK_SECRET
+        sync: false
+
+  - type: web
+    name: shapi-dashboard
+    runtime: docker
+    dockerfilePath: ./docker/dashboard.Dockerfile
+    dockerContext: .
+    plan: free
+    region: oregon
+    healthCheckPath: /health
+    envVars:
+      # Set this to the public shapi-api URL plus /api/v1 after Render
+      # assigns the API service hostname.
+      - key: VITE_API_URL
+        sync: false
+      # Leave empty when using OIDC; otherwise set the raw tenant API key
+      # created by POST /api/v1/bootstrap/tenant.
+      - key: VITE_SHAPI_API_KEY
+        sync: false
