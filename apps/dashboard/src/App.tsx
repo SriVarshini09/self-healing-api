@@ -58,7 +58,7 @@ function Badge({ text, tone }: { text: string; tone: string }) {
 
 export function toneFor(status: string): string {
   const s = status.toUpperCase();
-  if (['HEALTHY', 'RESOLVED', 'MERGED', 'COMPLETED'].includes(s)) return 'green';
+  if (['HEALTHY', 'RESOLVED', 'MERGED', 'COMPLETED', 'REPAIRED', 'VERIFIED'].includes(s)) return 'green';
   if (['DEGRADED', 'TRIAGED', 'REPLAYING', 'OPEN', 'RECEIVED'].includes(s)) return 'amber';
   if (['VIOLATED', 'DETECTED', 'FAILED', 'CRITICAL', 'HIGH'].includes(s)) return 'red';
   return 'gray';
@@ -318,12 +318,21 @@ function Incidents({ refreshKey, bump }: { refreshKey: number; bump: () => void 
   const [items, setItems] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
   const [timeline, setTimeline] = useState<any[]>([]);
+  const [installations, setInstallations] = useState<any[]>([]);
+  const [preview, setPreview] = useState<any>(null);
+  const [previewCandidate, setPreviewCandidate] = useState<any>(null);
+  const [previewApproved, setPreviewApproved] = useState(false);
+  const [prTitle, setPrTitle] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
-  const [diagnosing, setDiagnosing] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const res = await api<any>('/incidents?pageSize=50');
+    const [res, nextInstallations] = await Promise.all([
+      api<any>('/incidents?pageSize=50'),
+      api<any[]>('/github/installations'),
+    ]);
     setItems(res.data ?? []);
+    setInstallations(nextInstallations);
   }, []);
 
   useEffect(() => {
@@ -339,8 +348,86 @@ function Incidents({ refreshKey, bump }: { refreshKey: number; bump: () => void 
       ]);
       setSelected(detail);
       setTimeline(tl.timeline ?? []);
+      setPreview(null);
+      setPreviewCandidate(null);
+      setPreviewApproved(false);
+      setPrTitle('');
     } catch (e) {
       setActionError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const findInstallation = (candidate: any) => installations.find(installation =>
+    candidate.repository && installation.repositories?.includes(candidate.repository),
+  );
+
+  const previewRepair = async (candidate: any) => {
+    const installation = findInstallation(candidate);
+    if (!installation || !candidate.repository) {
+      setActionError('This candidate is not mapped to an accessible GitHub installation and repository.');
+      return;
+    }
+    try {
+      setBusy(`preview:${candidate.id}`);
+      setActionError(null);
+      const result = await api<any>(`/github/incidents/${selected.id}/pr/preview`, {
+        method: 'POST',
+        body: JSON.stringify({
+          installationId: installation.id,
+          repository: candidate.repository,
+          candidateId: candidate.id,
+        }),
+      });
+      setPreview({ ...result, installationId: installation.id });
+      setPreviewCandidate(candidate);
+      setPreviewApproved(false);
+      setPrTitle(`Repair ${selected.title}`.slice(0, 256));
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const createRepairPr = async () => {
+    if (!preview || !previewCandidate || !previewApproved || !prTitle.trim()) return;
+    try {
+      setBusy('create-pr');
+      setActionError(null);
+      await api(`/github/incidents/${selected.id}/pr`, {
+        method: 'POST',
+        body: JSON.stringify({
+          installationId: preview.installationId,
+          repository: preview.repository,
+          candidateId: previewCandidate.id,
+          title: prTitle.trim(),
+          base: preview.base,
+          previewToken: preview.previewToken,
+        }),
+      });
+      setPreview(null);
+      setPreviewCandidate(null);
+      setPreviewApproved(false);
+      bump();
+      await open(selected.id);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const verifyPr = async (pr: any) => {
+    try {
+      setBusy(`verify:${pr.id}`);
+      setActionError(null);
+      await api(`/github/prs/${pr.id}/verify`, { method: 'POST' });
+      bump();
+      await open(selected.id);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
     }
   };
 
@@ -369,9 +456,9 @@ function Incidents({ refreshKey, bump }: { refreshKey: number; bump: () => void 
             {selected.suggestedFix && <p><strong>Suggested fix:</strong> {selected.suggestedFix}</p>}
             {actionError && <div className="card error">Action failed: {actionError}</div>}
             <div className="form-row">
-              <button disabled={diagnosing} onClick={async () => {
+              <button disabled={busy !== null} onClick={async () => {
                 try {
-                  setDiagnosing(true);
+                  setBusy('diagnose');
                   setActionError(null);
                   const res = await api(`/incidents/${selected.id}/diagnose`, { method: 'POST' });
                   setSelected((res as any).incident);
@@ -380,9 +467,9 @@ function Incidents({ refreshKey, bump }: { refreshKey: number; bump: () => void 
                 } catch (e) {
                   setActionError(e instanceof Error ? e.message : String(e));
                 } finally {
-                  setDiagnosing(false);
+                  setBusy(null);
                 }
-              }}>{diagnosing ? 'Diagnosing…' : 'Diagnose + suggest repairs'}</button>
+              }}>{busy === 'diagnose' ? 'Diagnosing…' : 'Diagnose + suggest repairs'}</button>
             </div>
             {selected.repairCandidates?.length > 0 && (
               <>
@@ -391,9 +478,41 @@ function Incidents({ refreshKey, bump }: { refreshKey: number; bump: () => void 
                   <div key={r.id} className="row">
                     <Badge text={r.verified ? 'VERIFIED' : r.type} tone={r.verified ? 'green' : 'gray'} />
                     <span>{r.description} ({Math.round(r.confidence * 100)}%)</span>
+                    {r.repository && r.changes && <button className="secondary" disabled={busy !== null} onClick={() => void previewRepair(r)}>{busy === `preview:${r.id}` ? 'Loading preview…' : 'Preview repair'}</button>}
                   </div>
                 ))}
               </>
+            )}
+            {selected.githubPRs?.length > 0 && (
+              <>
+                <h4>GitHub repair PRs</h4>
+                {selected.githubPRs.map((pr: any) => (
+                  <div key={pr.id} className="row">
+                    <Badge text={pr.verified ? 'VERIFIED' : pr.status} tone={pr.verified ? 'green' : toneFor(pr.status)} />
+                    <span>#{pr.prNumber} {pr.title}</span>
+                    <a href={pr.prUrl} target="_blank" rel="noreferrer">Open GitHub</a>
+                    <button className="secondary" disabled={busy !== null} onClick={() => void verifyPr(pr)}>{busy === `verify:${pr.id}` ? 'Checking…' : 'Verify now'}</button>
+                  </div>
+                ))}
+              </>
+            )}
+            {preview && previewCandidate && (
+              <div className="repair-panel">
+                <div className="card-head"><h4>Repair preview</h4><Badge text="PINNED BASE" tone="gray" /></div>
+                <p className="muted">{preview.repository} · {preview.base} · {preview.baseSha.slice(0, 12)}</p>
+                {preview.changes.map((change: any) => (
+                  <div key={change.path} className="diff-block">
+                    <div className="mono diff-path">{change.path} · {change.kind}</div>
+                    <div className="diff-grid">
+                      <pre className="diff-before">{change.before?.text ?? '(new file)'}</pre>
+                      <pre className="diff-after">{change.after?.text ?? '(deleted)'}</pre>
+                    </div>
+                  </div>
+                ))}
+                <input value={prTitle} onChange={e => setPrTitle(e.target.value)} placeholder="Pull request title" maxLength={256} />
+                <label className="confirm-row"><input type="checkbox" checked={previewApproved} onChange={e => setPreviewApproved(e.target.checked)} /> I reviewed this exact patch and approve opening the PR.</label>
+                <button disabled={busy !== null || !previewApproved || !prTitle.trim()} onClick={() => void createRepairPr()}>{busy === 'create-pr' ? 'Opening PR…' : 'Open repair PR'}</button>
+              </div>
             )}
             <h4>Timeline</h4>
             {timeline.map((t, idx) => (

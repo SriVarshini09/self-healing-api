@@ -92,6 +92,20 @@ input,select { min-width:180px; border:1px solid var(--line); border-radius:8px;
 input:focus,select:focus { border-color:#8bb3ff; box-shadow:0 0 0 3px #e8f0ff; }
 button { border:0; border-radius:7px; background:linear-gradient(180deg,#3a86f7,var(--blue)); color:#fff; padding:10px 14px; font-weight:700; font-size:11px; transition:transform .18s ease,box-shadow .18s ease,filter .18s ease; box-shadow:0 4px 12px rgba(38,116,245,.25); }.form-row button { white-space:nowrap; } button:hover { filter:brightness(1.04); transform:translateY(-1px); box-shadow:0 8px 18px rgba(38,116,245,.32); } button:active { transform:translateY(0) scale(.98); } button:disabled { opacity:.6; cursor:wait; transform:none; } button.secondary { background:#edf2f5; color:#4d606b; box-shadow:none; }
 .code { color:#b9f3cf; background:#17262f; padding:15px; border-radius:8px; overflow:auto; font:11px/1.6 'DM Mono',monospace; }
+.repair-panel { margin-top:18px; padding:16px; border:1px solid #cfe0ff; border-radius:10px; background:#f8fbff; }
+.repair-panel input:not([type='checkbox']) { width:100%; margin:10px 0; }
+.diff-block { margin:12px 0; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+.diff-path { padding:9px 11px; background:#eef4ff; color:#3563be; }
+.diff-grid { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--line); }
+.diff-grid pre { margin:0; min-height:72px; max-height:220px; overflow:auto; padding:11px; white-space:pre-wrap; font:10px/1.5 'DM Mono',monospace; }
+.diff-before { background:#fff6f6; color:#9f3a48; }
+.diff-after { background:#f1fcf5; color:#177549; }
+.confirm-row { display:flex; align-items:flex-start; gap:8px; margin:4px 0 12px; color:var(--muted); font-size:11px; line-height:1.5; }
+.confirm-row input { min-width:0; margin-top:2px; }
+html[data-shapi-theme='command'] .repair-panel { border-color:rgba(94,234,212,.24); background:rgba(45,212,191,.05); }
+html[data-shapi-theme='command'] .diff-path { background:rgba(45,212,191,.1); color:#8ff0d8; }
+html[data-shapi-theme='command'] .diff-before { background:rgba(251,113,133,.08); color:#fda4af; }
+html[data-shapi-theme='command'] .diff-after { background:rgba(45,212,191,.08); color:#a7f3d0; }
 .section-note { margin:4px 0 18px; }.table-label { color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.1em; font-weight:800; }
 /* Command theme: dark SOC operations center */
 html[data-shapi-theme='command'] { --ink:#d7f3ec; --muted:#6f8f88; --line:rgba(94,234,212,.14); --panel:rgba(13,26,28,.92); --canvas:#05090a; }

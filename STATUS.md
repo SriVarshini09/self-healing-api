@@ -7,8 +7,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 - The local production Docker stack runs PostgreSQL, the backend, and the
   dashboard. On 2026-09-30, `/health`, `/ready`, and the dashboard returned 200.
-- GitHub Actions CI on `master` passed for commit `9ed42a4`:
-  [run 36786686064](https://github.com/SriVarshini09/self-healing-api/actions/runs/36786686064).
+- GitHub Actions CI on `master` passed for the latest dashboard commit `7b58199`:
+  [run 36901061649](https://github.com/SriVarshini09/self-healing-api/actions/runs/36901061649).
   CI checks workspace types, backend lint, package/backend unit tests, backend
   and dashboard builds, and Prisma schema validation.
 - Webhook and SDK events feed behavioral invariants; drift detection and
@@ -29,6 +29,12 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   `SriVarshini09/self-healing-api` from a mapped repair candidate. The required
   `verify` check passed, and the API returned `verified: true` with the exact
   head SHA and check-run evidence. The PR remains open for human review.
+- The dashboard now exposes the live GitHub App connection and installation
+  state, and the incident view supports a pinned source preview, explicit
+  operator approval, real repair-PR creation, and verification from one flow.
+- On 2026-10-01, the live Docker stack completed a read-only dashboard preview
+  against the real installation and returned the current `master` SHA, one
+  changed file, and a signed preview approval token without creating a PR.
 - PR verification now returns the exact GitHub check-run evidence and head
   commit used to determine CI status, and persists that evidence for audit
   after reload. Missing, running, or failing checks remain unverified.
