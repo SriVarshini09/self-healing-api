@@ -39,6 +39,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   that the simulated provisioning failure leaves the user unprovisioned and
   that the corrected handler recovers the same user. GitHub Actions runs this
   as a separate `business-outcome` check.
+- Production startup now fails closed when placeholder JWT secrets or partial
+  GitHub App/token credentials are supplied, preventing an unsafe deployment
+  from appearing healthy.
 - PR verification now returns the exact GitHub check-run evidence and head
   commit used to determine CI status, and persists that evidence for audit
   after reload. Missing, running, or failing checks remain unverified.
@@ -72,9 +75,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
    target application's full test suite. The real PR and CI verification path
    is proven, but the repair is not merged and CI success is not the same as
    proving the business outcome in production.
-4. **Production operations.** Public deployment, secret management, database
-   backup/restore drills, tenant onboarding, alert delivery, and security/load
-   testing remain to be completed before a production launch.
+4. **Production operations.** Public deployment, secure secret storage,
+   database backup/restore drills, tenant onboarding, alert delivery, and
+   security/load testing remain to be completed before a production launch.
 5. **Dashboard data fidelity.** The regional incident panel now uses live
    SHAPI incidents when available, but parts of the fleet/globe view still use
    preview data.

@@ -8,6 +8,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 dotenv.config();
 
 import { z } from 'zod';
+import { productionConfigIssues } from './config-validation.js';
 
 const configSchema = z.object({
   NODE_ENV: z.enum(['development', 'staging', 'production']).default('development'),
@@ -55,6 +56,12 @@ const parsed = configSchema.safeParse(process.env);
 
 if (!parsed.success) {
   console.error('❌ Invalid environment configuration:', parsed.error.flatten().fieldErrors);
+  process.exit(1);
+}
+
+const productionIssues = productionConfigIssues(parsed.data);
+if (productionIssues.length > 0) {
+  console.error('❌ Unsafe production configuration:', productionIssues);
   process.exit(1);
 }
 

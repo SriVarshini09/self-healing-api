@@ -70,6 +70,11 @@ by Nginx on port 8080 and receives its API configuration at container startup.
 For multi-replica deployments, run migrations as a separate release job before
 starting application replicas.
 
+In `NODE_ENV=production`, the backend refuses to start with a placeholder
+`JWT_SECRET` or an incomplete GitHub App/token credential set. This is
+intentional: a deployment should fail during rollout rather than appear
+healthy while repair automation is misconfigured.
+
 Open:
 
 - API docs: http://localhost:3001/docs
