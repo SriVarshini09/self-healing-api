@@ -91,6 +91,13 @@ export async function invariantRoutes(app: FastifyInstance) {
     if (targetError) return reply.code(400).send({ error: 'Invalid repair target', details: targetError });
     const requiredChecksError = repairRequiredChecksError(data.repairRequiredChecks);
     if (requiredChecksError) return reply.code(400).send({ error: 'Invalid required checks', details: requiredChecksError });
+    const normalizedRequiredChecks = normalizeRepairRequiredChecks(data.repairRequiredChecks);
+    if (data.repairRepository && data.repairFilePath && normalizedRequiredChecks.length === 0) {
+      return reply.code(400).send({
+        error: 'Invalid repair target checks',
+        details: 'mapped repair targets must declare at least one required GitHub check',
+      });
+    }
 
     const result = await prisma.$transaction(async tx => {
       // Serialize creates for this tenant across backend processes so the
@@ -110,7 +117,7 @@ export async function invariantRoutes(app: FastifyInstance) {
           predicateExample: data.predicateExample,
           repairRepository: data.repairRepository ?? null,
           repairFilePath: data.repairFilePath ?? null,
-          repairRequiredChecks: normalizeRepairRequiredChecks(data.repairRequiredChecks),
+          repairRequiredChecks: normalizedRequiredChecks,
           evaluationWindowSec: data.evaluationWindowSec ?? 300,
           minSamples: data.minSamples ?? 10,
           expectedSuccessRate: data.expectedSuccessRate ?? 0.99,
@@ -156,6 +163,15 @@ export async function invariantRoutes(app: FastifyInstance) {
       : data.repairRequiredChecks;
     const requiredChecksError = repairRequiredChecksError(requestedChecks);
     if (requiredChecksError) return reply.code(400).send({ error: 'Invalid required checks', details: requiredChecksError });
+    const normalizedRequestedChecks = normalizeRepairRequiredChecks(requestedChecks);
+    const requestedRepository = data.repairRepository === undefined ? existing.repairRepository : data.repairRepository;
+    const requestedFilePath = data.repairFilePath === undefined ? existing.repairFilePath : data.repairFilePath;
+    if (requestedRepository && requestedFilePath && normalizedRequestedChecks.length === 0) {
+      return reply.code(400).send({
+        error: 'Invalid repair target checks',
+        details: 'mapped repair targets must declare at least one required GitHub check',
+      });
+    }
 
     if (data.predicateExpression) {
       try {

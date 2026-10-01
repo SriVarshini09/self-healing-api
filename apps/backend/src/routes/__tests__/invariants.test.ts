@@ -7,7 +7,7 @@ import { invariantRoutes } from '../invariants.js';
 const fake = vi.hoisted(() => ({
   counts: new Map<string, number>(),
   lockKeys: [] as string[],
-  invariants: new Map<string, { id: string; repairRepository: string | null; repairFilePath: string | null }>(),
+  invariants: new Map<string, { id: string; repairRepository: string | null; repairFilePath: string | null; repairRequiredChecks: string[] }>(),
 }));
 
 vi.mock('../../config.js', () => ({ config: { SHAPI_MAX_INVARIANTS_PER_TENANT: 2 } }));
@@ -37,7 +37,7 @@ vi.mock('../../utils/prisma.js', () => ({
           const tenantId = data.integrationId.slice(4);
           const count = (fake.counts.get(tenantId) ?? 0) + 1;
           fake.counts.set(tenantId, count);
-          const invariant = { id: `inv-${tenantId}-${count}`, repairRepository: null, repairFilePath: null, ...data };
+          const invariant = { id: `inv-${tenantId}-${count}`, repairRepository: null, repairFilePath: null, repairRequiredChecks: [], ...data };
           fake.invariants.set(invariant.id, invariant);
           return invariant;
         },
@@ -113,10 +113,12 @@ describe('POST /invariants tenant quota', () => {
   it('requires a canonical repository and file path together', async () => {
     expect((await createInvariant('tenant-a', 'int-tenant-a', { repairRepository: 'acme/demo' })).statusCode).toBe(400);
     expect((await createInvariant('tenant-a', 'int-tenant-a', { repairRepository: 'acme/demo', repairFilePath: '../outside.ts' })).statusCode).toBe(400);
-    const created = await createInvariant('tenant-a', 'int-tenant-a', { repairRepository: 'acme/demo', repairFilePath: 'src/invariants/pay.ts' });
+    expect((await createInvariant('tenant-a', 'int-tenant-a', { repairRepository: 'acme/demo', repairFilePath: 'src/invariants/pay.ts' })).statusCode).toBe(400);
+    const created = await createInvariant('tenant-a', 'int-tenant-a', { repairRepository: 'acme/demo', repairFilePath: 'src/invariants/pay.ts', repairRequiredChecks: ['target-tests'] });
     expect(created.statusCode).toBe(201);
-    expect(created.json()).toMatchObject({ repairRepository: 'acme/demo', repairFilePath: 'src/invariants/pay.ts' });
+    expect(created.json()).toMatchObject({ repairRepository: 'acme/demo', repairFilePath: 'src/invariants/pay.ts', repairRequiredChecks: ['target-tests'] });
     expect((await patchInvariant(created.json().id, { repairFilePath: 'other.ts' })).statusCode).toBe(200);
+    expect((await patchInvariant(created.json().id, { repairRequiredChecks: [] })).statusCode).toBe(400);
     expect((await patchInvariant(created.json().id, { repairRepository: null })).statusCode).toBe(400);
     expect((await patchInvariant(created.json().id, { repairRepository: null, repairFilePath: null })).statusCode).toBe(200);
   });

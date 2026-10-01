@@ -162,6 +162,10 @@ to provide its source loader, isolated state factory, event runner, and explicit
 failure/recovery predicates; it fails closed when the baseline does not reproduce
 the expected failure or the patched source does not recover.
 
+Automatic repository repairs must also declare at least one exact required
+GitHub check for the mapped target. Preview and PR creation fail closed without
+that check, so an unrelated green workflow cannot be treated as repair proof.
+
 ## Auth
 
 All `/api/v1` routes except third-party webhook receivers require `x-api-key`

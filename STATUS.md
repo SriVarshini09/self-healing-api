@@ -74,6 +74,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   after reload. Missing, running, or failing checks remain unverified.
 - Invariants can now declare required target check names; verification remains
   false when any configured application check is absent or unsuccessful.
+- Mapped repair targets now fail closed unless they declare at least one exact
+  required GitHub check, and both preview and PR creation enforce that guard.
 - Operators can request a read-only preview of a repair before opening its PR.
   The preview validates the exact repair against a pinned Git base commit and
   returns bounded before/after source excerpts without creating any GitHub

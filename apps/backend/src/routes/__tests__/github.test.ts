@@ -138,8 +138,8 @@ function seedDb() {
     { id: 'pr-2', prNumber: 11, repository: 'acme/demo', status: 'OPEN', verified: false, incidentId: 'inc-2' },
   ];
   db.incidents = [
-    { id: 'inc-1', status: 'REPAIRED', resolvedAt: null, title: 'Incident one', rootCause: 'cause', suggestedFix: 'fix' },
-    { id: 'inc-2', status: 'REPAIRED', resolvedAt: null, title: 'Incident two', rootCause: 'cause', suggestedFix: 'fix' },
+    { id: 'inc-1', status: 'REPAIRED', resolvedAt: null, title: 'Incident one', rootCause: 'cause', suggestedFix: 'fix', invariant: { repairRequiredChecks: ['target-tests'] } },
+    { id: 'inc-2', status: 'REPAIRED', resolvedAt: null, title: 'Incident two', rootCause: 'cause', suggestedFix: 'fix', invariant: { repairRequiredChecks: ['target-tests'] } },
   ];
   db.candidates = [];
 }
@@ -271,6 +271,18 @@ async function previewTokenFor(candidateId = candidateB): Promise<string> {
 }
 
 describe('POST /github/incidents/:incidentId/pr/preview', () => {
+  it('rejects mapped repairs without a required target check', async () => {
+    db.incidents[0].invariant = { repairRequiredChecks: [] };
+    db.candidates = [{ id: candidateB, incidentId: 'inc-1', description: 'Selected', diff: null, confidence: 0.7, changes: [{ kind: 'create', path: 'safe.txt', content: 'safe' }], repository: 'acme/demo' }];
+    const res = await app.inject({
+      method: 'POST', url: '/github/incidents/inc-1/pr/preview',
+      payload: { installationId: 'install-1', repository: 'acme/demo', candidateId: candidateB },
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toMatchObject({ error: expect.stringContaining('required GitHub check') });
+    expect(previewRepairPrChangesMock).not.toHaveBeenCalled();
+  });
+
   it('returns bounded source and result excerpts without opening a PR', async () => {
     const changes = [{ kind: 'replace', path: 'src/selected.ts', before: 'old', after: 'new' }];
     db.candidates = [{ id: candidateB, incidentId: 'inc-1', description: 'Selected', diff: null, confidence: 0.7, changes, repository: 'acme/demo' }];

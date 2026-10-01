@@ -343,13 +343,19 @@ export async function githubRoutes(app: FastifyInstance) {
 
     const incident = await prisma.incident.findUnique({
       where: { id: incidentId, integration: { tenantId } },
-      include: { repairCandidates: { where: { id: candidateId }, take: 1 } },
+      include: {
+        repairCandidates: { where: { id: candidateId }, take: 1 },
+        invariant: { select: { repairRequiredChecks: true } },
+      },
     });
     if (!incident) return reply.code(404).send({ error: 'Incident not found' });
     const candidate = incident.repairCandidates[0];
     if (!candidate) return reply.code(404).send({ error: 'Repair candidate not found for this incident' });
     const changes = repairChangesSchema.safeParse(candidate.changes);
     if (!changes.success) return reply.code(409).send({ error: 'Selected repair candidate has no applicable file changes' });
+    if (candidate.repository && (incident.invariant?.repairRequiredChecks ?? []).length === 0) {
+      return reply.code(409).send({ error: 'Mapped repair targets must configure at least one required GitHub check before preview' });
+    }
 
     const fullRepo = repository.includes('/') ? repository : `${installation.accountLogin}/${repository}`;
     if (candidate.repository !== fullRepo) return reply.code(409).send({ error: 'Repair candidate is not mapped to the selected repository' });
@@ -420,7 +426,10 @@ export async function githubRoutes(app: FastifyInstance) {
 
     const incident = await prisma.incident.findUnique({
       where: { id: incidentId, integration: { tenantId } },
-      include: { repairCandidates: { where: { id: candidateId }, take: 1 } },
+      include: {
+        repairCandidates: { where: { id: candidateId }, take: 1 },
+        invariant: { select: { repairRequiredChecks: true } },
+      },
     });
     if (!incident) return reply.code(404).send({ error: 'Incident not found' });
     if (incident.status === IncidentStatus.RESOLVED || incident.status === IncidentStatus.DISMISSED) {
@@ -458,6 +467,9 @@ export async function githubRoutes(app: FastifyInstance) {
     }
     if (!installation.repositories.includes(fullRepo)) {
       return reply.code(403).send({ error: 'Repository is not included in this GitHub installation' });
+    }
+    if (candidate.repository && (incident.invariant?.repairRequiredChecks ?? []).length === 0) {
+      return reply.code(409).send({ error: 'Mapped repair targets must configure at least one required GitHub check before creating a PR' });
     }
     const approval = previewToken ? readRepairPreviewToken(previewToken) : null;
     if (!approval) {
@@ -529,7 +541,7 @@ export async function githubRoutes(app: FastifyInstance) {
     }
 
     const requiredChecks = pr.incident.invariant?.repairRequiredChecks ?? [];
-    const missingChecks = missingRequiredChecks(requiredChecks, result.checkRuns);
+    const missingChecks = missingRequiredChecks(requiredChecks, result.checkRuns ?? []);
     const verified = result.verified && missingChecks.length === 0;
 
     const status = result.merged
@@ -683,7 +695,7 @@ async function handleWorkflowRunEvent(payload: Record<string, unknown>, integrat
     // the incident; those follow solely from actual merged state via the
     // pull_request closed+merged webhook.
     const requiredChecks = ours.incident.invariant?.repairRequiredChecks ?? [];
-    const verified = result.verified && missingRequiredChecks(requiredChecks, result.checkRuns).length === 0;
+    const verified = result.verified && missingRequiredChecks(requiredChecks, result.checkRuns ?? []).length === 0;
     await prisma.gitHubPullRequest.update({
       where: { id: ours.id },
       data: {
