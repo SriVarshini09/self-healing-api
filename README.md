@@ -156,6 +156,17 @@ than the desired concurrency. Run sustained tests against a staging/hosted
 environment before using larger durations or concurrency; the check is
 intentionally opt-in for release gates.
 
+The production dashboard can also be checked against the running Docker stack
+without changing state:
+
+```powershell
+./scripts/production-readiness.ps1 -EnvFile ./path/to/.env -RequireGitHubApp -IncludeDashboardSmoke
+```
+
+This browser smoke verifies the live command center, telemetry connection,
+repair-target panel, and diagnosis modal. It does not create incidents, replay
+jobs, or pull requests.
+
 Open:
 
 - API docs: http://localhost:3001/docs

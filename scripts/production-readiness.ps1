@@ -12,6 +12,7 @@ param(
   [int]$CapacityConcurrency = 20,
   [int]$CapacityDelayMs = 0,
   [double]$MaxErrorRate = 0,
+  [switch]$IncludeDashboardSmoke,
   [switch]$RequireGitHubApp,
   [switch]$IncludeBackupRestoreDrill,
   [switch]$ConfirmDrill
@@ -65,6 +66,12 @@ Invoke-Check 'Authenticated load smoke' {
 if ($IncludeCapacitySmoke) {
   Invoke-Check 'Sustained capacity smoke' {
     & node "$PSScriptRoot\capacity-smoke.mjs" --url $ApiUrl --env-file $EnvFile --duration-seconds $DurationSeconds --concurrency $CapacityConcurrency --delay-ms $CapacityDelayMs --max-error-rate $MaxErrorRate
+  }
+}
+
+if ($IncludeDashboardSmoke) {
+  Invoke-Check 'Production dashboard smoke' {
+    & pnpm --filter @shapi/backend exec tsx "$PSScriptRoot/../apps/backend/scripts/production-dashboard-test.ts" --dashboard-url $DashboardUrl --api-url $ApiUrl --env-file $EnvFile
   }
 }
 

@@ -100,6 +100,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - The readiness gate now includes an opt-in duration-based capacity smoke that
   reports throughput, latency, status counts, and an enforced error-rate limit;
   hosted sustained-capacity results are still outstanding.
+- The readiness gate now also includes an opt-in read-only browser smoke for
+  the production dashboard's live command center, repair-target panel, and
+  diagnosis modal.
 
 ## Not complete
 
