@@ -693,9 +693,9 @@ export function HealingDashboard() {
       incident => incident.status !== 'RESOLVED' && incident.status !== 'DISMISSED'
     ) ?? [];
   const activeIncidentCount = activeIncidents.length;
-  const healingActionCount = liveSnapshot ? liveSnapshot.incidents.length : 0;
-  const visibleReports = liveSnapshot?.incidents.length
-    ? liveSnapshot.incidents.map(incident => ({
+  const healingActionCount = activeIncidents.length;
+  const visibleReports = activeIncidents.length
+    ? activeIncidents.map(incident => ({
         service: incident.integrationId,
         issue: incident.title,
         source: incident.integrationId,
@@ -1069,8 +1069,8 @@ export function HealingDashboard() {
                 </p>
               </div>
               <div className="divide-y divide-border text-xs">
-                {liveSnapshot?.incidents.length ? (
-                  liveSnapshot.incidents.map(incident => (
+                {activeIncidents.length ? (
+                  activeIncidents.map(incident => (
                     <div key={incident.id} className="flex items-center gap-3 px-4 py-3">
                       <TriangleAlert className="size-4 text-warning" />
                       <div>
@@ -1147,8 +1147,8 @@ export function HealingDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {(liveSnapshot?.incidents.length
-                    ? liveSnapshot.incidents.map(item => ({
+                  {(activeIncidents.length
+                    ? activeIncidents.map(item => ({
                         service: item.integrationId,
                         issue: item.title,
                         region: 'SHAPI',
@@ -1227,7 +1227,7 @@ export function HealingDashboard() {
             </div>
             <div className="p-3">
               {[
-                ...(liveSnapshot?.incidents ?? []).map(
+                ...activeIncidents.map(
                   item => `${item.integrationId} · ${item.title}`
                 ),
               ]
@@ -1240,7 +1240,7 @@ export function HealingDashboard() {
                     {item}
                   </div>
                 ))}
-              {!liveSnapshot?.incidents.length && (
+              {!activeIncidents.length && (
                 <p className="px-2 py-2.5 text-xs text-muted-foreground">
                   {liveSnapshot ? 'No live signals match the current data.' : 'Waiting for live SHAPI data.'}
                 </p>
