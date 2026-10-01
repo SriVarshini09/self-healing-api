@@ -8,8 +8,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - The local production Docker stack runs PostgreSQL, the backend, and the
   dashboard. On 2026-10-01, the backend was rebuilt from `master`; `/health`,
   `/ready`, and the dashboard returned 200.
-- GitHub Actions CI on `master` passed for the current head `307eefc`:
-  [run 36935502462](https://github.com/SriVarshini09/self-healing-api/actions/runs/36935502462).
+- GitHub Actions CI on `master` passed for the current head `1a152fb`:
+  [run 36936130644](https://github.com/SriVarshini09/self-healing-api/actions/runs/36936130644).
   CI checks workspace types, backend lint, package/backend unit tests, backend
   and dashboard builds, and Prisma schema validation.
 - Webhook and SDK events feed behavioral invariants; drift detection and
@@ -129,6 +129,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - The readiness gate now also includes an opt-in read-only browser smoke for
   the production dashboard's live command center, repair-target panel, and
   diagnosis modal.
+- The production command center now counts healing activity, incident context,
+  command search, and intervention rows from active incidents only; resolved
+  and dismissed history no longer appears as live healing work.
 - A guarded demo mapping command now validates exact source preconditions and
   required checks before configuring the reviewed Stripe predicate targets. It
   can now also configure the exact demo provisioning adapter target, requiring
