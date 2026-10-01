@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { config } from '../config.js';
 import { prisma } from '../utils/prisma.js';
 import { serializeJson } from '../utils/json.js';
-import { incrementCounter, renderPrometheus } from '../utils/metrics.js';
+import { incrementCounter, isMetricsTokenValid, renderPrometheus } from '../utils/metrics.js';
 import { logger } from '../utils/logger.js';
 import { rateLimitKey } from '../utils/rate-limit.js';
 
@@ -100,7 +100,19 @@ export async function registerPlugins(app: FastifyInstance) {
     }
   });
 
-  app.get('/metrics', async (_request, reply) => {
+  app.get('/metrics', async (request, reply) => {
+    if (config.NODE_ENV === 'production') {
+      const header = request.headers['x-metrics-token'];
+      const authorization = request.headers.authorization;
+      const provided = typeof header === 'string'
+        ? header
+        : typeof authorization === 'string' && authorization.startsWith('Bearer ')
+          ? authorization.slice('Bearer '.length)
+          : undefined;
+      if (!isMetricsTokenValid(provided, config.METRICS_TOKEN)) {
+        return reply.code(404).send({ error: 'Not found' });
+      }
+    }
     return reply.type('text/plain; version=0.0.4').send(renderPrometheus());
   });
 }

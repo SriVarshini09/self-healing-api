@@ -36,6 +36,7 @@ Write-Host 'PASS security headers (x-content-type-options present)'
 
 Assert-Status 'Missing API key rejected' "$base/api/v1/alerts/status" 401 | Out-Null
 Assert-Status 'Invalid API key rejected' "$base/api/v1/alerts/status" 401 @{ 'x-api-key' = 'invalid-security-smoke-key' } | Out-Null
+Assert-Status 'Unauthenticated metrics rejected' "$base/metrics" 404 | Out-Null
 
 $status = Assert-Status 'Authenticated alert status' "$base/api/v1/alerts/status" 200 @{ 'x-api-key' = $apiKey }
 $payload = $status.Content | ConvertFrom-Json

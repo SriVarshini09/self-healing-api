@@ -28,6 +28,7 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      METRICS_TOKEN: ${METRICS_TOKEN-}
       NODE_ENV: production
       HOST: 0.0.0.0
       DASHBOARD_URL: ${SHAPI_DASHBOARD_URL:-http://localhost:8080}

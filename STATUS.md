@@ -130,6 +130,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   disconnects Prisma, and logs shutdown failures. Production Compose services
   now use restart policies, init/signal forwarding, bounded stop grace periods,
   and an explicit readiness healthcheck.
+- Production metrics are now fail-closed: `/metrics` returns 404 unless the
+  deployment supplies the secret `METRICS_TOKEN` and the caller presents it
+  through a dedicated header or Bearer token. The security smoke covers the
+  unauthenticated case.
 
 ## Not complete
 

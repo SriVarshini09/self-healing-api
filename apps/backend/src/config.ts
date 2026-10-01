@@ -21,6 +21,7 @@ const configSchema = z.object({
   API_KEY_PREFIX: z.string().default('shapi_'),
   API_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(1000),
   API_RATE_LIMIT_WINDOW: z.string().default('1 minute'),
+  METRICS_TOKEN: z.preprocess(value => value === '' ? undefined : value, z.string().min(16).optional()),
   SHAPI_BOOTSTRAP_TOKEN: z.preprocess(
     value => value === '' ? undefined : value,
     z.string().min(32).optional(),

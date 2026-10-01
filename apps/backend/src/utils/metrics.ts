@@ -1,3 +1,5 @@
+import { timingSafeEqual } from 'node:crypto';
+
 type Labels = Record<string, string | number>;
 
 const counters = new Map<string, { name: string; labels: Labels; value: number }>();
@@ -32,4 +34,13 @@ export function renderPrometheus(): string {
     lines.push(`${metric.name}${labels ? `{${labels}}` : ''} ${metric.value}`);
   }
   return `${lines.join('\n')}\n`;
+}
+
+/** Compare tokens without exposing their contents through a plain equality check. */
+export function isMetricsTokenValid(provided: string | undefined, configured: string | undefined): boolean {
+  if (!provided || !configured) return false;
+  const providedBuffer = Buffer.from(provided);
+  const configuredBuffer = Buffer.from(configured);
+  return providedBuffer.length === configuredBuffer.length
+    && timingSafeEqual(providedBuffer, configuredBuffer);
 }

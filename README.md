@@ -436,7 +436,10 @@ For a bounded authenticated load baseline, run:
   `prisma.gitHubInstallation` / `prisma.gitHubPullRequest` (capital H) — code uses `(prisma as any)` accordingly.
 - `DATABASE_URL` uses the `postgresql://` scheme; backend loads repo-root `.env` via `dotenv`.
 - `/health` is a liveness check, `/ready` verifies database connectivity, and
-  `/metrics` exposes Prometheus-compatible request counters.
+  `/metrics` exposes Prometheus-compatible request counters. In production,
+  set `METRICS_TOKEN` in the secret manager and send it as `x-metrics-token`
+  or `Authorization: Bearer ...`; without the token the endpoint intentionally
+  returns 404. Local development keeps metrics open for convenience.
 - Optional incident alerts use `ALERT_WEBHOOK_URL` and
   `ALERT_WEBHOOK_SECRET`. New drift incidents enter a durable outbox; the
   scheduler sends signed `incident.detected` JSON with HMAC-SHA256 in
