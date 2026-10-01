@@ -75,6 +75,25 @@ In `NODE_ENV=production`, the backend refuses to start with a placeholder
 intentional: a deployment should fail during rollout rather than appear
 healthy while repair automation is misconfigured.
 
+### Database backup and restore
+
+The production Docker stack includes safe PowerShell runbooks. Backups are
+plain SQL files written to the ignored `backups/` directory:
+
+```powershell
+./scripts/backup-db.ps1
+```
+
+Before a restore, take a fresh backup and review the target environment. The
+restore command refuses to run unless the destructive action is explicit:
+
+```powershell
+./scripts/restore-db.ps1 -BackupFile ./backups/shapi-YYYYMMDD-HHMMSS.sql -ConfirmRestore
+```
+
+For a different compose file, project name, or database name, pass the matching
+`-EnvFile`, `-ComposeFile`, `-ProjectName`, and `-Database` parameters.
+
 Open:
 
 - API docs: http://localhost:3001/docs

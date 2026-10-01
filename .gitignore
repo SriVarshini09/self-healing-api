@@ -15,6 +15,7 @@ build/
 **/build/
 coverage/
 **/coverage/
+backups/
 .vite/
 **/.vite/
 *.tsbuildinfo

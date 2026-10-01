@@ -46,6 +46,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - Production startup now fails closed when placeholder JWT secrets or partial
   GitHub App/token credentials are supplied, preventing an unsafe deployment
   from appearing healthy.
+- The Docker deployment now includes explicit PowerShell backup and
+  confirmation-gated restore runbooks for PostgreSQL, with backup artifacts
+  excluded from Git.
 - PR verification now returns the exact GitHub check-run evidence and head
   commit used to determine CI status, and persists that evidence for audit
   after reload. Missing, running, or failing checks remain unverified.
@@ -80,8 +83,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
    is proven, but the repair is not merged and CI success is not the same as
    proving the business outcome in production.
 4. **Production operations.** Public deployment, secure secret storage,
-   database backup/restore drills, tenant onboarding, alert delivery, and
-   security/load testing remain to be completed before a production launch.
+   backup/restore drills, tenant onboarding, alert delivery, and security/load
+   testing remain to be completed before a production launch.
 5. **Dashboard data fidelity.** The regional incident panel now uses live
    SHAPI incidents when available, but parts of the fleet/globe view still use
    preview data.
