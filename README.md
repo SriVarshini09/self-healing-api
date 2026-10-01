@@ -114,6 +114,21 @@ GitHub readiness without printing API keys or other secrets:
 ./scripts/stack-smoke.ps1 -EnvFile ./path/to/.env -RequireGitHubApp
 ```
 
+For a single release gate, run the combined readiness check. It runs the stack,
+security, and authenticated load smoke tests. Add
+`-IncludeBackupRestoreDrill -ConfirmDrill` when you also want the
+temporary-database backup/restore drill:
+
+```powershell
+./scripts/production-readiness.ps1 -EnvFile ./path/to/.env -RequireGitHubApp
+./scripts/production-readiness.ps1 -EnvFile ./path/to/.env -RequireGitHubApp -IncludeBackupRestoreDrill -ConfirmDrill
+```
+
+The load check is intentionally bounded and defaults to 100 authenticated
+requests at concurrency 20. Increase `-Requests` and `-Concurrency` only as a
+deliberate capacity test; this readiness gate is not a substitute for sustained
+load testing in the hosting environment.
+
 Open:
 
 - API docs: http://localhost:3001/docs

@@ -7,9 +7,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 - The local production Docker stack runs PostgreSQL, the backend, and the
   dashboard. On 2026-09-30, `/health`, `/ready`, and the dashboard returned 200.
-- GitHub Actions CI on `master` passed for the latest production-dashboard
-  commit `27b16b1`:
-  [run 36910554414](https://github.com/SriVarshini09/self-healing-api/actions/runs/36910554414).
+- GitHub Actions CI on `master` passed for the latest business-outcome proof
+  commit `b7ffb1c`:
+  [run 36916702743](https://github.com/SriVarshini09/self-healing-api/actions/runs/36916702743).
   CI checks workspace types, backend lint, package/backend unit tests, backend
   and dashboard builds, and Prisma schema validation.
 - Webhook and SDK events feed behavioral invariants; drift detection and
@@ -88,6 +88,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   contract (`proveBusinessOutcomeRepair`) that requires an explicit source
   loader, isolated state factory, event runner, and failure/recovery predicates;
   its fixture proof now exercises that contract directly.
+- A repeatable `scripts/production-readiness.ps1` gate now composes stack,
+  security, authenticated load, and optional backup/restore checks for release
+  verification.
 
 ## Not complete
 
