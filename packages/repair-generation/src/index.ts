@@ -2,6 +2,7 @@
 import type { RepairChange } from './changes.js';
 import { validateRepairChanges } from './changes.js';
 export * from './changes.js';
+export * from './business-outcome.js';
 
 export interface Repair {
   type: 'CODE_CHANGE' | 'CONFIG_CHANGE' | 'WEBHOOK_RETRY' | 'MANUAL';

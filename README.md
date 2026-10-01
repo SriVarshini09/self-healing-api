@@ -142,6 +142,10 @@ it applies a structured repair change to a provisioning source fixture, executes
 the patched handler, and verifies that the same user becomes provisioned. This
 is a bounded proof of the repair mechanism; it is not a substitute for running
 the full test suite of every customer repository.
+The reusable `proveBusinessOutcomeRepair` contract requires each target adapter
+to provide its source loader, isolated state factory, event runner, and explicit
+failure/recovery predicates; it fails closed when the baseline does not reproduce
+the expected failure or the patched source does not recover.
 
 ## Auth
 

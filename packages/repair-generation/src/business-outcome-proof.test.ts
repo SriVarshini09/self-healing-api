@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyRepairChanges, type RepairChange } from './changes.js';
+import { proveBusinessOutcomeRepair, type RepairChange } from './index.js';
 
 type TargetUser = { provisioned: boolean };
 type TargetResult = { success: boolean; reason?: string };
@@ -41,22 +41,44 @@ function loadTarget(source: string): TargetHandler {
 
 describe('structured repair business-outcome proof', () => {
   it('applies the exact target patch and proves provisioning succeeds', () => {
-    const buggy = loadTarget(buggyTargetSource);
-    const buggyUsers = new Map<string, TargetUser>([['cus_target', { provisioned: false }]]);
-    const before = buggy(buggyUsers, 'cus_target', true);
-    expect(before.success).toBe(false);
-    expect(buggyUsers.get('cus_target')?.provisioned).toBe(false);
+    const proof = proveBusinessOutcomeRepair({
+      files: { [targetPath]: buggyTargetSource },
+      targetPath,
+      changes: repair,
+      load: loadTarget,
+      createState: () => new Map<string, TargetUser>([['cus_target', { provisioned: false }]]),
+      run: (handler, users) => handler(users, 'cus_target', true),
+      reproducesFailure: (result, users) => !result.success && users.get('cus_target')?.provisioned === false,
+      provesRecovery: (result, users) => result.success && users.get('cus_target')?.provisioned === true,
+    });
 
-    const patchedFiles = applyRepairChanges({ [targetPath]: buggyTargetSource }, repair);
-    const fixed = loadTarget(patchedFiles[targetPath]);
-    const fixedUsers = new Map<string, TargetUser>([['cus_target', { provisioned: false }]]);
-    const after = fixed(fixedUsers, 'cus_target', true);
-
-    expect(after.success).toBe(true);
-    expect(fixedUsers.get('cus_target')?.provisioned).toBe(true);
+    expect(proof.before.result.success).toBe(false);
+    expect(proof.after.result.success).toBe(true);
   });
 
   it('fails closed when the target source no longer matches the reviewed patch', () => {
-    expect(() => applyRepairChanges({ [targetPath]: buggyTargetSource.replace('provisioning skipped', 'different behavior') }, repair)).toThrow(/missing-before/);
+    expect(() => proveBusinessOutcomeRepair({
+      files: { [targetPath]: buggyTargetSource.replace('provisioning skipped', 'different behavior') },
+      targetPath,
+      changes: repair,
+      load: loadTarget,
+      createState: () => new Map<string, TargetUser>([['cus_target', { provisioned: false }]]),
+      run: (handler, users) => handler(users, 'cus_target', true),
+      reproducesFailure: result => !result.success,
+      provesRecovery: result => result.success,
+    })).toThrow(/missing-before/);
+  });
+
+  it('fails closed when the baseline does not reproduce the reviewed failure', () => {
+    expect(() => proveBusinessOutcomeRepair({
+      files: { [targetPath]: buggyTargetSource },
+      targetPath,
+      changes: repair,
+      load: loadTarget,
+      createState: () => new Map<string, TargetUser>([['cus_target', { provisioned: false }]]),
+      run: (handler, users) => handler(users, 'cus_target', false),
+      reproducesFailure: result => !result.success,
+      provesRecovery: result => result.success,
+    })).toThrow(/did not reproduce/);
   });
 });
