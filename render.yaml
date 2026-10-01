@@ -7,7 +7,7 @@
 # hostname without rebuilding the frontend image.
 
 previews:
-  generation: none
+  generation: 'off'
 
 databases:
   - name: shapi-postgres
