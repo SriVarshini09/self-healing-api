@@ -8,8 +8,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - The local production Docker stack runs PostgreSQL, the backend, and the
   dashboard. On 2026-10-01, the backend was rebuilt from `master`; `/health`,
   `/ready`, and the dashboard returned 200.
-- GitHub Actions CI on `master` passed for the current head `beff53a`:
-  [run 36934687947](https://github.com/SriVarshini09/self-healing-api/actions/runs/36934687947).
+- GitHub Actions CI on `master` passed for the current head `307eefc`:
+  [run 36935502462](https://github.com/SriVarshini09/self-healing-api/actions/runs/36935502462).
   CI checks workspace types, backend lint, package/backend unit tests, backend
   and dashboard builds, and Prisma schema validation.
 - Webhook and SDK events feed behavioral invariants; drift detection and
@@ -37,6 +37,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   repair mapping and required GitHub check names without using the API.
 - Incident PRs now display persisted verification evidence after reload,
   including the exact verified head SHA and individual check conclusions.
+- Changing an invariant's predicate, repair target, or required checks now
+  invalidates verification on actionable open/draft repair PRs while preserving
+  historical merged/closed evidence, preventing stale green badges.
 - On 2026-10-01, the live Docker stack completed a read-only dashboard preview
   against the real installation and returned the current `master` SHA, one
   changed file, and a signed preview approval token without creating a PR.
