@@ -190,6 +190,8 @@ pnpm --filter @shapi/demo-saas test
 ```
 
 Typechecks: `pnpm -r typecheck`. Builds verified: backend `tsc`, dashboard `tsc -b && vite build`, demo-saas `tsc`.
+The live Docker stack also has a repeatable security smoke check:
+`./scripts/security-smoke.ps1 -EnvFile .env`.
 
 ## Important implementation notes
 
