@@ -538,11 +538,26 @@ function Incidents({ refreshKey, bump }: { refreshKey: number; bump: () => void 
               <>
                 <h4>GitHub repair PRs</h4>
                 {selected.githubPRs.map((pr: any) => (
-                  <div key={pr.id} className="row">
-                    <Badge text={pr.verified ? 'VERIFIED' : pr.status} tone={pr.verified ? 'green' : toneFor(pr.status)} />
-                    <span>#{pr.prNumber} {pr.title}</span>
-                    <a href={pr.prUrl} target="_blank" rel="noreferrer">Open GitHub</a>
-                    <button className="secondary" disabled={busy !== null} onClick={() => void verifyPr(pr)}>{busy === `verify:${pr.id}` ? 'Checking…' : 'Verify now'}</button>
+                  <div key={pr.id} className="pr-proof-card">
+                    <div className="row">
+                      <Badge text={pr.verified ? 'VERIFIED' : pr.status} tone={pr.verified ? 'green' : toneFor(pr.status)} />
+                      <span>#{pr.prNumber} {pr.title}</span>
+                      <a href={pr.prUrl} target="_blank" rel="noreferrer">Open GitHub</a>
+                      <button className="secondary" disabled={busy !== null} onClick={() => void verifyPr(pr)}>{busy === `verify:${pr.id}` ? 'Checking…' : 'Verify now'}</button>
+                    </div>
+                    {pr.verificationHeadSha && <div className="proof-meta mono">Verified head: {pr.verificationHeadSha}</div>}
+                    {Array.isArray(pr.verificationChecks) && pr.verificationChecks.length > 0 && (
+                      <details className="verification-proof">
+                        <summary>Verification evidence ({pr.verificationChecks.length} checks)</summary>
+                        {pr.verificationChecks.map((check: any, index: number) => (
+                          <div key={`${check.name ?? 'check'}-${index}`} className="proof-check">
+                            <Badge text={check.conclusion === 'success' ? 'PASS' : String(check.conclusion ?? check.status ?? 'UNKNOWN')} tone={check.conclusion === 'success' ? 'green' : 'red'} />
+                            <span>{check.name ?? 'Unnamed check'}</span>
+                            {check.completedAt && <span className="muted">{new Date(check.completedAt).toLocaleString()}</span>}
+                          </div>
+                        ))}
+                      </details>
+                    )}
                   </div>
                 ))}
               </>

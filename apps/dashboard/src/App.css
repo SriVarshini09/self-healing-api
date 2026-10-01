@@ -102,10 +102,17 @@ button { border:0; border-radius:7px; background:linear-gradient(180deg,#3a86f7,
 .diff-after { background:#f1fcf5; color:#177549; }
 .confirm-row { display:flex; align-items:flex-start; gap:8px; margin:4px 0 12px; color:var(--muted); font-size:11px; line-height:1.5; }
 .confirm-row input { min-width:0; margin-top:2px; }
+.pr-proof-card { border-top:1px solid #eef2f4; padding:2px 0 10px; }
+.proof-meta { color:var(--muted); padding:0 8px 8px; overflow-wrap:anywhere; }
+.verification-proof { margin:0 8px 4px; color:var(--muted); font-size:11px; }
+.verification-proof summary { cursor:pointer; color:#3563be; font-weight:700; padding:5px 0; }
+.proof-check { display:flex; align-items:center; gap:8px; padding:6px 0; border-top:1px solid #f0f3f5; }
 html[data-shapi-theme='command'] .repair-panel { border-color:rgba(94,234,212,.24); background:rgba(45,212,191,.05); }
 html[data-shapi-theme='command'] .diff-path { background:rgba(45,212,191,.1); color:#8ff0d8; }
 html[data-shapi-theme='command'] .diff-before { background:rgba(251,113,133,.08); color:#fda4af; }
 html[data-shapi-theme='command'] .diff-after { background:rgba(45,212,191,.08); color:#a7f3d0; }
+html[data-shapi-theme='command'] .pr-proof-card { border-top-color:rgba(94,234,212,.08); }
+html[data-shapi-theme='command'] .verification-proof summary { color:#8ff0d8; }
 .section-note { margin:4px 0 18px; }.table-label { color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.1em; font-weight:800; }
 .mapping-fields { margin:16px 0 4px; padding:14px; border:1px solid var(--line); border-radius:9px; background:rgba(38,116,245,.025); }
 .mapping-fields .form-row { margin:10px 0 5px; }
