@@ -114,6 +114,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - The guarded deployment command now forwards the optional dashboard and
   sustained-capacity gates, allowing one release command to run the complete
   local readiness suite.
+- A separate `scripts/hosted-readiness.ps1` gate now runs the same checks
+  against public HTTPS API/dashboard URLs without starting or mutating a local
+  Compose stack. It rejects localhost endpoints and keeps the hosted operator
+  key in an external env file.
 - On 2026-10-01, the rebuilt Docker stack at `030a6c8` passed the complete
   readiness suite:
   GitHub App readiness, security smoke, authenticated load (20/20 HTTP 200),

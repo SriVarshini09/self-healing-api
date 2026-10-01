@@ -95,6 +95,24 @@ The Blueprint is deployment-ready but cannot be considered hosted until a
 Render workspace applies it, secrets are entered, and the public URLs and
 GitHub delivery are verified.
 
+After the hosted services are live, run the public-only gate from a trusted
+operator machine. It refuses localhost or non-HTTPS URLs and does not mutate
+the hosted database:
+
+```powershell
+./scripts/hosted-readiness.ps1 `
+  -ApiUrl https://<api-host> `
+  -DashboardUrl https://<dashboard-host> `
+  -EnvFile ./hosted-operator.env `
+  -IncludeCapacitySmoke -DurationSeconds 60 -CapacityConcurrency 1 `
+  -CapacityDelayMs 250 -MaxErrorRate 0
+```
+
+The operator env file must contain only the hosted `SHAPI_API_KEY`; keep it
+outside the repository. The gate checks API/database readiness, security
+headers and 401 behavior, authenticated load, GitHub App mode, the dashboard's
+live command center, and optional paced capacity.
+
 For a repeatable single-host deployment, use the guarded deployment command. It
 validates the rendered Compose configuration, starts the services, waits for
 `/ready` and the dashboard, then runs the production readiness gate:
