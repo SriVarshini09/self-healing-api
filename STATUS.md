@@ -8,8 +8,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - The local production Docker stack runs PostgreSQL, the backend, and the
   dashboard. On 2026-10-01, the backend was rebuilt from `master`; `/health`,
   `/ready`, and the dashboard returned 200.
-- GitHub Actions CI on `master` passed for the current head `0f86353`:
-  [run 36934119050](https://github.com/SriVarshini09/self-healing-api/actions/runs/36934119050).
+- GitHub Actions CI on `master` passed for the current head `beff53a`:
+  [run 36934687947](https://github.com/SriVarshini09/self-healing-api/actions/runs/36934687947).
   CI checks workspace types, backend lint, package/backend unit tests, backend
   and dashboard builds, and Prisma schema validation.
 - Webhook and SDK events feed behavioral invariants; drift detection and
@@ -70,6 +70,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   Render's official public schema whenever `render.yaml` or its validation
   workflow changes. It also enables full Render CLI semantic validation when
   optional workspace credentials are supplied as repository secrets.
+- `.github/workflows/docker-production.yml` validates the production Compose
+  configuration and builds both production images on relevant changes; the
+  first run passed on 2026-10-01:
+  [run 36934687975](https://github.com/SriVarshini09/self-healing-api/actions/runs/36934687975).
 - The Docker deployment now includes explicit PowerShell backup and
   confirmation-gated restore runbooks for PostgreSQL, with backup artifacts
   excluded from Git.
