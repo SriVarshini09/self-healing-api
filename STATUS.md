@@ -9,8 +9,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   dashboard. On 2026-10-01, the backend was rebuilt from `master`; `/health`,
   `/ready`, and the dashboard returned 200.
 - GitHub Actions CI on `master` passed for the verified product code head
-  `3943525`:
-  [run 36939362711](https://github.com/SriVarshini09/self-healing-api/actions/runs/36939362711).
+  `1653b3f`:
+  [run 36940102559](https://github.com/SriVarshini09/self-healing-api/actions/runs/36940102559).
   CI checks workspace types, backend lint, package/backend unit tests, backend
   and dashboard builds, and Prisma schema validation.
 - Webhook and SDK events feed behavioral invariants; drift detection and
@@ -34,6 +34,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - The dashboard now exposes the live GitHub App connection and installation
   state, and the incident view supports a pinned source preview, explicit
   operator approval, real repair-PR creation, and verification from one flow.
+- Repair candidates without both an explicit repository mapping and structured
+  file changes are now labeled `MANUAL REVIEW` in the production dashboard;
+  preview and PR actions stay disabled with an explanation, so a suggestion
+  cannot be mistaken for an automated repair.
 - Invariant settings now let operators create or edit the repository/file
   repair mapping and required GitHub check names without using the API.
 - Incident PRs now display persisted verification evidence after reload,
@@ -87,6 +91,11 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   wires the dashboard proxy to the API service's private host/port. The
   provider-shaped dashboard image test and official Render schema validation
   passed locally on 2026-10-01.
+- The dashboard repair-candidate guard passed the full local readiness gate on
+  2026-10-01: API liveness, database readiness, dashboard serving, GitHub App
+  readiness, security checks, 20/20 authenticated requests, and browser smoke.
+  GitHub Actions also passed the Docker production workflow for this release:
+  [run 36940102511](https://github.com/SriVarshini09/self-healing-api/actions/runs/36940102511).
 - The Render Blueprint workflow also passed official schema validation for
   this release:
   [run 36939362667](https://github.com/SriVarshini09/self-healing-api/actions/runs/36939362667).
