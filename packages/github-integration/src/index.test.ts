@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import crypto from 'crypto';
-import { verifyWebhookSignature, buildPrBody, shouldAutoMerge, openRepairPr, openRepairPrFromChanges, previewRepairPrChanges, verifyPullRequest, verifyRepairPr, hasGitHubAppCredentials } from './index.js';
+import { verifyWebhookSignature, buildPrBody, shouldAutoMerge, openRepairPr, openRepairPrFromChanges, previewRepairPrChanges, verifyPullRequest, verifyRepairPr, hasGitHubAppCredentials, listInstallationRepositories } from './index.js';
 
 afterEach(() => {
   delete process.env.GITHUB_TOKEN;
@@ -15,6 +15,27 @@ describe('GitHub App authentication configuration', () => {
     expect(hasGitHubAppCredentials(9876)).toBe(true);
     expect(hasGitHubAppCredentials(-1)).toBe(false);
     expect(hasGitHubAppCredentials()).toBe(false);
+  });
+
+  it('lists repositories from an installation-scoped client', async () => {
+    const fake = {
+      rest: {
+        apps: {
+          listReposAccessibleToInstallation: vi.fn(async () => ({
+            data: {
+              repositories: [
+                { full_name: 'acme/demo', owner: { login: 'acme', type: 'Organization' } },
+              ],
+            },
+          })),
+        },
+      },
+    };
+    await expect(listInstallationRepositories(123, undefined, fake as any)).resolves.toEqual({
+      accountLogin: 'acme',
+      accountType: 'Organization',
+      repositories: ['acme/demo'],
+    });
   });
 });
 

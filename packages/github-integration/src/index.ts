@@ -18,6 +18,37 @@ export function hasGitHubAppCredentials(installationId?: InstallationId): boolea
   return Boolean(appId && privateKey && Number.isSafeInteger(numericInstallationId) && numericInstallationId > 0);
 }
 
+export interface GitHubInstallationAccess {
+  accountLogin: string;
+  accountType: string;
+  repositories: string[];
+}
+
+/** Read the repositories available to one real GitHub App installation. */
+export async function listInstallationRepositories(
+  installationId: InstallationId,
+  token?: string,
+  client?: Pick<Octokit, 'rest'>,
+): Promise<GitHubInstallationAccess> {
+  const octokit = client ?? createGitHubClient(token, installationId);
+  if (!octokit) throw new Error('GitHub App installation credentials are required');
+
+  const { data } = await octokit.rest.apps.listReposAccessibleToInstallation({ per_page: 100 });
+  const repositories = data.repositories
+    .map(repository => repository.full_name)
+    .filter((repository): repository is string => typeof repository === 'string' && repository.length > 0);
+  const owner = data.repositories[0]?.owner;
+  if (!owner?.login || repositories.length === 0) {
+    throw new Error('GitHub App installation has no accessible repositories');
+  }
+
+  return {
+    accountLogin: owner.login,
+    accountType: owner.type ?? 'User',
+    repositories,
+  };
+}
+
 function createGitHubClient(
   token?: string,
   installationId?: InstallationId,

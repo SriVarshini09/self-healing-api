@@ -4,6 +4,7 @@ import { GitHubPRStatus, IncidentStatus, IntegrationType } from '@prisma/client'
 import crypto from 'crypto';
 import { z } from 'zod';
 import { tenantIdFor } from '../utils/auth-context.js';
+import { hasGitHubAppCredentials, listInstallationRepositories } from '@shapi/github-integration';
 
 type JsonRecord = Record<string, unknown>;
 
@@ -57,6 +58,7 @@ const prSchema = z.object({
   previewToken: z.string().min(1).max(4096).optional(),
 }).strict();
 const prPreviewSchema = prSchema.pick({ installationId: true, repository: true, candidateId: true, base: true }).strict();
+const installationSyncSchema = z.object({ githubInstallationId: z.coerce.number().int().positive() }).strict();
 
 const repairPreviewApprovalSchema = z.object({
   tenantId: z.string().min(1),
@@ -193,6 +195,46 @@ export async function githubRoutes(app: FastifyInstance) {
       }
     }
     return reply.send(installations);
+  });
+
+  app.post('/github/installations/sync', async (request, reply) => {
+    const tenantId = tenantIdFor(request);
+    const parsed = installationSyncSchema.safeParse(request.body ?? {});
+    if (!parsed.success) return reply.code(400).send({ error: 'githubInstallationId must be a positive integer' });
+    if (!hasGitHubAppCredentials(parsed.data.githubInstallationId)) {
+      return reply.code(503).send({ error: 'GitHub App credentials are required to sync an installation' });
+    }
+
+    const integrationId = process.env.GITHUB_APP_INTEGRATION_ID;
+    const integration = integrationId
+      ? await prisma.integration.findFirst({ where: { id: integrationId, tenantId, type: IntegrationType.GITHUB } })
+      : await prisma.integration.findFirst({ where: { tenantId, type: IntegrationType.GITHUB } });
+    if (!integration) return reply.code(404).send({ error: 'GitHub integration not found' });
+
+    let access;
+    try {
+      access = await listInstallationRepositories(parsed.data.githubInstallationId);
+    } catch (error) {
+      return reply.code(502).send({ error: error instanceof Error ? error.message : 'GitHub installation sync failed' });
+    }
+
+    const installation = await prisma.gitHubInstallation.upsert({
+      where: { githubInstallationId: BigInt(parsed.data.githubInstallationId) },
+      update: {
+        accountLogin: access.accountLogin,
+        accountType: access.accountType,
+        repositories: access.repositories,
+        integrationId: integration.id,
+      },
+      create: {
+        githubInstallationId: BigInt(parsed.data.githubInstallationId),
+        accountLogin: access.accountLogin,
+        accountType: access.accountType,
+        repositories: access.repositories,
+        integrationId: integration.id,
+      },
+    });
+    return reply.send(installation);
   });
 
   app.get('/github/installations/:installationId', async (request, reply) => {
