@@ -7,8 +7,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 - The local production Docker stack runs PostgreSQL, the backend, and the
   dashboard. On 2026-09-30, `/health`, `/ready`, and the dashboard returned 200.
-- GitHub Actions CI on `master` passed for the latest dashboard commit `7b58199`:
-  [run 36901061649](https://github.com/SriVarshini09/self-healing-api/actions/runs/36901061649).
+- GitHub Actions CI on `master` passed for the latest production-dashboard
+  commit `27b16b1`:
+  [run 36910554414](https://github.com/SriVarshini09/self-healing-api/actions/runs/36910554414).
   CI checks workspace types, backend lint, package/backend unit tests, backend
   and dashboard builds, and Prisma schema validation.
 - Webhook and SDK events feed behavioral invariants; drift detection and
@@ -97,18 +98,19 @@ product is production-ready. See [README.md](README.md) for setup and API detail
    backup/restore drills, tenant onboarding, alert delivery, and security/load
    testing remain to be completed before a production launch.
 5. **Dashboard data fidelity.** The production command view now uses only live
-   SHAPI incidents, shows exact active/severity/integration counts, and avoids
-   presenting invented regions, map coordinates, correlation confidence, or
-   sample incidents as telemetry. Geographic regional telemetry is intentionally
-   not shown because SHAPI does not collect location data yet. CI now builds
-   both the legacy workspace dashboard and the production `dashboard/` app.
+   SHAPI incidents, shows exact active/severity/integration/invariant counts,
+   and avoids presenting invented regions, map coordinates, correlation
+   confidence, availability percentages, request rates, or sample incidents as
+   telemetry. Geographic regional telemetry is intentionally not shown because
+   SHAPI does not collect location data yet. CI now builds both the legacy
+   workspace dashboard and the production `dashboard/` app.
 
 ## Next engineering priority
 
-Use the required-check contract with a real GitHub App and target repository
-workflow, then extend the target-app business-outcome harness beyond its
-contract fixture before claiming arbitrary repository repairs are verified.
-Do not claim a replay-verified fix prematurely.
+Map the remaining production invariants to reviewed target files and extend the
+target-app business-outcome harness beyond its contract fixture before claiming
+arbitrary repository repairs are verified. Then add production alert delivery
+and security/load checks. Do not claim a replay-verified fix prematurely.
 
 ## Local checks
 
