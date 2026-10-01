@@ -9,8 +9,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   dashboard. On 2026-10-01, the backend was rebuilt from `master`; `/health`,
   `/ready`, and the dashboard returned 200.
 - GitHub Actions CI on `master` passed for the verified product code head
-  `3ca32d7`:
-  [run 36938673795](https://github.com/SriVarshini09/self-healing-api/actions/runs/36938673795).
+  `3943525`:
+  [run 36939362711](https://github.com/SriVarshini09/self-healing-api/actions/runs/36939362711).
   CI checks workspace types, backend lint, package/backend unit tests, backend
   and dashboard builds, and Prisma schema validation.
 - Webhook and SDK events feed behavioral invariants; drift detection and
@@ -89,7 +89,7 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   passed locally on 2026-10-01.
 - The Render Blueprint workflow also passed official schema validation for
   this release:
-  [run 36938673800](https://github.com/SriVarshini09/self-healing-api/actions/runs/36938673800).
+  [run 36939362667](https://github.com/SriVarshini09/self-healing-api/actions/runs/36939362667).
 - The hosted Blueprint now derives the API's CORS origin from Render's public
   dashboard URL, uses the dashboard's same-origin `/api/v1` proxy, and gates
   both web-service deploys on passing GitHub checks. This removes a fragile
