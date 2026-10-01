@@ -8,8 +8,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - The local production Docker stack runs PostgreSQL, the backend, and the
   dashboard. On 2026-10-01, the backend was rebuilt from `master`; `/health`,
   `/ready`, and the dashboard returned 200.
-- GitHub Actions CI on `master` passed for the current head `8cce011`:
-  [run 36936337613](https://github.com/SriVarshini09/self-healing-api/actions/runs/36936337613).
+- GitHub Actions CI on `master` passed for the verified product code head
+  `5254d30`:
+  [run 36937571854](https://github.com/SriVarshini09/self-healing-api/actions/runs/36937571854).
   CI checks workspace types, backend lint, package/backend unit tests, backend
   and dashboard builds, and Prisma schema validation.
 - Webhook and SDK events feed behavioral invariants; drift detection and
@@ -74,9 +75,13 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   workflow changes. It also enables full Render CLI semantic validation when
   optional workspace credentials are supplied as repository secrets.
 - `.github/workflows/docker-production.yml` validates the production Compose
-  configuration and builds both production images on relevant changes; the
-  first run passed on 2026-10-01:
-  [run 36934687975](https://github.com/SriVarshini09/self-healing-api/actions/runs/36934687975).
+  configuration, builds both production images, starts the full PostgreSQL/API/
+  dashboard stack, verifies API and dashboard readiness, and tears it down on
+  relevant changes. The current run passed on 2026-10-01:
+  [run 36937571845](https://github.com/SriVarshini09/self-healing-api/actions/runs/36937571845).
+- Optional GitHub App configuration now treats an empty `GITHUB_APP_SLUG` as
+  unset, so tokenless CI and deployments do not fail schema validation while
+  real App credentials remain validated when supplied.
 - The Docker deployment now includes explicit PowerShell backup and
   confirmation-gated restore runbooks for PostgreSQL, with backup artifacts
   excluded from Git.
