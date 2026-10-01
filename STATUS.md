@@ -96,9 +96,12 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 4. **Production operations.** Public deployment, secure secret storage,
    backup/restore drills, tenant onboarding, alert delivery, and security/load
    testing remain to be completed before a production launch.
-5. **Dashboard data fidelity.** The regional incident panel now uses live
-   SHAPI incidents when available, but parts of the fleet/globe view still use
-   preview data.
+5. **Dashboard data fidelity.** The production command view now uses only live
+   SHAPI incidents, shows exact active/severity/integration counts, and avoids
+   presenting invented regions, map coordinates, correlation confidence, or
+   sample incidents as telemetry. Geographic regional telemetry is intentionally
+   not shown because SHAPI does not collect location data yet. CI now builds
+   both the legacy workspace dashboard and the production `dashboard/` app.
 
 ## Next engineering priority
 

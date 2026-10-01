@@ -1,4 +1,4 @@
-import { useEffect, useState, type ComponentType } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Activity,
   Bell,
@@ -11,11 +11,9 @@ import {
   GitBranch,
   Globe2,
   HeartPulse,
-  MapPin,
   Network,
   Pause,
   Play,
-  RefreshCw,
   Search,
   Settings2,
   ShieldCheck,
@@ -24,76 +22,6 @@ import {
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-
-const reports = [
-  {
-    city: 'Frankfurt',
-    region: 'eu-central-1',
-    issue: 'Payment API latency spike',
-    source: 'payments-api',
-    time: '14s',
-    tone: 'critical',
-  },
-  {
-    city: 'Ashburn',
-    region: 'us-east-1',
-    issue: 'Upstream timeout errors',
-    source: 'inventory-api',
-    time: '31s',
-    tone: 'elevated',
-  },
-  {
-    city: 'São Paulo',
-    region: 'sa-east-1',
-    issue: 'Elevated response times',
-    source: 'gateway',
-    time: '1m',
-    tone: 'elevated',
-  },
-  {
-    city: 'Singapore',
-    region: 'ap-southeast-1',
-    issue: 'Health check recovered',
-    source: 'auth-service',
-    time: '2m',
-    tone: 'observed',
-  },
-  {
-    city: 'Sydney',
-    region: 'ap-southeast-2',
-    issue: 'Retry rate stabilized',
-    source: 'edge-router',
-    time: '4m',
-    tone: 'observed',
-  },
-];
-
-const sampleIncidents = [
-  {
-    service: 'payments-api',
-    issue: 'Latency threshold exceeded',
-    region: 'eu-central-1',
-    action: 'Traffic rerouted',
-    time: '12s',
-    state: 'Healing',
-  },
-  {
-    service: 'auth-service',
-    issue: 'Memory pressure detected',
-    region: 'ap-south-1',
-    action: 'Instance recycled',
-    time: '2m',
-    state: 'Resolved',
-  },
-  {
-    service: 'inventory-api',
-    issue: 'Upstream timeout spike',
-    region: 'us-east-1',
-    action: 'Circuit breaker opened',
-    time: '8m',
-    state: 'Resolved',
-  },
-];
 
 const runtimeConfig =
   (globalThis as { __SHAPI_CONFIG__?: { apiUrl?: string; apiKey?: string } }).__SHAPI_CONFIG__ ??
@@ -171,6 +99,7 @@ type GitHubStatus = {
   realInstallations: number;
   installationCount: number;
   repositoryCount: number;
+  appInstallUrl: string | null;
 };
 type RepairPreview = {
   repository: string;
@@ -203,7 +132,7 @@ async function fetchShapi<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 function GitHubSetupGuide({ status }: { status: GitHubStatus | null }) {
-  if (!status || status.mode === 'app') return null;
+  if (!status) return null;
   return (
     <div className="mt-4 rounded border border-warning/30 bg-warning/5 p-3 text-xs">
       <div className="flex items-center justify-between gap-2">
@@ -213,28 +142,42 @@ function GitHubSetupGuide({ status }: { status: GitHubStatus | null }) {
         </span>
       </div>
       <p className="mt-1 text-muted-foreground">
-        {status.mode === 'token'
+        {status.mode === 'app'
+          ? 'The GitHub App is connected. Confirm repository access here before creating a repair PR.'
+          : status.mode === 'token'
           ? 'Operator token mode is active for local testing. Use an installed GitHub App for multi-tenant production access.'
           : 'Configure GitHub credentials before creating real repair PRs.'}
       </p>
-      <ol className="mt-2 list-decimal space-y-1 pl-4 text-[10px] text-muted-foreground">
-        <li>
-          Set <code className="text-foreground">GITHUB_APP_ID</code> and{' '}
-          <code className="text-foreground">GITHUB_APP_PRIVATE_KEY</code>.
-        </li>
-        <li>
-          Install the App on the target repository with Contents and Pull requests read/write
-          permissions.
-        </li>
-        <li>
-          Set the App webhook secret and point the webhook to{' '}
-          <code className="text-foreground">/api/v1/github/webhook</code>.
-        </li>
-        <li>
-          Refresh this diagnosis until the mode changes to <code className="text-success">app</code>
-          .
-        </li>
-      </ol>
+      {status.appInstallUrl && (
+        <a
+          href={status.appInstallUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-2 inline-flex text-[10px] font-semibold text-primary hover:underline"
+        >
+          {status.mode === 'app' ? 'Manage repository access ↗' : 'Install the GitHub App ↗'}
+        </a>
+      )}
+      {status.mode !== 'app' && (
+        <ol className="mt-2 list-decimal space-y-1 pl-4 text-[10px] text-muted-foreground">
+          <li>
+            Set <code className="text-foreground">GITHUB_APP_ID</code> and{' '}
+            <code className="text-foreground">GITHUB_APP_PRIVATE_KEY</code>.
+          </li>
+          <li>
+            Install the App on the target repository with Contents and Pull requests read/write
+            permissions.
+          </li>
+          <li>
+            Set the App webhook secret and point the webhook to{' '}
+            <code className="text-foreground">/api/v1/github/webhook</code>.
+          </li>
+          <li>
+            Refresh this diagnosis until the mode changes to <code className="text-success">app</code>
+            .
+          </li>
+        </ol>
+      )}
     </div>
   );
 }
@@ -435,22 +378,8 @@ export function HealingDashboard() {
   const [githubPrVerifyBusy, setGithubPrVerifyBusy] = useState<string | null>(null);
   const [githubLoading, setGithubLoading] = useState(false);
   const [githubLoadError, setGithubLoadError] = useState<string | null>(null);
-  const [GlobeView, setGlobeView] = useState<ComponentType<{
-    activeIncidentCount: number;
-    isLive: boolean;
-  }> | null>(null);
   const [liveSnapshot, setLiveSnapshot] = useState<LiveSnapshot | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    import('@/components/NetworkGlobe').then(({ default: Component }) => {
-      if (active) setGlobeView(() => Component);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
 
   const openDiagnosis = () => {
     const selected = liveSnapshot?.incidents.find(
@@ -738,7 +667,7 @@ export function HealingDashboard() {
       try {
         const [summary, incidentsResponse] = await Promise.all([
           fetchShapi<LiveSnapshot['summary']>('drift/summary'),
-          fetchShapi<{ data: LiveSnapshot['incidents'] }>('incidents?pageSize=20'),
+          fetchShapi<{ data: LiveSnapshot['incidents'] }>('incidents?pageSize=100'),
         ]);
         if (active) {
           setLiveSnapshot({ summary, incidents: incidentsResponse.data ?? [] });
@@ -783,18 +712,32 @@ export function HealingDashboard() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const activeIncidentCount = liveSnapshot?.summary.activeAlerts ?? 0;
+  const activeIncidents =
+    liveSnapshot?.incidents.filter(
+      incident => incident.status !== 'RESOLVED' && incident.status !== 'DISMISSED'
+    ) ?? [];
+  const activeIncidentCount = activeIncidents.length;
   const healingActionCount = liveSnapshot ? liveSnapshot.incidents.length : 0;
   const visibleReports = liveSnapshot?.incidents.length
     ? liveSnapshot.incidents.map(incident => ({
-        city: incident.integrationId,
-        region: 'SHAPI live',
+        service: incident.integrationId,
         issue: incident.title,
         source: incident.integrationId,
         time: incidentAge(incident.detectedAt),
         tone: incidentTone(incident.severity),
       }))
-    : reports;
+    : [];
+  const severityCounts = activeIncidents.reduce(
+    (counts, incident) => {
+      const severity = incident.severity.toUpperCase();
+      if (severity === 'CRITICAL' || severity === 'HIGH') counts.critical += 1;
+      else if (severity === 'MEDIUM') counts.elevated += 1;
+      else counts.observed += 1;
+      return counts;
+    },
+    { critical: 0, elevated: 0, observed: 0 }
+  );
+  const affectedIntegrations = new Set(activeIncidents.map(incident => incident.integrationId)).size;
   const metrics = [
     {
       label: 'API availability',
@@ -1009,12 +952,14 @@ export function HealingDashboard() {
               <div>
                 <h2 className="flex items-center gap-2 text-sm font-semibold">
                   <Globe2 className="size-4 text-observed" />
-                  Global API issue radar
+                  Live incident signal field
                 </h2>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    {liveSnapshot
-                      ? 'Live incident state from SHAPI'
-                    : 'Reference regions while SHAPI connects'}
+                  {liveSnapshot
+                    ? 'Current incident state from SHAPI · location telemetry is not collected'
+                    : apiError
+                      ? 'SHAPI is unavailable; live signals are hidden'
+                      : 'Connecting to live SHAPI incident data…'}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -1022,7 +967,7 @@ export function HealingDashboard() {
                   ●{' '}
                   {liveSnapshot
                     ? `${activeIncidentCount} active incident${activeIncidentCount === 1 ? '' : 's'}`
-                    : 'Preview signals'}
+                    : 'Waiting for live data'}
                 </span>
                 <Button variant="outline" size="sm" onClick={() => setPaused(!paused)}>
                   {paused ? <Play /> : <Pause />}
@@ -1031,55 +976,74 @@ export function HealingDashboard() {
               </div>
             </div>
             <div className="grid lg:grid-cols-[minmax(0,1.45fr)_minmax(300px,1fr)]">
-              <div className="relative h-[390px] overflow-hidden bg-globe sm:h-[480px] lg:h-[520px]">
-                <div className="absolute left-3 top-3 z-10 rounded border border-border bg-background/85 px-2 py-2 font-mono text-[9px] leading-relaxed text-muted-foreground">
-                  <div>GLOBAL SIGNAL GRAPH</div>
-                  <div className="text-success">● 9 REFERENCE REGIONS</div>
-                </div>
-                <div className="absolute right-3 top-3 z-10 rounded border border-border bg-background/85 px-2 py-2 font-mono text-[9px] leading-relaxed text-observed">
-                  AUTO CORRELATION
-                  <br />
-                  CONFIDENCE 94.7%
-                </div>
-                {GlobeView ? (
-                  <GlobeView
-                    activeIncidentCount={activeIncidentCount}
-                    isLive={Boolean(liveSnapshot)}
-                  />
+              <div className="relative min-h-[390px] overflow-hidden bg-secondary/20 sm:min-h-[480px] lg:min-h-[520px]">
+                {liveSnapshot ? (
+                  <div className="grid h-full place-items-center p-6 sm:p-10">
+                    <div className="w-full max-w-xl rounded-lg border border-border bg-background/80 p-6 shadow-xl">
+                      <div className="flex items-center justify-between gap-3 font-mono text-[10px] uppercase text-muted-foreground">
+                        <span className="text-success">● Live SHAPI telemetry</span>
+                        <span>refreshed every 10s</span>
+                      </div>
+                      <div className="mt-8 flex items-end gap-3">
+                        <span className="text-7xl font-bold tabular-nums text-foreground">
+                          {activeIncidentCount}
+                        </span>
+                        <span className="pb-2 text-sm text-muted-foreground">
+                          active incident{activeIncidentCount === 1 ? '' : 's'}
+                        </span>
+                      </div>
+                      <p className="mt-2 max-w-md text-xs leading-relaxed text-muted-foreground">
+                        This view reports only incidents returned by SHAPI. Geographic coordinates
+                        are intentionally omitted because the platform does not collect them.
+                      </p>
+                      <div className="mt-8 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        <div className="rounded border border-critical/30 bg-critical/5 p-3">
+                          <p className="font-mono text-lg font-semibold text-critical">{severityCounts.critical}</p>
+                          <p className="mt-1 text-[10px] text-muted-foreground">Critical / high</p>
+                        </div>
+                        <div className="rounded border border-warning/30 bg-warning/5 p-3">
+                          <p className="font-mono text-lg font-semibold text-warning">{severityCounts.elevated}</p>
+                          <p className="mt-1 text-[10px] text-muted-foreground">Medium</p>
+                        </div>
+                        <div className="rounded border border-observed/30 bg-observed/5 p-3">
+                          <p className="font-mono text-lg font-semibold text-observed">{severityCounts.observed}</p>
+                          <p className="mt-1 text-[10px] text-muted-foreground">Low / observed</p>
+                        </div>
+                        <div className="rounded border border-border bg-secondary/40 p-3">
+                          <p className="font-mono text-lg font-semibold">{affectedIntegrations}</p>
+                          <p className="mt-1 text-[10px] text-muted-foreground">Affected integrations</p>
+                        </div>
+                      </div>
+                      {!activeIncidentCount && (
+                        <div className="mt-5 flex items-center gap-2 rounded border border-success/30 bg-success/5 px-3 py-2 text-xs text-success">
+                          <Check className="size-4" /> No active incidents. SHAPI is monitoring normally.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : apiError ? (
+                  <div className="grid h-full place-items-center p-8 text-center">
+                    <div className="max-w-sm">
+                      <CircleAlert className="mx-auto size-8 text-critical" />
+                      <p className="mt-3 text-sm font-semibold">Live incident data unavailable</p>
+                      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{apiError}</p>
+                    </div>
+                  </div>
                 ) : (
-                  <div className="grid h-full place-items-center">
-                    <RefreshCw className="size-5 animate-spin text-observed" />
+                  <div className="grid h-full place-items-center text-sm text-muted-foreground">
+                    Connecting to SHAPI…
                   </div>
                 )}
-                <div className="pointer-events-none absolute bottom-3 left-3 z-10 flex gap-3 font-mono text-[9px] text-muted-foreground">
-                  <span>
-                    <i className="mr-1 inline-block size-1.5 rounded-full bg-critical" />
-                    CRITICAL
-                  </span>
-                  <span>
-                    <i className="mr-1 inline-block size-1.5 rounded-full bg-warning" />
-                    ELEVATED
-                  </span>
-                  <span>
-                    <i className="mr-1 inline-block size-1.5 rounded-full bg-observed" />
-                    OBSERVED
-                  </span>
-                </div>
-                <div className="pointer-events-none absolute bottom-3 right-3 z-10 hidden font-mono text-[9px] text-muted-foreground sm:block">
-                  DRAG TO ROTATE
-                  <br />
-                  SCROLL TO ZOOM
-                </div>
               </div>
               <div className="border-t border-border lg:border-l lg:border-t-0">
                 <div className="flex h-10 items-center justify-between border-b border-border px-3.5 font-mono text-[10px] uppercase text-muted-foreground">
-                  <span>Regional context</span>
-                  <span>{paused ? 'Paused' : liveSnapshot ? 'SHAPI · 10s' : 'Preview · 5s'}</span>
+                  <span>Incident context</span>
+                  <span>{paused ? 'Paused' : liveSnapshot ? 'SHAPI · 10s' : 'Waiting'}</span>
                 </div>
                 <div className="divide-y divide-border">
                   {visibleReports.map(report => (
                     <div
-                      key={report.city}
+                      key={`${report.service}-${report.issue}`}
                       className="flex min-h-[77px] gap-2.5 px-3.5 py-3 transition-colors hover:bg-secondary/40"
                     >
                       <span
@@ -1087,31 +1051,40 @@ export function HealingDashboard() {
                       />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-xs font-medium">
-                          {report.city}
+                          {report.service}
                           <span className="font-normal text-muted-foreground">
-                            {' '}
-                            · {report.region}
+                            {' · SHAPI'}
                           </span>
                         </p>
                         <p className="mt-1 truncate text-[11px]">{report.issue}</p>
                         <p className="mt-1 font-mono text-[9px] uppercase text-muted-foreground">
-                          {report.source} · {liveSnapshot ? 'live SHAPI incident' : 'illustrative'}
+                          {report.source} · live SHAPI incident
                         </p>
                       </div>
                       <div className="flex shrink-0 flex-col items-end gap-2">
                         <time className="font-mono text-[9px] text-muted-foreground">
                           {report.time}
                         </time>
-                        <MapPin className="size-3 text-muted-foreground" />
                       </div>
                     </div>
                   ))}
                 </div>
-                <div className="m-3 rounded border border-warning/30 bg-warning/10 p-3 text-[11px] leading-relaxed text-warning">
-                  <TriangleAlert className="mr-1.5 inline-block size-3" />
-                  <strong>Cross-region correlation:</strong> Example latency pattern detected across
-                  payment endpoints.
-                </div>
+                {!visibleReports.length && liveSnapshot && (
+                  <div className="m-3 rounded border border-success/30 bg-success/5 p-3 text-[11px] leading-relaxed text-success">
+                    <Check className="mr-1.5 inline-block size-3" />
+                    No live incident signals are currently reported.
+                  </div>
+                )}
+                {!liveSnapshot && !apiError && (
+                  <div className="m-3 rounded border border-border bg-secondary/30 p-3 text-[11px] leading-relaxed text-muted-foreground">
+                    Waiting for the first live SHAPI response.
+                  </div>
+                )}
+                {apiError && (
+                  <div className="m-3 rounded border border-critical/30 bg-critical/5 p-3 text-[11px] leading-relaxed text-critical">
+                    Live signals are hidden until the SHAPI connection recovers.
+                  </div>
+                )}
               </div>
             </div>
           </section>
@@ -1190,7 +1163,7 @@ export function HealingDashboard() {
             <div className="border-b border-border px-4 py-3">
               <h2 className="text-sm font-semibold">Recent interventions</h2>
               <p className="text-[11px] text-muted-foreground">
-                {liveSnapshot ? 'Live incidents from SHAPI' : 'Preview data while SHAPI connects'}
+                {liveSnapshot ? 'Live incidents from SHAPI' : 'Waiting for live SHAPI data'}
               </p>
             </div>
             <div className="overflow-x-auto">
@@ -1205,27 +1178,29 @@ export function HealingDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {(liveSnapshot
-                    ? liveSnapshot.incidents.length
-                      ? liveSnapshot.incidents.map(item => ({
-                          service: item.integrationId,
-                          issue: item.title,
-                          region: 'SHAPI',
-                          action: item.severity,
-                          time: item.detectedAt,
-                          state: item.status,
-                        }))
-                      : [
-                          {
-                            service: 'SHAPI',
-                            issue: 'No active incidents',
-                            region: '—',
-                            action: 'Monitoring',
-                            time: '',
-                            state: 'HEALTHY',
-                          },
-                        ]
-                    : sampleIncidents
+                  {(liveSnapshot?.incidents.length
+                    ? liveSnapshot.incidents.map(item => ({
+                        service: item.integrationId,
+                        issue: item.title,
+                        region: 'SHAPI',
+                        action: item.severity,
+                        time: item.detectedAt,
+                        state: item.status,
+                      }))
+                    : [
+                        {
+                          service: liveSnapshot ? 'SHAPI' : '—',
+                          issue: liveSnapshot
+                            ? 'No active incidents'
+                            : apiError
+                              ? 'Live incident data unavailable'
+                              : 'Waiting for live SHAPI data',
+                          region: '—',
+                          action: liveSnapshot ? 'Monitoring' : '—',
+                          time: '',
+                          state: liveSnapshot ? 'HEALTHY' : 'WAITING',
+                        },
+                      ]
                   ).map(item => (
                     <tr key={`${item.service}-${item.issue}`}>
                       <td className="px-4 py-3 font-mono">{item.service}</td>
@@ -1283,8 +1258,9 @@ export function HealingDashboard() {
             </div>
             <div className="p-3">
               {[
-                ...reports.map(report => `${report.city} · ${report.issue}`),
-                ...sampleIncidents.map(item => `${item.service} · ${item.action}`),
+                ...(liveSnapshot?.incidents ?? []).map(
+                  item => `${item.integrationId} · ${item.title}`
+                ),
               ]
                 .filter(item => item.toLowerCase().includes(query.toLowerCase()))
                 .map(item => (
@@ -1295,6 +1271,11 @@ export function HealingDashboard() {
                     {item}
                   </div>
                 ))}
+              {!liveSnapshot?.incidents.length && (
+                <p className="px-2 py-2.5 text-xs text-muted-foreground">
+                  {liveSnapshot ? 'No live signals match the current data.' : 'Waiting for live SHAPI data.'}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -1604,13 +1585,10 @@ export function HealingDashboard() {
               </>
             ) : (
               <>
-                <h2 className="mt-3 text-lg font-semibold">Fleet diagnosis preview</h2>
+                <h2 className="mt-3 text-lg font-semibold">No live incident selected</h2>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  No live incident is currently active. This preview demonstrates the operator
-                  workflow for 24 services across 9 regions.
-                </p>
-                <p className="mt-4 border-l-2 border-warning pl-3 font-mono text-xs text-warning">
-                  payments-api · eu-central-1 · sample intervention
+                  No live incident is currently active. Diagnosis and repair actions become
+                  available when SHAPI reports a real incident.
                 </p>
               </>
             )}

@@ -76,7 +76,7 @@ function Overview({ refreshKey, command }: { refreshKey: number; command: boolea
       try {
         const [s, inc, dr] = await Promise.all([
           api<any>('/drift/summary'),
-          api<any>('/incidents?pageSize=5'),
+          api<any>('/incidents?pageSize=100'),
           api<any>('/drift/results?pageSize=12'),
         ]);
         if (!cancelled) {
@@ -97,6 +97,11 @@ function Overview({ refreshKey, command }: { refreshKey: number; command: boolea
   if (error) return <div className="card error">Backend unreachable: {error} — run backend on :3001</div>;
 
   const openCount = incidents.filter(i => !['RESOLVED', 'DISMISSED'].includes(String(i.status))).length;
+  const activeIncidents = incidents.filter(i => !['RESOLVED', 'DISMISSED'].includes(String(i.status)));
+  const highestSeverity = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].find(severity =>
+    activeIncidents.some(i => String(i.severity).toUpperCase() === severity),
+  ) ?? 'NONE';
+  const affectedIntegrations = new Set(activeIncidents.map(i => i.integration?.name ?? i.integrationId)).size;
   const tiles = [
     { label: 'Invariants', value: summary?.totalInvariants ?? '—', delta: 'asserting outcomes' },
     { label: 'Monitored integrations', value: summary?.monitoredIntegrations ?? '—', delta: 'event streams live' },
@@ -117,13 +122,22 @@ function Overview({ refreshKey, command }: { refreshKey: number; command: boolea
               <div><span className="cmd-hero-num">{openCount}</span><span className="muted"> open incidents</span></div>
             </div>
           </div>
-          <div className="globe" aria-hidden="true">
-            <div className="globe-sphere" />
-            <div className="globe-ring r1" />
-            <div className="globe-ring r2" />
-            <div className="globe-sat s1" />
-            <div className="globe-sat s2" />
-            <div className="globe-sat s3" />
+          <div className="incident-radar" aria-label="Live incident radar">
+            <div className="radar-grid" aria-hidden="true" />
+            <div className="radar-sweep" aria-hidden="true" />
+            <div className="radar-center">
+              <span className="radar-live"><span className="live-dot" />LIVE</span>
+              <strong>{openCount}</strong>
+              <small>active incidents</small>
+            </div>
+            <span className="radar-ping p1" aria-hidden="true" />
+            <span className="radar-ping p2" aria-hidden="true" />
+            <span className="radar-ping p3" aria-hidden="true" />
+          </div>
+          <div className="radar-summary">
+            <div><span className="table-label">DATA SOURCE</span><strong>Live SHAPI incidents</strong></div>
+            <div><span className="table-label">AFFECTED INTEGRATIONS</span><strong>{affectedIntegrations}</strong></div>
+            <div><span className="table-label">HIGHEST SEVERITY</span><Badge text={highestSeverity} tone={toneFor(highestSeverity)} /></div>
           </div>
         </div>
       )}

@@ -52,6 +52,9 @@ jobs:
       - name: Build dashboard
         run: pnpm --filter @shapi/dashboard build
 
+      - name: Build production dashboard
+        run: pnpm --dir dashboard build
+
       - name: Prisma validate
         run: pnpm --filter @shapi/backend exec prisma validate
         env:
