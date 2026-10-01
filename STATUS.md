@@ -9,8 +9,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   dashboard. On 2026-10-01, the backend was rebuilt from `master`; `/health`,
   `/ready`, and the dashboard returned 200.
 - GitHub Actions CI on `master` passed for the verified product code head
-  `d961d2a`:
-  [run 36940574149](https://github.com/SriVarshini09/self-healing-api/actions/runs/36940574149).
+  `1181d5d`:
+  [run 36941056895](https://github.com/SriVarshini09/self-healing-api/actions/runs/36941056895).
   CI checks workspace types, backend lint, package/backend unit tests, backend
   and dashboard builds, and Prisma schema validation.
 - Webhook and SDK events feed behavioral invariants; drift detection and
@@ -58,6 +58,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   target-app provisioning source fixture, executes the patched handler, and
   proves the same user becomes provisioned. It fails closed when the reviewed
   source precondition has drifted.
+- The business-outcome proof now also fails closed when reviewed changes omit
+  the declared target file or leave its source unchanged; regression tests cover
+  both cases so a green result cannot come from an untested or no-op patch.
 - Production startup now fails closed when placeholder JWT secrets or partial
   GitHub App/token credentials are supplied, preventing an unsafe deployment
   from appearing healthy.
@@ -93,6 +96,11 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   wires the dashboard proxy to the API service's private host/port. The
   provider-shaped dashboard image test and official Render schema validation
   passed locally on 2026-10-01.
+- The hardened business-outcome proof passed the live Docker readiness gate on
+  2026-10-01, including GitHub App readiness, security checks, 20/20
+  authenticated requests, and dashboard browser smoke. The corresponding
+  Docker production workflow passed:
+  [run 36941056940](https://github.com/SriVarshini09/self-healing-api/actions/runs/36941056940).
 - The dashboard repair-candidate guard passed the full local readiness gate on
   2026-10-01: API liveness, database readiness, dashboard serving, GitHub App
   readiness, security checks, 20/20 authenticated requests, and browser smoke.
