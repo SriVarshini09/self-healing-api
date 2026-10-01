@@ -46,7 +46,13 @@ jobs:
         run: docker compose -f docker-compose.production.yml build --pull=false backend dashboard
 
       - name: Start production stack
-        run: docker compose -f docker-compose.production.yml up -d
+        run: |
+          set -euo pipefail
+          if ! docker compose -f docker-compose.production.yml up -d; then
+            docker compose -f docker-compose.production.yml ps
+            docker compose -f docker-compose.production.yml logs --no-color --tail=100 backend postgres dashboard
+            exit 1
+          fi
 
       - name: Verify production readiness
         run: |
