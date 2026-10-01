@@ -94,6 +94,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - A repeatable `scripts/production-readiness.ps1` gate now composes stack,
   security, authenticated load, and optional backup/restore checks for release
   verification.
+- A guarded `scripts/deploy-production.ps1` command now validates Compose,
+  starts services, waits for API/dashboard readiness, and invokes that release
+  gate with bounded failure diagnostics.
 
 ## Not complete
 

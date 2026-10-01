@@ -70,6 +70,20 @@ by Nginx on port 8080 and receives its API configuration at container startup.
 For multi-replica deployments, run migrations as a separate release job before
 starting application replicas.
 
+For a repeatable single-host deployment, use the guarded deployment command. It
+validates the rendered Compose configuration, starts the services, waits for
+`/ready` and the dashboard, then runs the production readiness gate:
+
+```powershell
+./scripts/deploy-production.ps1 -EnvFile ./path/to/.env -RequireGitHubApp
+```
+
+Use `-NoBuild` when the image has already been built. Add
+`-IncludeBackupRestoreDrill -ConfirmDrill` only when the temporary-database
+restore verification is intentionally part of the release check. The command
+does not roll back automatically; if readiness fails it prints service status
+and the last 100 backend log lines for operator diagnosis.
+
 In `NODE_ENV=production`, the backend refuses to start with a placeholder
 `JWT_SECRET` or an incomplete GitHub App/token credential set. This is
 intentional: a deployment should fail during rollout rather than appear
