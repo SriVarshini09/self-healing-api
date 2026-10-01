@@ -94,6 +94,16 @@ restore command refuses to run unless the destructive action is explicit:
 For a different compose file, project name, or database name, pass the matching
 `-EnvFile`, `-ComposeFile`, `-ProjectName`, and `-Database` parameters.
 
+### Deployment smoke check
+
+After starting the production Compose stack, run the non-destructive smoke
+check. It verifies API liveness, database readiness, dashboard serving, and
+GitHub readiness without printing API keys or other secrets:
+
+```powershell
+./scripts/stack-smoke.ps1 -EnvFile ./path/to/.env -RequireGitHubApp
+```
+
 Open:
 
 - API docs: http://localhost:3001/docs
