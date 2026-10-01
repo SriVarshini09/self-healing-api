@@ -180,6 +180,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   manual review, blocked for missing required checks, or ready for target
   review. It supports human-readable and JSON output plus a fail-on-unready
   mode for release and onboarding checks.
+- The production readiness gate and guarded deploy wrappers can now include
+  that audit, with an explicit stricter mode that fails when any invariant is
+  not ready for automatic repair review.
 - The guarded deployment command now forwards the optional dashboard and
   sustained-capacity gates, allowing one release command to run the complete
   local readiness suite.

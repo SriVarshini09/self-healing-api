@@ -242,6 +242,17 @@ This browser smoke verifies the live command center, telemetry connection,
 repair-target panel, and diagnosis modal. It does not create incidents, replay
 jobs, or pull requests.
 
+Include the read-only repair target audit in the same gate when reviewing a
+release or hosted tenant:
+
+```powershell
+./scripts/production-readiness.ps1 -EnvFile ./path/to/.env -RequireGitHubApp -IncludeRepairAudit
+```
+
+Add `-RequireRepairTargets` when every invariant must have a reviewed target
+and at least one exact required GitHub check. Existing unmapped invariants are
+expected to fail that stricter mode until their target behavior is reviewed.
+
 Open:
 
 - API docs: http://localhost:3001/docs

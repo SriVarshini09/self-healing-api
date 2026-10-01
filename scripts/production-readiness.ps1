@@ -13,6 +13,8 @@ param(
   [int]$CapacityDelayMs = 0,
   [double]$MaxErrorRate = 0,
   [switch]$IncludeDashboardSmoke,
+  [switch]$IncludeRepairAudit,
+  [switch]$RequireRepairTargets,
   [switch]$RequireGitHubApp,
   [switch]$IncludeBackupRestoreDrill,
   [switch]$ConfirmDrill
@@ -35,6 +37,7 @@ if ($IncludeCapacitySmoke -and ($CapacityDelayMs -lt 0 -or $CapacityDelayMs -gt 
 if ($IncludeCapacitySmoke -and ($MaxErrorRate -lt 0 -or $MaxErrorRate -gt 1)) {
   throw '-MaxErrorRate must be between 0 and 1 when capacity smoke is enabled'
 }
+if ($RequireRepairTargets) { $IncludeRepairAudit = $true }
 
 function Invoke-Check([string]$Name, [scriptblock]$Command) {
   Write-Host "`n== $Name =="
@@ -72,6 +75,17 @@ if ($IncludeCapacitySmoke) {
 if ($IncludeDashboardSmoke) {
   Invoke-Check 'Production dashboard smoke' {
     & pnpm --filter @shapi/backend exec tsx "$PSScriptRoot/../apps/backend/scripts/production-dashboard-test.ts" --dashboard-url $DashboardUrl --api-url $ApiUrl --env-file $EnvFile
+  }
+}
+
+if ($IncludeRepairAudit) {
+  Invoke-Check 'Repair readiness audit' {
+    $auditParams = @{
+      ApiUrl = $ApiUrl
+      EnvFile = $EnvFile
+    }
+    if ($RequireRepairTargets) { $auditParams.FailOnUnready = $true }
+    & "$PSScriptRoot\audit-repair-readiness.ps1" @auditParams
   }
 }
 

@@ -14,7 +14,9 @@ param(
   [int]$CapacityDelayMs = 250,
   [double]$MaxErrorRate = 0,
   [switch]$RequireGitHubApp = $true,
-  [switch]$IncludeDashboardSmoke = $true
+  [switch]$IncludeDashboardSmoke = $true,
+  [switch]$IncludeRepairAudit,
+  [switch]$RequireRepairTargets
 )
 
 $ErrorActionPreference = 'Stop'
@@ -43,6 +45,8 @@ $readinessParams = @{
 }
 if ($RequireGitHubApp) { $readinessParams.RequireGitHubApp = $true }
 if ($IncludeDashboardSmoke) { $readinessParams.IncludeDashboardSmoke = $true }
+if ($IncludeRepairAudit) { $readinessParams.IncludeRepairAudit = $true }
+if ($RequireRepairTargets) { $readinessParams.RequireRepairTargets = $true }
 if ($IncludeCapacitySmoke) {
   $readinessParams.IncludeCapacitySmoke = $true
   $readinessParams.DurationSeconds = $DurationSeconds

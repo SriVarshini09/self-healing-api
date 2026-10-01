@@ -11,6 +11,8 @@ param(
   [switch]$NoBuild,
   [switch]$RequireGitHubApp,
   [switch]$IncludeDashboardSmoke,
+  [switch]$IncludeRepairAudit,
+  [switch]$RequireRepairTargets,
   [switch]$IncludeCapacitySmoke,
   [int]$DurationSeconds = 30,
   [int]$CapacityConcurrency = 20,
@@ -78,6 +80,8 @@ try {
   }
   if ($RequireGitHubApp) { $readinessParams.RequireGitHubApp = $true }
   if ($IncludeDashboardSmoke) { $readinessParams.IncludeDashboardSmoke = $true }
+  if ($IncludeRepairAudit) { $readinessParams.IncludeRepairAudit = $true }
+  if ($RequireRepairTargets) { $readinessParams.RequireRepairTargets = $true }
   if ($IncludeCapacitySmoke) {
     $readinessParams.IncludeCapacitySmoke = $true
     $readinessParams.DurationSeconds = $DurationSeconds
