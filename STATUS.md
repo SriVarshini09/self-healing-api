@@ -7,9 +7,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 - The local production Docker stack runs PostgreSQL, the backend, and the
   dashboard. On 2026-09-30, `/health`, `/ready`, and the dashboard returned 200.
-- GitHub Actions CI on `master` passed for the latest real-source proof commit
-  `c076b96`:
-  [run 36919459441](https://github.com/SriVarshini09/self-healing-api/actions/runs/36919459441).
+- GitHub Actions CI on `master` passed for the latest deployment-gate commit
+  `88dd93c`:
+  [run 36920285634](https://github.com/SriVarshini09/self-healing-api/actions/runs/36920285634).
   CI checks workspace types, backend lint, package/backend unit tests, backend
   and dashboard builds, and Prisma schema validation.
 - Webhook and SDK events feed behavioral invariants; drift detection and
