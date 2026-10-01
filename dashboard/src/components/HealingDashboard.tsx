@@ -161,7 +161,10 @@ function GitHubSetupGuide({ status }: { status: GitHubStatus | null }) {
         <ol className="mt-2 list-decimal space-y-1 pl-4 text-[10px] text-muted-foreground">
           <li>
             Set <code className="text-foreground">GITHUB_APP_ID</code> and{' '}
-            <code className="text-foreground">GITHUB_APP_PRIVATE_KEY</code>.
+            exactly one private-key source: preferably{' '}
+            <code className="text-foreground">GITHUB_APP_PRIVATE_KEY_B64</code> or{' '}
+            <code className="text-foreground">GITHUB_APP_PRIVATE_KEY_FILE</code>; the direct{' '}
+            <code className="text-foreground">GITHUB_APP_PRIVATE_KEY</code> form is also supported.
           </li>
           <li>
             Install the App on the target repository with Contents and Pull requests read/write

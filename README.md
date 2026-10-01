@@ -472,8 +472,9 @@ incident. Neither action can reopen resolved or dismissed incidents.
   select a candidate with applicable structured file changes to create a real
   repair PR. The API rejects PR creation without credentials or a valid patch;
   suggested-only diffs require manual review.
-- GitHub App webhooks: set `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`,
-  `GITHUB_APP_SLUG` (the slug in the App's public URL),
+- GitHub App webhooks: set `GITHUB_APP_ID`, exactly one private-key source
+  (`GITHUB_APP_PRIVATE_KEY_B64`, `GITHUB_APP_PRIVATE_KEY_FILE`, or
+  `GITHUB_APP_PRIVATE_KEY`), and `GITHUB_APP_SLUG` (the slug in the App's public URL),
   `GITHUB_WEBHOOK_SECRET_APP` and, when more than one GitHub integration exists,
   set `GITHUB_APP_INTEGRATION_ID` so installation and PR events cannot be
   assigned across tenants. Install the App on the target repository and grant

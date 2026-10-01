@@ -57,6 +57,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - GitHub readiness reporting and repair preview/PR authorization now use the
   same resolved key-source logic, so the file and base64 forms work for the
   actual hosted repair workflow—not only for startup validation.
+- The production dashboard setup guide now lists the same three key-source
+  options and recommends the hosted-safe base64/file forms, avoiding a setup
+  path that would still instruct operators to paste multiline PEM values.
 - The Docker deployment now includes explicit PowerShell backup and
   confirmation-gated restore runbooks for PostgreSQL, with backup artifacts
   excluded from Git.
