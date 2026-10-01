@@ -66,9 +66,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   auditable in the existing webhook-event table.
 - The Render Blueprint now passes the official Render schema validation; preview
   generation is explicitly disabled with the supported `off` value.
-- `.github/workflows/render-blueprint.yml` revalidates the Blueprint with
-  Render's official CLI whenever `render.yaml` or its validation workflow
-  changes, so hosting configuration regressions fail in CI before deployment.
+- `.github/workflows/render-blueprint.yml` revalidates the Blueprint against
+  Render's official public schema whenever `render.yaml` or its validation
+  workflow changes. It also enables full Render CLI semantic validation when
+  optional workspace credentials are supplied as repository secrets.
 - The Docker deployment now includes explicit PowerShell backup and
   confirmation-gated restore runbooks for PostgreSQL, with backup artifacts
   excluded from Git.

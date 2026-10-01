@@ -17,10 +17,31 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Install Render CLI
+      - name: Validate against Render public schema
         run: |
-          curl -fsSL https://raw.githubusercontent.com/render-oss/cli/refs/heads/main/bin/install.sh | sh
-          echo "$HOME/.render/bin" >> "$GITHUB_PATH"
+          python3 -m pip install --quiet --disable-pip-version-check --break-system-packages pyyaml jsonschema
+          python3 - <<'PY'
+          import json
+          import urllib.request
+          import yaml
+          from jsonschema import Draft7Validator
 
-      - name: Validate Blueprint
-        run: render blueprints validate render.yaml
+          with open('render.yaml', encoding='utf-8') as stream:
+              blueprint = yaml.safe_load(stream)
+          with urllib.request.urlopen('https://render.com/schema/render.yaml.json') as response:
+              schema = json.load(response)
+          Draft7Validator(schema).validate(blueprint)
+          print('Render Blueprint schema validation passed')
+          PY
+
+      - name: Validate with Render CLI when workspace credentials are configured
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_WORKSPACE_ID: ${{ secrets.RENDER_WORKSPACE_ID }}
+        run: |
+          if [ -z "$RENDER_API_KEY" ] || [ -z "$RENDER_WORKSPACE_ID" ]; then
+            echo 'RENDER_API_KEY and RENDER_WORKSPACE_ID are not configured; schema validation is authoritative for this repository.'
+            exit 0
+          fi
+          curl -fsSL https://raw.githubusercontent.com/render-oss/cli/refs/heads/main/bin/install.sh | sh
+          "$HOME/.render/bin/render" blueprints validate render.yaml --workspace "$RENDER_WORKSPACE_ID"
