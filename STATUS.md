@@ -98,9 +98,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
    user-entered event transformation, and PR #4 remains open for human review;
    CI evidence is not the same as proving the business outcome in production.
 4. **Production operations.** Public deployment, secure secret storage,
-   backup/restore drills, tenant onboarding, and load testing remain to be
-   completed before a production launch. A repeatable security smoke check now
-   covers authentication rejection, security headers, and alert-status output.
+   backup/restore drills, tenant onboarding, and sustained capacity/load testing
+   remain to be completed before a production launch. Repeatable security and
+   bounded load smoke checks now cover authentication rejection, security
+   headers, alert-status output, and concurrent authenticated requests.
 5. **Dashboard data fidelity.** The production command view now uses only live
    SHAPI incidents, shows exact active/severity/integration/invariant counts,
    and avoids presenting invented regions, map coordinates, correlation
@@ -113,8 +114,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 Map the remaining production invariants to reviewed target files and extend the
 target-app business-outcome harness beyond its contract fixture before claiming
-arbitrary repository repairs are verified. Then add sustained load checks and
-complete backup/restore and tenant-onboarding drills. Do not claim a
+arbitrary repository repairs are verified. Then run sustained capacity tests
+and complete backup/restore and tenant-onboarding drills. Do not claim a
 replay-verified fix prematurely.
 
 ## Local checks
