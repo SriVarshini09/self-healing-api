@@ -32,6 +32,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - The dashboard now exposes the live GitHub App connection and installation
   state, and the incident view supports a pinned source preview, explicit
   operator approval, real repair-PR creation, and verification from one flow.
+- Invariant settings now let operators create or edit the repository/file
+  repair mapping and required GitHub check names without using the API.
+- Incident PRs now display persisted verification evidence after reload,
+  including the exact verified head SHA and individual check conclusions.
 - On 2026-10-01, the live Docker stack completed a read-only dashboard preview
   against the real installation and returned the current `master` SHA, one
   changed file, and a signed preview approval token without creating a PR.
