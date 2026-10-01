@@ -7,9 +7,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 - The local production Docker stack runs PostgreSQL, the backend, and the
   dashboard. On 2026-09-30, `/health`, `/ready`, and the dashboard returned 200.
-- GitHub Actions CI on `master` passed for the latest demo-target mapping
-  commit `9089b2d`:
-  [run 36923268470](https://github.com/SriVarshini09/self-healing-api/actions/runs/36923268470).
+- GitHub Actions CI on `master` passed for the latest complete-deployment-gate
+  commit `e104b40`:
+  [run 36924059885](https://github.com/SriVarshini09/self-healing-api/actions/runs/36924059885).
   CI checks workspace types, backend lint, package/backend unit tests, backend
   and dashboard builds, and Prisma schema validation.
 - Webhook and SDK events feed behavioral invariants; drift detection and
@@ -118,12 +118,13 @@ product is production-ready. See [README.md](README.md) for setup and API detail
    secret management, and hosted tenant-isolated onboarding.
 2. **Repository-aware repair workflow.** Invariants can now store an explicit
    `repairRepository` and `repairFilePath`, and a structured predicate edit
-   is generated only for a mapped target. One Stripe invariant is now mapped
-   and has produced the verified PR above; other invariants remain unmapped
-   until configured. Most other repair types are suggestions only. The API
-   supports a read-only patch preview, and the production dashboard displays
-   its pinned source excerpts before a PR can be opened. The dashboard also
-   edits and saves the explicit repository/file mapping.
+   is generated only for a mapped target. Three reviewed Stripe predicate
+   invariants are mapped to the demo repository and require `verify`; the
+   provisioning and GitHub invariants remain unmapped until their target
+   behavior is reviewed. Most other repair types are suggestions only. The
+   API supports a read-only patch preview, and the production dashboard
+   displays its pinned source excerpts before a PR can be opened. The
+   dashboard also edits and saves the explicit repository/file mapping.
 3. **End-to-end repair proof.** The business-outcome check now executes a
    structured patch through a reusable target-app contract and a reviewed
    adapter against the real demo-SaaS source, but it is not yet a generic
@@ -146,11 +147,12 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Next engineering priority
 
-Map the remaining production invariants to reviewed target files and extend the
-target-app business-outcome harness beyond its contract fixture before claiming
-arbitrary repository repairs are verified. Then run sustained capacity tests
-and complete tenant-onboarding drills. Do not claim a replay-verified fix
-prematurely.
+Review target behavior for the remaining provisioning and GitHub invariants,
+then extend the target-app business-outcome harness beyond its current demo
+adapter before claiming arbitrary repository repairs are verified. The next
+release blocker is still hosted deployment with secure secrets and
+tenant-isolated onboarding; local deployment and readiness gates are now
+repeatable. Do not claim a replay-verified fix prematurely.
 
 ## Local checks
 
