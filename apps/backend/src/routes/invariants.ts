@@ -1,7 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../utils/prisma.js';
-import type { Prisma } from '@prisma/client';
-import { InvariantStatus } from '@prisma/client';
+import { GitHubPRStatus, InvariantStatus, Prisma } from '@prisma/client';
 import {
   validatePredicate as sandboxValidate,
 } from '@shapi/invariant-engine';
@@ -184,12 +183,32 @@ export async function invariantRoutes(app: FastifyInstance) {
       }
     }
 
+    const repairConfigurationChanged =
+      (data.predicateExpression !== undefined && data.predicateExpression !== existing.predicateExpression) ||
+      requestedRepository !== existing.repairRepository ||
+      requestedFilePath !== existing.repairFilePath ||
+      JSON.stringify(normalizedRequestedChecks) !== JSON.stringify(existing.repairRequiredChecks);
+
     const invariant = await prisma.invariant.update({
       where: { id },
       data: data.repairRequiredChecks === undefined
         ? data
         : { ...data, repairRequiredChecks: normalizeRepairRequiredChecks(data.repairRequiredChecks) },
     });
+
+    if (repairConfigurationChanged) {
+      // A green check result only proves the exact repair configuration that
+      // was reviewed. Keep historical merged/closed PR evidence intact, but
+      // fail closed for actionable PRs after their target or required checks
+      // change so the dashboard cannot present stale verification.
+      await prisma.gitHubPullRequest.updateMany({
+        where: {
+          incident: { invariantId: id },
+          status: { in: [GitHubPRStatus.OPEN, GitHubPRStatus.DRAFT] },
+        },
+        data: { verified: false, verifiedAt: null, verificationHeadSha: null, verificationChecks: Prisma.DbNull },
+      });
+    }
     return reply.send(invariant);
   });
 

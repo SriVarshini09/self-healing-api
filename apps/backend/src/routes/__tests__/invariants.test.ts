@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Fastify from 'fastify';
+import { Prisma } from '@prisma/client';
 import type { TenantRole } from '@prisma/client';
 import type { AuthenticatedRequest } from '../../utils/auth-context.js';
 import { invariantRoutes } from '../invariants.js';
@@ -7,7 +8,8 @@ import { invariantRoutes } from '../invariants.js';
 const fake = vi.hoisted(() => ({
   counts: new Map<string, number>(),
   lockKeys: [] as string[],
-  invariants: new Map<string, { id: string; repairRepository: string | null; repairFilePath: string | null; repairRequiredChecks: string[] }>(),
+  invariants: new Map<string, { id: string; predicateExpression: string; repairRepository: string | null; repairFilePath: string | null; repairRequiredChecks: string[] }>(),
+  githubPrs: [] as Array<{ incident: { invariantId: string }; status: string; verified: boolean; verifiedAt: Date | null; verificationHeadSha: string | null; verificationChecks: unknown }>,
 }));
 
 vi.mock('../../config.js', () => ({ config: { SHAPI_MAX_INVARIANTS_PER_TENANT: 2 } }));
@@ -19,6 +21,18 @@ vi.mock('../../utils/prisma.js', () => ({
         const invariant = fake.invariants.get(where.id)!;
         Object.assign(invariant, data);
         return invariant;
+      },
+    },
+    gitHubPullRequest: {
+      updateMany: async ({ where, data }: { where: { incident: { invariantId: string }; status: { in: string[] } }; data: Record<string, unknown> }) => {
+        let count = 0;
+        for (const pr of fake.githubPrs) {
+          if (pr.incident.invariantId === where.incident.invariantId && where.status.in.includes(pr.status)) {
+            Object.assign(pr, data);
+            count += 1;
+          }
+        }
+        return { count };
       },
     },
     $transaction: async (callback: (tx: unknown) => Promise<unknown>) => callback({
@@ -37,7 +51,7 @@ vi.mock('../../utils/prisma.js', () => ({
           const tenantId = data.integrationId.slice(4);
           const count = (fake.counts.get(tenantId) ?? 0) + 1;
           fake.counts.set(tenantId, count);
-          const invariant = { id: `inv-${tenantId}-${count}`, repairRepository: null, repairFilePath: null, repairRequiredChecks: [], ...data };
+          const invariant = { id: `inv-${tenantId}-${count}`, repairRepository: null, repairFilePath: null, repairRequiredChecks: [], ...data, predicateExpression: data.predicateExpression ?? 'event.payload.ok === true' };
           fake.invariants.set(invariant.id, invariant);
           return invariant;
         },
@@ -50,6 +64,7 @@ beforeEach(() => {
   fake.counts.clear();
   fake.lockKeys.length = 0;
   fake.invariants.clear();
+  fake.githubPrs.length = 0;
 });
 
 async function createInvariant(tenantId: string, integrationId = `int-${tenantId}`, repairTarget: Record<string, unknown> = {}) {
@@ -121,5 +136,28 @@ describe('POST /invariants tenant quota', () => {
     expect((await patchInvariant(created.json().id, { repairRequiredChecks: [] })).statusCode).toBe(400);
     expect((await patchInvariant(created.json().id, { repairRepository: null })).statusCode).toBe(400);
     expect((await patchInvariant(created.json().id, { repairRepository: null, repairFilePath: null })).statusCode).toBe(200);
+  });
+
+  it('invalidates stale verification when an actionable repair target changes', async () => {
+    const created = await createInvariant('tenant-a', 'int-tenant-a', {
+      repairRepository: 'acme/demo',
+      repairFilePath: 'src/invariants/pay.ts',
+      repairRequiredChecks: ['target-tests'],
+    });
+    const invariantId = created.json().id as string;
+    fake.githubPrs.push(
+      {
+        incident: { invariantId }, status: 'OPEN', verified: true, verifiedAt: new Date(),
+        verificationHeadSha: 'head-sha', verificationChecks: [{ name: 'target-tests', conclusion: 'success' }],
+      },
+      {
+        incident: { invariantId }, status: 'MERGED', verified: true, verifiedAt: new Date(),
+        verificationHeadSha: 'merged-sha', verificationChecks: [{ name: 'target-tests', conclusion: 'success' }],
+      },
+    );
+
+    expect((await patchInvariant(invariantId, { repairRequiredChecks: ['target-tests', 'business-outcome'] })).statusCode).toBe(200);
+    expect(fake.githubPrs[0]).toMatchObject({ verified: false, verifiedAt: null, verificationHeadSha: null, verificationChecks: Prisma.DbNull });
+    expect(fake.githubPrs[1]).toMatchObject({ verified: true, verificationHeadSha: 'merged-sha' });
   });
 });
