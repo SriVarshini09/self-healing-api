@@ -89,7 +89,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - Business-outcome verification now exposes a reusable, fail-closed target
   contract (`proveBusinessOutcomeRepair`) that requires an explicit source
   loader, isolated state factory, event runner, and failure/recovery predicates;
-  its fixture proof now exercises that contract directly.
+  its fixture proof and a reviewed adapter against the real demo-SaaS
+  provisioning source now exercise that contract directly.
 - A repeatable `scripts/production-readiness.ps1` gate now composes stack,
   security, authenticated load, and optional backup/restore checks for release
   verification.
@@ -109,12 +110,12 @@ product is production-ready. See [README.md](README.md) for setup and API detail
    its pinned source excerpts before a PR can be opened. The dashboard also
    edits and saves the explicit repository/file mapping.
 3. **End-to-end repair proof.** The business-outcome check now executes a
-   structured patch through a reusable target-app contract, but it is not yet a
-   generic sandbox for arbitrary customer repositories. Each target repository
-   still needs its own reviewed adapter and full test command. Replay still
-   tests a user-entered event transformation, and PR #4 remains open for human
-   review; CI evidence is not the same as proving the business outcome in
-   production.
+   structured patch through a reusable target-app contract and a reviewed
+   adapter against the real demo-SaaS source, but it is not yet a generic
+   sandbox for arbitrary customer repositories. Each customer target still
+   needs its own reviewed adapter and full test command. Replay still tests a
+   user-entered event transformation, and PR #4 remains open for human review;
+   CI evidence is not the same as proving the business outcome in production.
 4. **Production operations.** Public deployment, secure secret storage,
    hosted tenant onboarding, and sustained capacity/load testing remain to be
    completed before a production launch. Backup/restore, security, and bounded

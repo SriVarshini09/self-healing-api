@@ -82,4 +82,4 @@ jobs:
       - name: Run business-outcome regression
         run: |
           pnpm --filter @shapi/demo-saas test -- src/index.test.ts
-          pnpm --filter @shapi/repair-generation test -- src/business-outcome-proof.test.ts
+          pnpm --filter @shapi/repair-generation test -- src/business-outcome-proof.test.ts src/demo-saas-adapter.test.ts
