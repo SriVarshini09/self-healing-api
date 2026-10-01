@@ -50,7 +50,7 @@ function LoginScreen({ oidcEnabled }: { oidcEnabled: boolean }) {
   );
 }
 
-type Tab = 'overview' | 'integrations' | 'invariants' | 'incidents' | 'drift' | 'events' | 'keys';
+type Tab = 'overview' | 'integrations' | 'invariants' | 'incidents' | 'drift' | 'events' | 'github' | 'keys';
 
 function Badge({ text, tone }: { text: string; tone: string }) {
   return <span className={`badge ${tone}`}>{text}</span>;
@@ -458,6 +458,109 @@ function Events({ refreshKey }: { refreshKey: number }) {
   );
 }
 
+type GitHubStatus = {
+  mode: string;
+  message: string;
+  appCredentialsConfigured: boolean;
+  tokenConfigured: boolean;
+  webhookConfigured: boolean;
+  realInstallations: number;
+  installationCount: number;
+  repositoryCount: number;
+};
+
+function GitHub({ refreshKey }: { refreshKey: number }) {
+  const [status, setStatus] = useState<GitHubStatus | null>(null);
+  const [installations, setInstallations] = useState<any[]>([]);
+  const [installationId, setInstallationId] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      setError(null);
+      const [nextStatus, nextInstallations] = await Promise.all([
+        api<GitHubStatus>('/github/status'),
+        api<any[]>('/github/installations'),
+      ]);
+      setStatus(nextStatus);
+      setInstallations(nextInstallations);
+      if (!installationId && nextInstallations[0]?.githubInstallationId) {
+        setInstallationId(String(nextInstallations[0].githubInstallationId));
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }, [installationId]);
+
+  useEffect(() => {
+    void load();
+    const timer = window.setInterval(() => void load(), 10_000);
+    return () => window.clearInterval(timer);
+  }, [load, refreshKey]);
+
+  const sync = async () => {
+    const value = installationId.trim();
+    if (!value) return;
+    try {
+      setLoading(true);
+      setError(null);
+      setNotice(null);
+      await api('/github/installations/sync', {
+        method: 'POST',
+        body: JSON.stringify({ githubInstallationId: value }),
+      });
+      setNotice(`Installation ${value} synced successfully.`);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="card">
+        <div className="card-head">
+          <h3>GitHub App connection</h3>
+          <Badge text={status?.mode ?? 'CHECKING'} tone={status?.mode === 'app' ? 'green' : 'amber'} />
+        </div>
+        {error && <div className="card error">Load failed: {error}</div>}
+        {notice && <div className="card success">{notice}</div>}
+        <p className="muted section-note">This is the connection SHAPI uses to read repositories and create verified repair pull requests.</p>
+        <div className="stats">
+          <div><div className="stat-num">{status?.appCredentialsConfigured ? 'READY' : '—'}</div><div className="stat-label">App credentials</div></div>
+          <div><div className="stat-num">{status?.webhookConfigured ? 'READY' : '—'}</div><div className="stat-label">Webhook</div></div>
+          <div><div className="stat-num">{status?.repositoryCount ?? '—'}</div><div className="stat-label">Accessible repositories</div></div>
+        </div>
+        <p className="muted">{status?.message ?? 'Loading GitHub status…'}</p>
+      </div>
+
+      <div className="card">
+        <div className="card-head"><h3>Installations</h3><span className="table-label">{installations.length} registered</span></div>
+        <p className="muted section-note">If GitHub delivered an installation before SHAPI was listening, enter its ID once to recover the repository access.</p>
+        <div className="form-row">
+          <input value={installationId} onChange={e => setInstallationId(e.target.value)} placeholder="GitHub installation ID" inputMode="numeric" />
+          <button onClick={() => void sync()} disabled={loading || !installationId.trim()}>{loading ? 'Syncing…' : 'Sync installation'}</button>
+          <button className="secondary" onClick={() => void load()}>Refresh</button>
+        </div>
+        {installations.map(item => (
+          <div key={item.id} className="row">
+            <Badge text={Number(item.githubInstallationId) > 0 ? 'APP' : 'TOKEN'} tone={Number(item.githubInstallationId) > 0 ? 'green' : 'gray'} />
+            <strong>{item.accountLogin}</strong>
+            <span className="muted">{item.repositories?.length ?? 0} repositories</span>
+            <span className="mono">{String(item.githubInstallationId)}</span>
+            <span className="muted">{item._count?.prs ?? 0} repair PRs</span>
+          </div>
+        ))}
+        {installations.length === 0 && <p className="muted">No GitHub installations registered yet.</p>}
+      </div>
+    </div>
+  );
+}
+
 function ApiKeys({ refreshKey }: { refreshKey: number }) {
   const [rows, setRows] = useState<any[]>([]);
   const [name, setName] = useState('Dashboard key');
@@ -596,8 +699,8 @@ export default function App() {
   }, [theme]);
   if (authState === 'checking') return <div className="auth-shell"><div className="card auth-card">Checking your SHAPI session…</div></div>;
   if (authState === 'login') return <LoginScreen oidcEnabled={oidcEnabled} />;
-  const labels: Record<Tab, string> = { overview: 'Overview', integrations: 'Integrations', invariants: 'Invariants', incidents: 'Incidents', drift: 'Drift monitoring', events: 'Event stream', keys: 'API keys' };
-  const icons: Record<Tab, string> = { overview: '◫', integrations: '⌘', invariants: '◈', incidents: '⚑', drift: '⌁', events: '≋', keys: '⚿' };
+  const labels: Record<Tab, string> = { overview: 'Overview', integrations: 'Integrations', invariants: 'Invariants', incidents: 'Incidents', drift: 'Drift monitoring', events: 'Event stream', github: 'GitHub operations', keys: 'API keys' };
+  const icons: Record<Tab, string> = { overview: '◫', integrations: '⌘', invariants: '◈', incidents: '⚑', drift: '⌁', events: '≋', github: '◉', keys: '⚿' };
 
   return (
     <div className="app">
@@ -605,7 +708,7 @@ export default function App() {
         <div className="brand"><span className="brand-mark">S</span><span>SHAPI</span></div>
         <div className="nav-label">Workspace</div>
         <nav className="side-nav">
-          {(['overview', 'integrations', 'invariants', 'incidents', 'drift', 'events', 'keys'] as Tab[]).map(t => (
+          {(['overview', 'integrations', 'invariants', 'incidents', 'drift', 'events', 'github', 'keys'] as Tab[]).map(t => (
             <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}><span className="nav-icon">{icons[t]}</span>{labels[t]}</button>
           ))}
         </nav>
@@ -621,6 +724,7 @@ export default function App() {
         {tab === 'incidents' && <Incidents refreshKey={refreshKey} bump={bump} />}
         {tab === 'drift' && <Drift refreshKey={refreshKey} />}
         {tab === 'events' && <Events refreshKey={refreshKey} />}
+        {tab === 'github' && <GitHub refreshKey={refreshKey} />}
         {tab === 'keys' && <ApiKeys refreshKey={refreshKey} />}
       </main>
       </div>
