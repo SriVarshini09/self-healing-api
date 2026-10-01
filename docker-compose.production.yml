@@ -1,6 +1,8 @@
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
+    stop_grace_period: 30s
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
@@ -14,6 +16,9 @@ services:
       retries: 12
 
   backend:
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
     build:
       context: .
       dockerfile: docker/backend.Dockerfile
@@ -46,8 +51,16 @@ services:
         condition: service_healthy
     ports:
       - "3001:3001"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
 
   dashboard:
+    restart: unless-stopped
+    stop_grace_period: 10s
     build:
       context: .
       dockerfile: docker/dashboard.Dockerfile

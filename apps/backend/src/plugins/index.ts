@@ -83,6 +83,9 @@ export async function registerPlugins(app: FastifyInstance) {
 
   // Prisma decorator
   app.decorate('prisma', prisma);
+  app.addHook('onClose', async () => {
+    await prisma.$disconnect();
+  });
 
   // Health check
   app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));

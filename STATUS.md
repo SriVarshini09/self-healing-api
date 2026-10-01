@@ -126,6 +126,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   GitHub App readiness, security smoke, authenticated load (20/20 HTTP 200),
   dashboard browser smoke, and paced sustained capacity (39/39 HTTP 200 with
   a 0% error rate).
+- The production API now drains on `SIGTERM`/`SIGINT`, stops the evaluator,
+  disconnects Prisma, and logs shutdown failures. Production Compose services
+  now use restart policies, init/signal forwarding, bounded stop grace periods,
+  and an explicit readiness healthcheck.
 
 ## Not complete
 

@@ -25,6 +25,22 @@ async function main() {
 
     let stopScheduler: () => void = () => undefined;
     app.addHook('onClose', async () => stopScheduler());
+    let shuttingDown = false;
+    const shutdown = async (signal: NodeJS.Signals) => {
+      if (shuttingDown) return;
+      shuttingDown = true;
+      logger.info({ signal }, 'Shutdown requested; draining HTTP server');
+      try {
+        await app.close();
+        logger.info({ signal }, 'HTTP server drained successfully');
+      } catch (error) {
+        logger.error({ error, signal }, 'Graceful shutdown failed');
+        process.exitCode = 1;
+      }
+    };
+    process.once('SIGTERM', () => void shutdown('SIGTERM'));
+    process.once('SIGINT', () => void shutdown('SIGINT'));
+
     await app.listen({ port: config.PORT, host: config.HOST });
     stopScheduler = startEvaluationScheduler(config.INVARIANT_EVALUATION_INTERVAL_SEC);
     logger.info(`🚀 Server listening on http://${config.HOST}:${config.PORT}`);

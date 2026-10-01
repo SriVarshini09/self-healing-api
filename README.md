@@ -167,6 +167,12 @@ restore command refuses to run unless the destructive action is explicit:
 ./scripts/restore-db.ps1 -BackupFile ./backups/shapi-YYYYMMDD-HHMMSS.sql -ConfirmRestore
 ```
 
+The production Compose services restart after an unexpected container exit and
+allow a bounded graceful shutdown. The API drains in-flight HTTP requests,
+stops its evaluator, and disconnects Prisma when Docker sends `SIGTERM`; keep
+the `stop_grace_period` values intact when running the stack under an
+orchestrator.
+
 For a different compose file, project name, database name, or database role,
 pass the matching `-EnvFile`, `-ComposeFile`, `-ProjectName`, `-Database`, and
 `-Username` parameters. The scripts read `POSTGRES_USER` from the env file by
