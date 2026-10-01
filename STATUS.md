@@ -9,8 +9,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   dashboard. On 2026-10-01, the backend was rebuilt from `master`; `/health`,
   `/ready`, and the dashboard returned 200.
 - GitHub Actions CI on `master` passed for the verified product code head
-  `1653b3f`:
-  [run 36940102559](https://github.com/SriVarshini09/self-healing-api/actions/runs/36940102559).
+  `d961d2a`:
+  [run 36940574149](https://github.com/SriVarshini09/self-healing-api/actions/runs/36940574149).
   CI checks workspace types, backend lint, package/backend unit tests, backend
   and dashboard builds, and Prisma schema validation.
 - Webhook and SDK events feed behavioral invariants; drift detection and
@@ -38,6 +38,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   file changes are now labeled `MANUAL REVIEW` in the production dashboard;
   preview and PR actions stay disabled with an explanation, so a suggestion
   cannot be mistaken for an automated repair.
+- The legacy workspace dashboard now applies the same manual-review guard and
+  no longer offers a preview action for empty or unmapped repair changes.
 - Invariant settings now let operators create or edit the repository/file
   repair mapping and required GitHub check names without using the API.
 - Incident PRs now display persisted verification evidence after reload,
