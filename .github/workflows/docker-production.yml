@@ -44,3 +44,26 @@ jobs:
 
       - name: Build production images
         run: docker compose -f docker-compose.production.yml build --pull=false backend dashboard
+
+      - name: Start production stack
+        run: docker compose -f docker-compose.production.yml up -d
+
+      - name: Verify production readiness
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            api_status=$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:3001/ready || true)
+            dashboard_status=$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/health || true)
+            if [ "$api_status" = '200' ] && [ "$dashboard_status" = '200' ]; then
+              echo "Production stack ready: API=$api_status dashboard=$dashboard_status"
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose -f docker-compose.production.yml ps
+          docker compose -f docker-compose.production.yml logs --no-color --tail=100 backend postgres dashboard
+          exit 1
+
+      - name: Tear down production stack
+        if: always()
+        run: docker compose -f docker-compose.production.yml down -v --remove-orphans
