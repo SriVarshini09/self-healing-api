@@ -176,6 +176,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   required checks before configuring the reviewed Stripe predicate targets. It
   can now also configure the exact demo provisioning adapter target, requiring
   both `verify` and `business-outcome` checks.
+- A read-only repair-readiness audit now reports every tenant invariant as
+  manual review, blocked for missing required checks, or ready for target
+  review. It supports human-readable and JSON output plus a fail-on-unready
+  mode for release and onboarding checks.
 - The guarded deployment command now forwards the optional dashboard and
   sustained-capacity gates, allowing one release command to run the complete
   local readiness suite.

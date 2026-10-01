@@ -378,6 +378,22 @@ For a bounded authenticated load baseline, run:
   target requires both the generic `verify` check and the dedicated
   `business-outcome` check before it can be considered verified. Customer
   repositories still need their own reviewed adapter and test command.
+
+Before opening repair PRs, audit the authenticated tenant without changing any
+invariant configuration:
+
+```powershell
+./scripts/audit-repair-readiness.ps1 `
+  -ApiUrl http://localhost:3001 `
+  -EnvFile ./path/to/.env
+```
+
+The audit marks unmapped invariants as `MANUAL_REVIEW`, mapped invariants with
+no exact required GitHub check as `BLOCKED_NO_REQUIRED_CHECKS`, and only marks
+targets with both an explicit repository/file mapping and at least one required
+check as `READY_FOR_TARGET_REVIEW`. Add `-FailOnUnready` in a release checklist
+when every invariant in a tenant must be mapped before automatic repair review.
+Use `-Json` for CI or onboarding tooling.
 - `POST /github/incidents/:id/pr/preview` performs no writes. It returns the
   repository base SHA, bounded source/result excerpts, and a short-lived
   signed approval token only after the candidate applies cleanly at that
