@@ -9,8 +9,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   dashboard. On 2026-10-01, the backend was rebuilt from `master`; `/health`,
   `/ready`, and the dashboard returned 200.
 - GitHub Actions CI on `master` passed for the verified product code head
-  `5254d30`:
-  [run 36937571854](https://github.com/SriVarshini09/self-healing-api/actions/runs/36937571854).
+  `3ca32d7`:
+  [run 36938673795](https://github.com/SriVarshini09/self-healing-api/actions/runs/36938673795).
   CI checks workspace types, backend lint, package/backend unit tests, backend
   and dashboard builds, and Prisma schema validation.
 - Webhook and SDK events feed behavioral invariants; drift detection and
@@ -78,7 +78,7 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   configuration, builds both production images, starts the full PostgreSQL/API/
   dashboard stack, verifies API and dashboard readiness, and tears it down on
   relevant changes. The current run passed on 2026-10-01:
-  [run 36937571845](https://github.com/SriVarshini09/self-healing-api/actions/runs/36937571845).
+  [run 36938673777](https://github.com/SriVarshini09/self-healing-api/actions/runs/36938673777).
 - Optional GitHub App configuration now treats an empty `GITHUB_APP_SLUG` as
   unset, so tokenless CI and deployments do not fail schema validation while
   real App credentials remain validated when supplied.
@@ -87,6 +87,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   wires the dashboard proxy to the API service's private host/port. The
   provider-shaped dashboard image test and official Render schema validation
   passed locally on 2026-10-01.
+- The Render Blueprint workflow also passed official schema validation for
+  this release:
+  [run 36938673800](https://github.com/SriVarshini09/self-healing-api/actions/runs/36938673800).
 - The Docker deployment now includes explicit PowerShell backup and
   confirmation-gated restore runbooks for PostgreSQL, with backup artifacts
   excluded from Git.
