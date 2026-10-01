@@ -7,7 +7,7 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 - The local production Docker stack runs PostgreSQL, the backend, and the
   dashboard. On 2026-10-01, the backend was rebuilt from `master` at
-  `b54a74f`; `/health`, `/ready`, and the dashboard returned 200.
+  `030a6c8`; `/health`, `/ready`, and the dashboard returned 200.
 - GitHub Actions CI on `master` passed for the latest reviewed demo-repair
   commit `b54a74f`:
   [run 36925313869](https://github.com/SriVarshini09/self-healing-api/actions/runs/36925313869).
@@ -114,7 +114,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - The guarded deployment command now forwards the optional dashboard and
   sustained-capacity gates, allowing one release command to run the complete
   local readiness suite.
-- On 2026-10-01, the rebuilt Docker stack passed the complete readiness suite:
+- On 2026-10-01, the rebuilt Docker stack at `030a6c8` passed the complete
+  readiness suite:
   GitHub App readiness, security smoke, authenticated load (20/20 HTTP 200),
   dashboard browser smoke, and paced sustained capacity (39/39 HTTP 200 with
   a 0% error rate).
