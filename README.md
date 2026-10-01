@@ -152,6 +152,9 @@ per real environment. Tenant operators can create, list, and revoke scoped keys
 through `/api/v1/api-keys`; the raw key is returned only at creation time. New
 deployments can use `POST /api/v1/bootstrap/tenant` with the separate
 `SHAPI_BOOTSTRAP_TOKEN` to create the first tenant and key.
+The production Compose file passes this token through only when explicitly
+provided; set it during onboarding, verify the returned owner key, then remove
+or rotate the token and recreate the backend container.
 
 API keys carry a tenant role: `OWNER`, `ADMIN`, `OPERATOR`, or `VIEWER`. Only
 Owner/Admin keys can administer keys, and only the Owner can assign Owner/Admin

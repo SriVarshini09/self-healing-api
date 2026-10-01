@@ -65,6 +65,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - A confirmation-gated backup/restore drill now restores into a temporary
   database, compares representative tenant, integration, incident, alert,
   webhook, and tracked-event counts, and removes its temporary artifacts.
+- The production Compose onboarding path was verified live: an invalid
+  bootstrap token returned 401, a valid token created a tenant and one-time
+  owner key, that key authenticated successfully, and a duplicate slug returned
+  409; the temporary tenant was removed afterward.
 - PR verification now returns the exact GitHub check-run evidence and head
   commit used to determine CI status, and persists that evidence for audit
   after reload. Missing, running, or failing checks remain unverified.
@@ -86,7 +90,7 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 1. **Production GitHub App deployment.** The local stack now has a real App
    installation, repository permissions, a public webhook URL, and a verified
    `200` delivery. Production rollout still needs hosted deployment, secure
-   secret management, and tenant-isolated onboarding.
+   secret management, and hosted tenant-isolated onboarding.
 2. **Repository-aware repair workflow.** Invariants can now store an explicit
    `repairRepository` and `repairFilePath`, and a structured predicate edit
    is generated only for a mapped target. One Stripe invariant is now mapped
@@ -101,7 +105,7 @@ product is production-ready. See [README.md](README.md) for setup and API detail
    user-entered event transformation, and PR #4 remains open for human review;
    CI evidence is not the same as proving the business outcome in production.
 4. **Production operations.** Public deployment, secure secret storage,
-   tenant onboarding, and sustained capacity/load testing remain to be
+   hosted tenant onboarding, and sustained capacity/load testing remain to be
    completed before a production launch. Backup/restore, security, and bounded
    load drills are now repeatable; secure secret storage and public deployment
    still require a real hosting environment.
