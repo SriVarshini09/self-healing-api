@@ -106,6 +106,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - A guarded demo mapping command now validates exact source preconditions and
   required checks before configuring the reviewed Stripe predicate targets;
   the provisioning invariant remains intentionally adapter-only.
+- The guarded deployment command now forwards the optional dashboard and
+  sustained-capacity gates, allowing one release command to run the complete
+  local readiness suite.
 
 ## Not complete
 

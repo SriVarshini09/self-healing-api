@@ -81,8 +81,12 @@ validates the rendered Compose configuration, starts the services, waits for
 Use `-NoBuild` when the image has already been built. Add
 `-IncludeBackupRestoreDrill -ConfirmDrill` only when the temporary-database
 restore verification is intentionally part of the release check. The command
-does not roll back automatically; if readiness fails it prints service status
-and the last 100 backend log lines for operator diagnosis.
+accepts `-IncludeDashboardSmoke` and the opt-in capacity parameters
+(`-IncludeCapacitySmoke -DurationSeconds 60 -CapacityConcurrency 1
+-CapacityDelayMs 100 -MaxErrorRate 0`) so the complete local release gate can
+run from one command. It does not roll back automatically; if readiness fails
+it prints service status and the last 100 backend log lines for operator
+diagnosis.
 
 In `NODE_ENV=production`, the backend refuses to start with a placeholder
 `JWT_SECRET` or an incomplete GitHub App/token credential set. This is

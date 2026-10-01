@@ -10,6 +10,12 @@ param(
   [int]$Concurrency = 20,
   [switch]$NoBuild,
   [switch]$RequireGitHubApp,
+  [switch]$IncludeDashboardSmoke,
+  [switch]$IncludeCapacitySmoke,
+  [int]$DurationSeconds = 30,
+  [int]$CapacityConcurrency = 20,
+  [int]$CapacityDelayMs = 0,
+  [double]$MaxErrorRate = 0,
   [switch]$IncludeBackupRestoreDrill,
   [switch]$ConfirmDrill
 )
@@ -61,15 +67,29 @@ try {
 
   Write-Host 'Services are ready; running production readiness checks...'
   $readinessScript = "$PSScriptRoot\production-readiness.ps1"
-  if ($RequireGitHubApp -and $IncludeBackupRestoreDrill) {
-    & $readinessScript -ApiUrl $ApiUrl -DashboardUrl $DashboardUrl -EnvFile $EnvFile -ComposeFile $ComposeFile -ProjectName $ProjectName -Requests $Requests -Concurrency $Concurrency -RequireGitHubApp -IncludeBackupRestoreDrill -ConfirmDrill
-  } elseif ($RequireGitHubApp) {
-    & $readinessScript -ApiUrl $ApiUrl -DashboardUrl $DashboardUrl -EnvFile $EnvFile -ComposeFile $ComposeFile -ProjectName $ProjectName -Requests $Requests -Concurrency $Concurrency -RequireGitHubApp
-  } elseif ($IncludeBackupRestoreDrill) {
-    & $readinessScript -ApiUrl $ApiUrl -DashboardUrl $DashboardUrl -EnvFile $EnvFile -ComposeFile $ComposeFile -ProjectName $ProjectName -Requests $Requests -Concurrency $Concurrency -IncludeBackupRestoreDrill -ConfirmDrill
-  } else {
-    & $readinessScript -ApiUrl $ApiUrl -DashboardUrl $DashboardUrl -EnvFile $EnvFile -ComposeFile $ComposeFile -ProjectName $ProjectName -Requests $Requests -Concurrency $Concurrency
+  $readinessParams = @{
+    ApiUrl = $ApiUrl
+    DashboardUrl = $DashboardUrl
+    EnvFile = $EnvFile
+    ComposeFile = $ComposeFile
+    ProjectName = $ProjectName
+    Requests = $Requests
+    Concurrency = $Concurrency
   }
+  if ($RequireGitHubApp) { $readinessParams.RequireGitHubApp = $true }
+  if ($IncludeDashboardSmoke) { $readinessParams.IncludeDashboardSmoke = $true }
+  if ($IncludeCapacitySmoke) {
+    $readinessParams.IncludeCapacitySmoke = $true
+    $readinessParams.DurationSeconds = $DurationSeconds
+    $readinessParams.CapacityConcurrency = $CapacityConcurrency
+    $readinessParams.CapacityDelayMs = $CapacityDelayMs
+    $readinessParams.MaxErrorRate = $MaxErrorRate
+  }
+  if ($IncludeBackupRestoreDrill) {
+    $readinessParams.IncludeBackupRestoreDrill = $true
+    $readinessParams.ConfirmDrill = $true
+  }
+  & $readinessScript @readinessParams
   $readinessSucceeded = $?
   $readinessExitCode = $LASTEXITCODE
   if (-not $readinessSucceeded -or $readinessExitCode -ne 0) {
