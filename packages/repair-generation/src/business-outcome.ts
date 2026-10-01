@@ -40,7 +40,14 @@ export function proveBusinessOutcomeRepair<THandler, TState, TResult>(
     throw new Error('business-outcome contract did not reproduce the expected baseline failure');
   }
 
+  if (!contract.changes.some(change => change.path === contract.targetPath)) {
+    throw new Error('business-outcome repair does not change the declared target file');
+  }
+
   const patchedFiles = applyRepairChanges(contract.files, contract.changes);
+  if (patchedFiles[contract.targetPath] === originalSource) {
+    throw new Error('business-outcome repair did not change the declared target source');
+  }
   const afterState = contract.createState();
   const afterResult = contract.run(contract.load(patchedFiles[contract.targetPath]), afterState);
   if (!contract.provesRecovery(afterResult, afterState)) {

@@ -81,4 +81,40 @@ describe('structured repair business-outcome proof', () => {
       provesRecovery: result => result.success,
     })).toThrow(/did not reproduce/);
   });
+
+  it('fails closed when the reviewed changes do not touch the target file', () => {
+    expect(() => proveBusinessOutcomeRepair({
+      files: { [targetPath]: buggyTargetSource, 'src/other.js': 'module.exports = 1;\n' },
+      targetPath,
+      changes: [{
+        kind: 'replace',
+        path: 'src/other.js',
+        before: 'module.exports = 1;',
+        after: 'module.exports = 2;',
+      }],
+      load: loadTarget,
+      createState: () => new Map<string, TargetUser>([['cus_target', { provisioned: false }]]),
+      run: (handler, users) => handler(users, 'cus_target', true),
+      reproducesFailure: (result, users) => !result.success && users.get('cus_target')?.provisioned === false,
+      provesRecovery: (result, users) => result.success && users.get('cus_target')?.provisioned === true,
+    })).toThrow(/does not change the declared target file/);
+  });
+
+  it('fails closed when the reviewed target change is a no-op', () => {
+    expect(() => proveBusinessOutcomeRepair({
+      files: { [targetPath]: buggyTargetSource },
+      targetPath,
+      changes: [{
+        kind: 'replace',
+        path: targetPath,
+        before: 'provisioning skipped',
+        after: 'provisioning skipped',
+      }],
+      load: loadTarget,
+      createState: () => new Map<string, TargetUser>([['cus_target', { provisioned: false }]]),
+      run: (handler, users) => handler(users, 'cus_target', true),
+      reproducesFailure: (result, users) => !result.success && users.get('cus_target')?.provisioned === false,
+      provesRecovery: (result, users) => result.success && users.get('cus_target')?.provisioned === true,
+    })).toThrow(/did not change the declared target source/);
+  });
 });
