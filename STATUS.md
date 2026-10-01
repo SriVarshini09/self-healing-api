@@ -90,6 +90,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - The Render Blueprint workflow also passed official schema validation for
   this release:
   [run 36938673800](https://github.com/SriVarshini09/self-healing-api/actions/runs/36938673800).
+- The hosted Blueprint now derives the API's CORS origin from Render's public
+  dashboard URL, uses the dashboard's same-origin `/api/v1` proxy, and gates
+  both web-service deploys on passing GitHub checks. This removes a fragile
+  manual URL-copy step while keeping the private service connection explicit.
 - The Docker deployment now includes explicit PowerShell backup and
   confirmation-gated restore runbooks for PostgreSQL, with backup artifacts
   excluded from Git.

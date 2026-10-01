@@ -25,6 +25,7 @@ services:
     plan: free
     region: oregon
     healthCheckPath: /ready
+    autoDeployTrigger: checksPass
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -43,7 +44,10 @@ services:
       - key: SHAPI_BOOTSTRAP_TOKEN
         sync: false
       - key: DASHBOARD_URL
-        sync: false
+        fromService:
+          type: web
+          name: shapi-dashboard
+          envVarKey: RENDER_EXTERNAL_URL
       - key: DEMO_SAAS_URL
         sync: false
       - key: GITHUB_APP_ID
@@ -69,11 +73,13 @@ services:
     plan: free
     region: oregon
     healthCheckPath: /health
+    autoDeployTrigger: checksPass
     envVars:
-      # Set this to the public shapi-api URL plus /api/v1 after Render
-      # assigns the API service hostname.
+      # An empty value intentionally uses the same-origin /api/v1 proxy. The
+      # Nginx template forwards it to the API service over Render's private
+      # network, so no API hostname needs to be copied between services.
       - key: VITE_API_URL
-        sync: false
+        value: ''
       # Leave empty when using OIDC; otherwise set the raw tenant API key
       # created by POST /api/v1/bootstrap/tenant.
       - key: VITE_SHAPI_API_KEY

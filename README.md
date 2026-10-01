@@ -81,19 +81,22 @@ dashboard service, and managed PostgreSQL. It is intentionally committed
 without credentials. Apply it from the Render Dashboard, then set the
 `sync: false` values before deploying:
 
-1. Apply the Blueprint from the repository.
-2. Copy the public `shapi-api` URL into the dashboard's `VITE_API_URL` with
-   `/api/v1` appended, and copy the dashboard URL into the API's
-   `DASHBOARD_URL`.
-3. Set a real `DEMO_SAAS_URL` (or an allowed placeholder if the demo is not
+1. Apply the Blueprint from the repository. The dashboard uses a same-origin
+   `/api/v1` proxy and the API automatically receives the dashboard's public
+   Render URL, so no service URL copying is required.
+2. Set a real `DEMO_SAAS_URL` (or an allowed placeholder if the demo is not
    hosted), `SHAPI_BOOTSTRAP_TOKEN`, and the GitHub App values. Prefer a
    base64-encoded private key in `GITHUB_APP_PRIVATE_KEY_B64` so the PEM never
    needs to be pasted into a multiline environment value.
-4. Deploy the services, call `POST /api/v1/bootstrap/tenant` once with the
+3. Deploy the services, call `POST /api/v1/bootstrap/tenant` once with the
    bootstrap token, and store the returned owner API key. Use that key as
    `VITE_SHAPI_API_KEY` or configure OIDC before exposing the dashboard.
-5. Point the GitHub App webhook at `https://<api-host>/api/v1/github/webhook`,
+4. Point the GitHub App webhook at `https://<api-host>/api/v1/github/webhook`,
    then run the remote readiness checks from a trusted operator environment.
+
+Both Render web services use `autoDeployTrigger: checksPass`, so a connected
+Render workspace will wait for the repository's required GitHub checks before
+deploying a new commit.
 
 The Blueprint is deployment-ready but cannot be considered hosted until a
 Render workspace applies it, secrets are entered, and the public URLs and
