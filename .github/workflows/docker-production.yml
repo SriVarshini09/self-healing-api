@@ -1,0 +1,46 @@
+name: docker-production
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - docker-compose.production.yml
+      - docker/**
+      - apps/backend/**
+      - apps/backend/prisma/**
+      - dashboard/**
+      - packages/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - .github/workflows/docker-production.yml
+  pull_request:
+    paths:
+      - docker-compose.production.yml
+      - docker/**
+      - apps/backend/**
+      - apps/backend/prisma/**
+      - dashboard/**
+      - packages/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - .github/workflows/docker-production.yml
+
+jobs:
+  validate-and-build:
+    runs-on: ubuntu-24.04
+    env:
+      POSTGRES_USER: shapi_ci
+      POSTGRES_PASSWORD: shapi_ci_password
+      POSTGRES_DB: shapi_ci
+      JWT_SECRET: shapi_ci_jwt_secret_0123456789_abcdefghijklmnopqrstuvwxyz
+      VITE_API_URL: http://localhost:3001/api/v1
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Validate Compose configuration
+        run: docker compose -f docker-compose.production.yml config --quiet
+
+      - name: Build production images
+        run: docker compose -f docker-compose.production.yml build --pull=false backend dashboard
