@@ -113,6 +113,21 @@ outside the repository. The gate checks API/database readiness, security
 headers and 401 behavior, authenticated load, GitHub App mode, the dashboard's
 live command center, and optional paced capacity.
 
+To create the first hosted tenant without putting the bootstrap token in shell
+history, store `SHAPI_BOOTSTRAP_TOKEN` in a separate operator env file and run:
+
+```powershell
+./scripts/bootstrap-hosted-tenant.ps1 `
+  -ApiUrl https://<api-host> `
+  -EnvFile ./hosted-bootstrap.env `
+  -TenantName "Production" `
+  -Slug production
+```
+
+The script makes no file changes and prints the owner API key once. Copy it
+into the dashboard's secret configuration immediately, then remove the
+temporary operator env file from the machine.
+
 For a repeatable single-host deployment, use the guarded deployment command. It
 validates the rendered Compose configuration, starts the services, waits for
 `/ready` and the dashboard, then runs the production readiness gate:

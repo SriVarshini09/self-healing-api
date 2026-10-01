@@ -118,6 +118,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   against public HTTPS API/dashboard URLs without starting or mutating a local
   Compose stack. It rejects localhost endpoints and keeps the hosted operator
   key in an external env file.
+- A `scripts/bootstrap-hosted-tenant.ps1` helper now creates the first hosted
+  tenant from an external bootstrap-token env file, prints the one-time owner
+  key without persisting it, and supports a no-request dry run.
 - On 2026-10-01, the rebuilt Docker stack at `030a6c8` passed the complete
   readiness suite:
   GitHub App readiness, security smoke, authenticated load (20/20 HTTP 200),
