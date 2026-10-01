@@ -245,9 +245,10 @@ function Integrations({ refreshKey, bump }: { refreshKey: number; bump: () => vo
 function Invariants({ refreshKey, bump }: { refreshKey: number; bump: () => void }) {
   const [items, setItems] = useState<any[]>([]);
   const [integrations, setIntegrations] = useState<any[]>([]);
-  const [form, setForm] = useState({ integrationId: '', name: '', predicateExpression: "event.type === 'invoice.payment_succeeded' && event.payload && event.payload.data && event.payload.data.object && event.payload.data.object.amount_paid > 0", predicateDescription: '' });
+  const [form, setForm] = useState({ integrationId: '', name: '', predicateExpression: "event.type === 'invoice.payment_succeeded' && event.payload && event.payload.data && event.payload.data.object && event.payload.data.object.amount_paid > 0", predicateDescription: '', repairRepository: '', repairFilePath: '', repairRequiredChecks: '' });
   const [error, setError] = useState<string | null>(null);
   const [evalResult, setEvalResult] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -268,6 +269,45 @@ function Invariants({ refreshKey, bump }: { refreshKey: number; bump: () => void
     void load();
   }, [load, refreshKey]);
 
+  const clearMappingEditor = () => {
+    setEditingId(null);
+    setForm(f => ({ ...f, repairRepository: '', repairFilePath: '', repairRequiredChecks: '' }));
+  };
+
+  const editMapping = (invariant: any) => {
+    setEditingId(invariant.id);
+    setForm(f => ({
+      ...f,
+      integrationId: invariant.integrationId,
+      name: invariant.name,
+      predicateExpression: invariant.predicateExpression,
+      predicateDescription: invariant.predicateDescription ?? '',
+      repairRepository: invariant.repairRepository ?? '',
+      repairFilePath: invariant.repairFilePath ?? '',
+      repairRequiredChecks: (invariant.repairRequiredChecks ?? []).join(', '),
+    }));
+    setError(null);
+  };
+
+  const saveMapping = async () => {
+    if (!editingId) return;
+    try {
+      setError(null);
+      await api(`/invariants/${editingId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          repairRepository: form.repairRepository.trim() || null,
+          repairFilePath: form.repairFilePath.trim() || null,
+          repairRequiredChecks: form.repairRequiredChecks.split(',').map(check => check.trim()).filter(Boolean),
+        }),
+      });
+      clearMappingEditor();
+      bump();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
   return (
     <div className="card">
       <div className="card-head"><h3>Behavioral invariants</h3><span className="table-label">{items.length} defined</span></div>
@@ -283,21 +323,32 @@ function Invariants({ refreshKey, bump }: { refreshKey: number; bump: () => void
         </div>
         <input value={form.predicateExpression} onChange={e => setForm({ ...form, predicateExpression: e.target.value })} placeholder="predicate expression" className="mono" />
         <input value={form.predicateDescription} onChange={e => setForm({ ...form, predicateDescription: e.target.value })} placeholder="human description" />
-        <div><button onClick={async () => {
+        <div className="mapping-fields">
+          <div className="table-label">Repair target mapping (optional)</div>
+          <div className="form-row">
+            <input value={form.repairRepository} onChange={e => setForm({ ...form, repairRepository: e.target.value })} placeholder="owner/repository" />
+            <input value={form.repairFilePath} onChange={e => setForm({ ...form, repairFilePath: e.target.value })} placeholder="repository file path" />
+            <input value={form.repairRequiredChecks} onChange={e => setForm({ ...form, repairRequiredChecks: e.target.value })} placeholder="required checks, comma-separated" />
+          </div>
+          <p className="muted">A mapped target enables safe source previews. Required checks must all pass before a repair is verified.</p>
+        </div>
+        <div><button onClick={editingId ? () => void saveMapping() : async () => {
           try {
             setError(null);
-            await api('/invariants', { method: 'POST', body: JSON.stringify({ ...form, description: form.predicateDescription }) });
+            await api('/invariants', { method: 'POST', body: JSON.stringify({ ...form, description: form.predicateDescription, repairRepository: form.repairRepository.trim() || null, repairFilePath: form.repairFilePath.trim() || null, repairRequiredChecks: form.repairRequiredChecks.split(',').map(check => check.trim()).filter(Boolean) }) });
             bump();
           } catch (e) {
             setError(e instanceof Error ? e.message : String(e));
           }
-        }}>Create invariant</button></div>
+        }}>{editingId ? 'Save repair mapping' : 'Create invariant'}</button>{editingId && <button className="secondary" onClick={clearMappingEditor}>Cancel</button>}</div>
       </div>
       {items.map(i => (
         <div key={i.id} className="row">
           <Badge text={i.status} tone={toneFor(i.status)} />
           <strong>{i.name}</strong>
           <span className="muted mono">{i.predicateExpression.slice(0, 80)}</span>
+          <span className="muted">{i.repairRepository ? `${i.repairRepository}/${i.repairFilePath}` : 'manual repair'}</span>
+          <button className="secondary" onClick={() => editMapping(i)}>Edit target</button>
           <button className="secondary" onClick={async () => {
             try {
               setError(null);

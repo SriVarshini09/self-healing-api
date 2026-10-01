@@ -107,6 +107,8 @@ html[data-shapi-theme='command'] .diff-path { background:rgba(45,212,191,.1); co
 html[data-shapi-theme='command'] .diff-before { background:rgba(251,113,133,.08); color:#fda4af; }
 html[data-shapi-theme='command'] .diff-after { background:rgba(45,212,191,.08); color:#a7f3d0; }
 .section-note { margin:4px 0 18px; }.table-label { color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.1em; font-weight:800; }
+.mapping-fields { margin:16px 0 4px; padding:14px; border:1px solid var(--line); border-radius:9px; background:rgba(38,116,245,.025); }
+.mapping-fields .form-row { margin:10px 0 5px; }
 /* Command theme: dark SOC operations center */
 html[data-shapi-theme='command'] { --ink:#d7f3ec; --muted:#6f8f88; --line:rgba(94,234,212,.14); --panel:rgba(13,26,28,.92); --canvas:#05090a; }
 html[data-shapi-theme='command'] body { color:var(--ink); }
