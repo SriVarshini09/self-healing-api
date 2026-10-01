@@ -58,6 +58,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - A non-destructive `scripts/stack-smoke.ps1` command now checks API liveness,
   database readiness, dashboard serving, and optional GitHub App readiness
   after a deployment without printing credentials.
+- The PostgreSQL backup and restore runbooks pass the configured database role
+  explicitly; a live drill caught and corrected the previous container-user
+  default that caused `pg_dump` to try the nonexistent `root` role.
 - PR verification now returns the exact GitHub check-run evidence and head
   commit used to determine CI status, and persists that evidence for audit
   after reload. Missing, running, or failing checks remain unverified.

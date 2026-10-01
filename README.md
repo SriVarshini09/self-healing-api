@@ -91,8 +91,10 @@ restore command refuses to run unless the destructive action is explicit:
 ./scripts/restore-db.ps1 -BackupFile ./backups/shapi-YYYYMMDD-HHMMSS.sql -ConfirmRestore
 ```
 
-For a different compose file, project name, or database name, pass the matching
-`-EnvFile`, `-ComposeFile`, `-ProjectName`, and `-Database` parameters.
+For a different compose file, project name, database name, or database role,
+pass the matching `-EnvFile`, `-ComposeFile`, `-ProjectName`, `-Database`, and
+`-Username` parameters. The scripts read `POSTGRES_USER` from the env file by
+default and pass it explicitly to PostgreSQL.
 
 ### Deployment smoke check
 
