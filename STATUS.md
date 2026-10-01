@@ -25,6 +25,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   commit, checks exact edit preconditions, and writes resulting file contents.
   Human-readable diffs are never committed as file contents. PR verification
   checks GitHub CI and merge state separately.
+- On 2026-10-01, the real GitHub App path opened PR #4 against
+  `SriVarshini09/self-healing-api` from a mapped repair candidate. The required
+  `verify` check passed, and the API returned `verified: true` with the exact
+  head SHA and check-run evidence. The PR remains open for human review.
 - PR verification now returns the exact GitHub check-run evidence and head
   commit used to determine CI status, and persists that evidence for audit
   after reload. Missing, running, or failing checks remain unverified.
@@ -40,22 +44,23 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Not complete
 
-1. **GitHub App deployment.** The local stack now has a real App installation,
-   repository permissions, a public webhook URL, and a verified `200` delivery.
-   Full repair-PR verification still requires a mapped repair target and a
-   complete PR/CI/business-outcome demonstration.
+1. **Production GitHub App deployment.** The local stack now has a real App
+   installation, repository permissions, a public webhook URL, and a verified
+   `200` delivery. Production rollout still needs hosted deployment, secure
+   secret management, and tenant-isolated onboarding.
 2. **Repository-aware repair workflow.** Invariants can now store an explicit
    `repairRepository` and `repairFilePath`, and a structured predicate edit
-   is generated only for a mapped target. Existing invariants remain unmapped
+   is generated only for a mapped target. One Stripe invariant is now mapped
+   and has produced the verified PR above; other invariants remain unmapped
    until configured. Most other repair types are suggestions only. The API
    supports a read-only patch preview, and the production dashboard displays
    its pinned source excerpts before a PR can be opened. The dashboard also
    edits and saves the explicit repository/file mapping.
 3. **End-to-end repair proof.** Replay currently tests a user-entered event
    transformation; it does not execute a proposed code patch against the
-   target application's tests. Passing replay is not yet a prerequisite for
-   opening a PR. CI verification confirms GitHub check runs and merge state,
-   not the business outcome in production.
+   target application's tests. The real PR and CI verification path is now
+   proven, but the repair is not merged and CI success is not the same as
+   proving the business outcome in production.
 4. **Production operations.** Public deployment, secret management, database
    backup/restore drills, tenant onboarding, alert delivery, and security/load
    testing remain to be completed before a production launch.
