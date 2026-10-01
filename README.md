@@ -65,9 +65,13 @@ docker compose -f docker-compose.production.yml up --build
 ```
 
 The backend applies checked-in Prisma migrations before starting, exposes
-`/ready` for orchestration, and listens on port 3001. The dashboard is served
-by Nginx on port 8080 and receives its API configuration at container startup.
-For multi-replica deployments, run migrations as a separate release job before
+`/ready` for orchestration, and listens on container port 3001. The dashboard is
+served by Nginx on container port 80 and is published on port 8080 by Compose;
+it receives its API configuration at container startup. The images also honor
+the runtime `PORT` contract used by hosted Docker providers. The Render
+Blueprint sets both web services to port 10000 and wires the dashboard's
+`/api/` proxy to the API service's private `hostport` automatically. For
+multi-replica deployments, run migrations as a separate release job before
 starting application replicas.
 
 ### Render Blueprint

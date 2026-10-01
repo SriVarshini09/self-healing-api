@@ -34,6 +34,8 @@ services:
         value: production
       - key: HOST
         value: 0.0.0.0
+      - key: PORT
+        value: '10000'
       - key: JWT_SECRET
         generateValue: true
       - key: METRICS_TOKEN
@@ -76,3 +78,10 @@ services:
       # created by POST /api/v1/bootstrap/tenant.
       - key: VITE_SHAPI_API_KEY
         sync: false
+      - key: PORT
+        value: '10000'
+      - key: BACKEND_HOSTPORT
+        fromService:
+          type: web
+          name: shapi-api
+          property: hostport

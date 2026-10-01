@@ -26,6 +26,7 @@ services:
       - path: .env
         required: false
     environment:
+      PORT: 3001
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
       METRICS_TOKEN: ${METRICS_TOKEN-}
@@ -66,6 +67,8 @@ services:
       context: .
       dockerfile: docker/dashboard.Dockerfile
     environment:
+      PORT: 80
+      BACKEND_HOSTPORT: backend:3001
       VITE_API_URL: ${VITE_API_URL:?set VITE_API_URL}
       VITE_SHAPI_API_KEY: ${VITE_SHAPI_API_KEY-}
     depends_on:

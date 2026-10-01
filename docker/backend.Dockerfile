@@ -13,6 +13,7 @@ FROM node:20-bookworm-slim AS runtime
 
 WORKDIR /app
 ENV NODE_ENV=production
+ENV PORT=3001
 RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /app ./
@@ -20,5 +21,5 @@ COPY docker/backend-entrypoint.sh /usr/local/bin/shapi-backend-entrypoint
 RUN sed -i 's/\r$//' /usr/local/bin/shapi-backend-entrypoint && chmod +x /usr/local/bin/shapi-backend-entrypoint
 
 EXPOSE 3001
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD node -e "fetch('http://127.0.0.1:3001/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD node -e "fetch('http://127.0.0.1:' + (process.env.PORT || '3001') + '/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 ENTRYPOINT ["/usr/local/bin/shapi-backend-entrypoint"]

@@ -82,6 +82,11 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - Optional GitHub App configuration now treats an empty `GITHUB_APP_SLUG` as
   unset, so tokenless CI and deployments do not fail schema validation while
   real App credentials remain validated when supplied.
+- The production Docker images now honor hosted `PORT` values, use a dynamic
+  dashboard Nginx listener and backend healthcheck, and the Render Blueprint
+  wires the dashboard proxy to the API service's private host/port. The
+  provider-shaped dashboard image test and official Render schema validation
+  passed locally on 2026-10-01.
 - The Docker deployment now includes explicit PowerShell backup and
   confirmation-gated restore runbooks for PostgreSQL, with backup artifacts
   excluded from Git.

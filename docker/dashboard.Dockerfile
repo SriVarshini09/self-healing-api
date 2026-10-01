@@ -10,10 +10,14 @@ RUN pnpm build
 
 FROM nginx:1.27-alpine AS runtime
 
+ENV PORT=80
+ENV BACKEND_HOSTPORT=backend:3001
+ENV NGINX_ENVSUBST_FILTER=^(PORT|BACKEND_HOSTPORT)$
 COPY --from=build /app/dashboard/dist /usr/share/nginx/html
-COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
+COPY deploy/nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY deploy/dashboard-entrypoint.sh /docker-entrypoint.d/40-shapi-config.sh
-RUN sed -i 's/\r$//' /docker-entrypoint.d/40-shapi-config.sh && chmod +x /docker-entrypoint.d/40-shapi-config.sh
+COPY deploy/dashboard-healthcheck.sh /usr/local/bin/shapi-dashboard-healthcheck
+RUN sed -i 's/\r$//' /docker-entrypoint.d/40-shapi-config.sh /usr/local/bin/shapi-dashboard-healthcheck && chmod +x /docker-entrypoint.d/40-shapi-config.sh /usr/local/bin/shapi-dashboard-healthcheck
 
 EXPOSE 80
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD wget -q -O - http://127.0.0.1/health >/dev/null || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD ["/usr/local/bin/shapi-dashboard-healthcheck"]
