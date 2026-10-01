@@ -330,7 +330,14 @@ For a bounded authenticated load baseline, run:
   `GITHUB_APP_PRIVATE_KEY_FILE`, or as one-line base64 with
   `GITHUB_APP_PRIVATE_KEY_B64`; configure only one source. The file/base64 forms
   avoid multiline PEM corruption in Windows `.env` files and hosted secret
-  managers. The explicit `GITHUB_TOKEN` mode remains available for
+  managers. On Windows, a base64 value can be generated without putting the PEM
+  on the command line with:
+
+  ```powershell
+  [Convert]::ToBase64String([IO.File]::ReadAllBytes('C:\secrets\github-app.pem'))
+  ```
+
+  The explicit `GITHUB_TOKEN` mode remains available for
   local/operator deployments and synthetic token installations.
 - If a GitHub App is unavailable, local/operator mode can use `GITHUB_TOKEN`
   together with `GITHUB_ACCOUNT_LOGIN` and an explicit comma-separated

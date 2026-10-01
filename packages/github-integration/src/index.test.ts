@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import crypto from 'crypto';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { verifyWebhookSignature, buildPrBody, shouldAutoMerge, openRepairPr, openRepairPrFromChanges, previewRepairPrChanges, verifyPullRequest, verifyRepairPr, hasGitHubAppCredentials, listInstallationRepositories } from './index.js';
 
 afterEach(() => {
@@ -23,6 +26,19 @@ describe('GitHub App authentication configuration', () => {
     process.env.GITHUB_APP_ID = '12345';
     process.env.GITHUB_APP_PRIVATE_KEY_B64 = Buffer.from('-----BEGIN PRIVATE KEY-----\nkey\n-----END PRIVATE KEY-----').toString('base64');
     expect(hasGitHubAppCredentials(9876)).toBe(true);
+  });
+
+  it('accepts a mounted private-key file source', () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'shapi-github-key-'));
+    const keyPath = path.join(directory, 'app-private-key.pem');
+    try {
+      fs.writeFileSync(keyPath, '-----BEGIN PRIVATE KEY-----\nkey\n-----END PRIVATE KEY-----\n', 'utf8');
+      process.env.GITHUB_APP_ID = '12345';
+      process.env.GITHUB_APP_PRIVATE_KEY_FILE = keyPath;
+      expect(hasGitHubAppCredentials(9876)).toBe(true);
+    } finally {
+      fs.rmSync(directory, { recursive: true, force: true });
+    }
   });
 
   it('lists repositories from an installation-scoped client', async () => {
