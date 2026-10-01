@@ -54,7 +54,7 @@ jobs:
 
       - name: Build production dashboard
         run: |
-          pnpm --dir dashboard install --frozen-lockfile
+          pnpm --dir dashboard install --frozen-lockfile --ignore-workspace
           pnpm --dir dashboard build
 
       - name: Prisma validate
