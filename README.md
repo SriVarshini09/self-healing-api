@@ -289,14 +289,20 @@ pnpm --filter @shapi/demo-saas simulate:failure
 
 # 60 failing webhooks to trigger statistical drift detection
 pnpm --filter @shapi/demo-saas simulate:drift
+
+# HTTP-level business-outcome proof (failure stays 200, recovery provisions)
+pnpm --filter @shapi/demo-saas e2e
 ```
 
 Then in the dashboard: **incidents → select incident → Diagnose + suggest repairs**,
 inspect the timeline, replay results, and repair candidates.
 
-The `business-outcome` CI check runs both a target-application contract fixture
-and a reviewed adapter against the real `apps/demo-saas/src/business-outcome.ts`
-source. Each applies a structured repair change, executes the patched handler,
+The `business-outcome` CI check runs the demo's HTTP-level checkout/webhook
+flow, a target-application contract fixture, and a reviewed adapter against the
+real `apps/demo-saas/src/business-outcome.ts` source. The HTTP proof shows that
+an intentionally broken webhook can return 200 while leaving the user
+unprovisioned, then verifies recovery with the same application flow. The
+adapter proof applies a structured repair change, executes the patched handler,
 and verifies that the same user becomes provisioned. This is still a bounded
 proof of the repair mechanism, not a substitute for running the full test suite
 of every customer repository.

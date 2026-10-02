@@ -86,6 +86,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   that the simulated provisioning failure leaves the user unprovisioned and
   that the corrected handler recovers the same user. GitHub Actions runs this
   as a separate `business-outcome` check.
+- The separate `business-outcome` check now also runs the demo's HTTP-level
+  checkout → Stripe webhook flow and verifies both the deceptive `200` failure
+  and the recovered provisioned user. The E2E server now closes cleanly on
+  Windows instead of force-exiting with an open listener.
 - The `business-outcome` check now also applies a structured repair change to a
   target-app provisioning source fixture, executes the patched handler, and
   proves the same user becomes provisioned. It fails closed when the reviewed

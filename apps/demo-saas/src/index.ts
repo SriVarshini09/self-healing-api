@@ -86,6 +86,6 @@ app.get('/users', (_req, res) => {
   res.json([...users.values()]);
 });
 
-app.listen(PORT, () => {
+export const server = app.listen(PORT, () => {
   console.log(`demo-saas listening on http://localhost:${PORT} (failureMode=${failureMode})`);
 });
