@@ -17,14 +17,16 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   incident signals, repair review, and SHAPI outcome verification instead of
   implying geographic traffic telemetry. Dashboard typecheck, production build,
   Docker rebuild, and live browser smoke passed locally from `fc1ef08`.
-- The latest application change `296a7b0` passed GitHub Actions CI, including the
-  business-outcome regression, production builds, unit tests, and Prisma
+- The latest production-code head `fc1ef08` passed GitHub Actions CI, including
+  the business-outcome regression, production builds, unit tests, and Prisma
   validation:
-  [run 36959831171](https://github.com/SriVarshini09/self-healing-api/actions/runs/36959831171).
-  The latest production-code head `296a7b0` also passed the production Docker
-  workflow, including Compose validation, image builds, stack readiness,
-  authenticated security/load checks, and the non-root backend assertion:
-  [run 36959831249](https://github.com/SriVarshini09/self-healing-api/actions/runs/36959831249).
+  [run 36960435032](https://github.com/SriVarshini09/self-healing-api/actions/runs/36960435032).
+  It also passed the production Docker workflow, including Compose validation,
+  image builds, stack readiness, authenticated security/load checks, and the
+  non-root backend assertion:
+  [run 36960434995](https://github.com/SriVarshini09/self-healing-api/actions/runs/36960434995).
+  The follow-up status-ledger commit `092eec5` passed full CI in
+  [run 36960535445](https://github.com/SriVarshini09/self-healing-api/actions/runs/36960535445).
   Subsequent documentation-only commits were also verified by full CI.
   Render Blueprint schema validation for the workflow-hardening change passed:
   [run 36954469954](https://github.com/SriVarshini09/self-healing-api/actions/runs/36954469954).
