@@ -14,6 +14,14 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   [36982920667](https://github.com/SriVarshini09/self-healing-api/actions/runs/36982920667)
   and Docker production validation
   [36982920549](https://github.com/SriVarshini09/self-healing-api/actions/runs/36982920549).
+- Reviewed business-outcome repair generation now selects the adapter by its
+  exact repository/file coordinates instead of requiring the old provisioning
+  invariant ID. A renamed invariant therefore receives the same reviewed patch
+  only when it still points to that exact adapter target; unmapped targets stay
+  manual. Commit `4646466` passed the full backend suite locally and full CI
+  [36983496193](https://github.com/SriVarshini09/self-healing-api/actions/runs/36983496193)
+  plus Docker production validation
+  [36983496044](https://github.com/SriVarshini09/self-healing-api/actions/runs/36983496044).
 - Business-outcome target gating is now driven by the reviewed adapter
   registry's repository/file coordinates, not by a special invariant ID. A
   renamed invariant pointing at a reviewed adapter still requires that
