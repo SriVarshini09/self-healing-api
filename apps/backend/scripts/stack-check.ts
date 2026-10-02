@@ -181,6 +181,22 @@ async function main() {
     );
     if (subscription.status !== 200) throw new Error('subscription webhook must return 200');
 
+    let subscriptionViolated = false;
+    for (let i = 0; i < 20; i++) {
+      const r = await fetch(`http://localhost:${BACKEND_PORT}/api/v1/invariants?pageSize=20`, {
+        headers: apiHeaders,
+      });
+      const data = (await r.json()) as any;
+      const invariant = data.data?.find((v: any) => v.id === 'inv-stripe-subscription-activation');
+      if (invariant?.status === 'VIOLATED') {
+        subscriptionViolated = true;
+        break;
+      }
+      await new Promise(r2 => setTimeout(r2, 500));
+    }
+    console.log('subscription activation invariant violated:', subscriptionViolated);
+    if (!subscriptionViolated) throw new Error('subscription.activation_failed did not violate its invariant');
+
     console.log('STACK CHECK OK');
   } finally {
     for (const child of children) child.kill();
