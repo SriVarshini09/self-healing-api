@@ -98,7 +98,11 @@ export async function integrationRoutes(app: FastifyInstance) {
       create: { integrationId: integration.id },
     });
 
-    return reply.code(201).send(integration);
+    // Webhook secrets are write-only. Callers can use the explicit
+    // regenerate-secret endpoint when a provider needs a new secret; normal
+    // integration creation must not echo credentials into logs or browser
+    // state.
+    return reply.code(201).send(redactIntegration(integration));
   });
 
   app.patch('/integrations/:id', async (request, reply) => {
