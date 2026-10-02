@@ -10,6 +10,7 @@ param(
   [string]$Slug,
   [string]$KeyName = 'Initial admin key',
   [string]$ExpiresAt,
+  [string]$ApiKeyOutputFile,
   [switch]$DryRun
 )
 
@@ -73,6 +74,41 @@ if (-not $result.key -or -not $result.tenant.id) {
 
 Write-Output "Tenant created: $($result.tenant.name) ($($result.tenant.slug))"
 Write-Output "Tenant ID: $($result.tenant.id)"
-Write-Output ''
-Write-Output 'OWNER_API_KEY (copy now; SHAPI will not return it again):'
-Write-Output $result.key
+
+if ($ApiKeyOutputFile) {
+  $outputPath = [IO.Path]::GetFullPath($ApiKeyOutputFile)
+  $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..')).TrimEnd(
+    [IO.Path]::DirectorySeparatorChar,
+    [IO.Path]::AltDirectorySeparatorChar
+  )
+  $repoPrefix = "$repoRoot$([IO.Path]::DirectorySeparatorChar)"
+  if (
+    $outputPath.Equals($repoRoot, [StringComparison]::OrdinalIgnoreCase) -or
+    $outputPath.StartsWith($repoPrefix, [StringComparison]::OrdinalIgnoreCase)
+  ) {
+    throw 'ApiKeyOutputFile must be outside the repository so the owner key cannot be committed accidentally'
+  }
+  if (Test-Path -LiteralPath $outputPath) {
+    throw "Refusing to overwrite existing API key output file: $outputPath"
+  }
+  $parent = [IO.Path]::GetDirectoryName($outputPath)
+  if (-not $parent -or -not (Test-Path -LiteralPath $parent -PathType Container)) {
+    throw "API key output directory does not exist: $parent"
+  }
+
+  $content = "SHAPI_API_KEY=$($result.key)$([Environment]::NewLine)"
+  [IO.File]::WriteAllText($outputPath, $content, [Text.UTF8Encoding]::new($false))
+  if (-not $IsWindows) {
+    [IO.File]::SetUnixFileMode(
+      $outputPath,
+      [IO.UnixFileMode]::UserRead -bor [IO.UnixFileMode]::UserWrite
+    )
+  }
+
+  Write-Output "Owner API key written to: $outputPath"
+  Write-Output 'The owner API key was not printed. Keep the output file outside the repository.'
+} else {
+  Write-Output ''
+  Write-Output 'OWNER_API_KEY (copy now; SHAPI will not return it again):'
+  Write-Output $result.key
+}

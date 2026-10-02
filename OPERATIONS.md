@@ -54,11 +54,15 @@ From a trusted PowerShell session in the repository:
   -ApiUrl https://<api-host> `
   -EnvFile ./hosted-bootstrap.env `
   -TenantName "Production" `
-  -Slug production
+  -Slug production `
+  -ApiKeyOutputFile C:\secure\shapi-owner.env
 ```
 
-Copy the printed owner API key into the dashboard's secret configuration. It is
-returned once. Then remove the temporary operator file, rotate or remove
+The output file contains the one-time owner API key as `SHAPI_API_KEY` without
+printing it to terminal logs. Keep that file outside the repository and copy
+its value into the dashboard's secret configuration. If
+`-ApiKeyOutputFile` is omitted, the script prints the key for backward
+compatibility. Then remove the temporary operator file, rotate or remove
 `SHAPI_BOOTSTRAP_TOKEN` in Render, and restart the API if the secret changed.
 
 ## 4. Run the hosted release gate

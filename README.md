@@ -108,7 +108,9 @@ without credentials. Apply it from the Render Dashboard, then set the
    base64-encoded private key in `GITHUB_APP_PRIVATE_KEY_B64` so the PEM never
    needs to be pasted into a multiline environment value.
 3. Deploy the services, call `POST /api/v1/bootstrap/tenant` once with the
-   bootstrap token, and store the returned owner API key. Use that key as
+   bootstrap token, and store the returned owner API key. Prefer
+   `scripts/bootstrap-hosted-tenant.ps1 -ApiKeyOutputFile <outside-repo-path>`
+   so the one-time key is not printed to terminal logs. Use that key as
    `VITE_SHAPI_API_KEY` or configure OIDC before exposing the dashboard.
 4. Point the GitHub App webhook at `https://<api-host>/api/v1/github/webhook`,
    then run the remote readiness checks from a trusted operator environment.
