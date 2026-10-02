@@ -8,6 +8,11 @@ import {
 } from '../src/services/github-invariants.js';
 
 const prisma = new PrismaClient();
+const REVIEWED_REPAIR_REPOSITORY = 'SriVarshini09/self-healing-api';
+const REVIEWED_PREDICATE_FILE_PATH = 'apps/backend/prisma/seed.ts';
+const REVIEWED_REQUIRED_CHECKS = ['verify'];
+const DEMO_SAAS_REPOSITORY = 'SriVarshini09/self-healing-api';
+const DEMO_SAAS_PROVISIONING_PATH = 'apps/demo-saas/src/business-outcome.ts';
 
 async function main() {
   console.log('🌱 Seeding database...');
@@ -71,6 +76,9 @@ async function main() {
       predicateExpression: "event.type === 'invoice.payment_succeeded' && event.payload && event.payload.data && event.payload.data.object && event.payload.data.object.amount_paid > 0 && event.payload.data.object.status === 'paid'",
       predicateDescription: 'Successful payments have positive amount and paid status',
       predicateExample: "event.type === 'invoice.payment_succeeded' && event.payload.data.object.amount_paid > 0",
+      repairRepository: REVIEWED_REPAIR_REPOSITORY,
+      repairFilePath: REVIEWED_PREDICATE_FILE_PATH,
+      repairRequiredChecks: REVIEWED_REQUIRED_CHECKS,
       evaluationWindowSec: 300,
       minSamples: 10,
       expectedSuccessRate: 0.99,
@@ -84,6 +92,9 @@ async function main() {
       predicateExpression: "event.type === 'customer.subscription.created' && event.payload && event.payload.data && event.payload.data.object && event.payload.data.object.status === 'active'",
       predicateDescription: 'New subscriptions should be active immediately',
       predicateExample: "event.type === 'customer.subscription.created' && event.payload.data.object.status === 'active'",
+      repairRepository: REVIEWED_REPAIR_REPOSITORY,
+      repairFilePath: REVIEWED_PREDICATE_FILE_PATH,
+      repairRequiredChecks: REVIEWED_REQUIRED_CHECKS,
       evaluationWindowSec: 300,
       minSamples: 5,
       expectedSuccessRate: 0.95,
@@ -97,6 +108,9 @@ async function main() {
       predicateExpression: "event.type !== 'provisioning.failed'",
       predicateDescription: 'Every tracked business outcome must succeed',
       predicateExample: "event.type !== 'provisioning.failed'",
+      repairRepository: DEMO_SAAS_REPOSITORY,
+      repairFilePath: DEMO_SAAS_PROVISIONING_PATH,
+      repairRequiredChecks: ['verify', 'business-outcome'],
       evaluationWindowSec: 300,
       minSamples: 5,
       expectedSuccessRate: 0.99,
@@ -110,6 +124,9 @@ async function main() {
       predicateExpression: "event.type === 'refund.succeeded' && event.payload && event.payload.data && event.payload.data.object && event.payload.data.object.amount > 0 && event.payload.data.object.status === 'succeeded'",
       predicateDescription: 'Successful refunds have positive amount and succeeded status',
       predicateExample: "event.type === 'refund.succeeded' && event.payload.data.object.amount > 0",
+      repairRepository: REVIEWED_REPAIR_REPOSITORY,
+      repairFilePath: REVIEWED_PREDICATE_FILE_PATH,
+      repairRequiredChecks: REVIEWED_REQUIRED_CHECKS,
       evaluationWindowSec: 300,
       minSamples: 5,
       expectedSuccessRate: 0.99,
@@ -120,7 +137,11 @@ async function main() {
   for (const inv of stripeInvariants) {
     await prisma.invariant.upsert({
       where: { id: inv.id },
-      update: {},
+      update: {
+        repairRepository: inv.repairRepository,
+        repairFilePath: inv.repairFilePath,
+        repairRequiredChecks: inv.repairRequiredChecks,
+      },
       create: inv
     });
     console.log('✅ Created invariant:', inv.name);

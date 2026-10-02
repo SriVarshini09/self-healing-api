@@ -108,6 +108,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   controlled mapping script and the live audit now reports 6/6 targets ready,
   0 manual-review targets, and 0 blocked targets. This remains target review,
   not automatic merging or a business-outcome adapter.
+- The seed now persists all six reviewed repair mappings in a clean database,
+  including the demo business-outcome adapter. A fresh Docker seed and audit
+  report 6/6 ready, 0 manual-review targets, and 0 blocked targets, so clean
+  CI/deployment environments no longer depend on a local operator script.
 - Docker production CI now verifies the signed GitHub webhook path and replay
   deduplication inside the backend container, then runs the authenticated
   repair-readiness audit. The webhook smoke uses Node byte-exact UTF-8
@@ -456,8 +460,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
    is generated only for a mapped target. Three reviewed Stripe predicate
    invariants are mapped to the demo repository and require `verify`; the
    provisioning invariant now has a reviewed demo adapter target and requires
-   both `verify` and `business-outcome`. GitHub invariants remain unmapped until
-   their target behavior is reviewed. Most other repair types are suggestions only. The
+   both `verify` and `business-outcome`. The two reviewed GitHub invariants now
+   map to their predicate source and require `verify`; most other repair types
+   are suggestions only. The
    API supports a read-only patch preview, and the production dashboard
    displays its pinned source excerpts before a PR can be opened. The
    dashboard also edits and saves the explicit repository/file mapping.
