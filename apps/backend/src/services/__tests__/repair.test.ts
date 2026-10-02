@@ -85,6 +85,37 @@ describe('repair candidate repository mapping', () => {
     });
   });
 
+  it('makes every nested payload segment null-safe', async () => {
+    const candidates = await generateRepairCandidates(incident('acme/demo', 'src/invariants/payment.ts'), {
+      ...diagnosis,
+      rootCause: 'Changed nested payload',
+    });
+    const predicate = candidates.find(candidate => candidate.description.includes('optional chaining'));
+    expect(predicate?.changes).toEqual([{
+      kind: 'replace',
+      path: 'src/invariants/payment.ts',
+      before: 'event.payload.amount > 0',
+      after: 'event.payload?.amount > 0',
+    }]);
+
+    const nestedCandidates = await generateRepairCandidates({
+      invariant: {
+        name: 'nested payment',
+        predicateExpression: 'event.payload.data.object.amount > 0',
+        repairRepository: 'acme/demo',
+        repairFilePath: 'src/invariants/payment.ts',
+      },
+      integration: { name: 'stripe', type: 'STRIPE', config: { retryAttempts: 3 } },
+    } as unknown as Parameters<typeof generateRepairCandidates>[0], diagnosis);
+    const nestedPredicate = nestedCandidates.find(candidate => candidate.description.includes('optional chaining'));
+    expect(nestedPredicate?.changes).toEqual([{
+      kind: 'replace',
+      path: 'src/invariants/payment.ts',
+      before: 'event.payload.data.object.amount > 0',
+      after: 'event.payload?.data?.object?.amount > 0',
+    }]);
+  });
+
   it('creates a structured event guard for an explicitly mapped predicate', async () => {
     const candidates = await generateRepairCandidates({
       invariant: {

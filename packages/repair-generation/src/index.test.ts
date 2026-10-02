@@ -1,7 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { suggestRepairs } from './index.js';
+import { optionalChainPayloadAccess, suggestRepairs } from './index.js';
 
 describe('repair-generation', () => {
+  it('optional-chains every nested payload segment', () => {
+    expect(optionalChainPayloadAccess('event.payload.data.object.amount_paid > 0'))
+      .toBe('event.payload?.data?.object?.amount_paid > 0');
+    expect(optionalChainPayloadAccess('event.payload?.data.object?.amount_paid > 0'))
+      .toBe('event.payload?.data?.object?.amount_paid > 0');
+  });
+
   it('suggests optional chaining + retry', () => {
     const r = suggestRepairs({
       predicateExpression: 'event.payload.amount > 0',
@@ -13,6 +20,21 @@ describe('repair-generation', () => {
     expect(r.length).toBeGreaterThanOrEqual(2);
     expect(r[0].confidence).toBeGreaterThanOrEqual(r[1].confidence);
     expect(r.find(candidate => candidate.description.includes('optional chaining'))?.changes).toBeNull();
+  });
+
+  it('generates a null-safe nested payload repair', () => {
+    const repairs = suggestRepairs({
+      predicateExpression: 'event.payload.data.object.amount_paid > 0',
+      invariantName: 'payment',
+      rootCause: 'changed payload',
+      suggestedFix: 'review predicate',
+      hasRetryConfig: true,
+      repairRepository: 'acme/demo',
+      repairFilePath: 'src/invariants/payment.ts',
+    });
+    expect(repairs[0]).toMatchObject({
+      changes: [{ after: 'event.payload?.data?.object?.amount_paid > 0' }],
+    });
   });
 
   it('generates an exact replacement only for an explicitly mapped repository file', () => {

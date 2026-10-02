@@ -5,6 +5,7 @@ import {
   DEMO_SAAS_PROVISIONING_PATH,
   DEMO_SAAS_REPOSITORY,
   isDemoSaasProvisioningTarget,
+  optionalChainPayloadAccess,
 } from '@shapi/repair-generation';
 import type { DiagnosisResult } from './diagnosis.js';
 
@@ -144,8 +145,8 @@ function generatePredicateFix(
   const mappedPath = invariant.repairRepository && invariant.repairFilePath
     ? invariant.repairFilePath : null;
 
-  if (predicate.includes('payload.') && !predicate.includes('?.')) {
-    const modified = predicate.replace(/payload\.(\w+)/g, 'payload?.$1');
+  const modified = optionalChainPayloadAccess(predicate);
+  if (modified !== predicate) {
     return {
       type: 'CODE_CHANGE',
       description: 'Add optional chaining to predicate to handle missing fields',

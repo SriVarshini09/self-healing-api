@@ -16,6 +16,18 @@ export interface Repair {
   changes?: RepairChange[] | null;
 }
 
+/**
+ * Make every property access in a payload chain nullable-safe. A single
+ * optional chain at `payload` is not enough when an intermediate object such
+ * as `data` or `object` can be null.
+ */
+export function optionalChainPayloadAccess(expression: string): string {
+  return expression.replace(/\bpayload(?:\?\.|\.)[A-Za-z_$][\w$]*(?:(?:\?\.|\.)[A-Za-z_$][\w$]*)*/g, match => {
+    const segments = match.slice('payload'.length).match(/[A-Za-z_$][\w$]*/g) ?? [];
+    return `payload${segments.map(segment => `?.${segment}`).join('')}`;
+  });
+}
+
 export function suggestRepairs(opts: {
   predicateExpression: string;
   invariantName: string;
@@ -29,8 +41,8 @@ export function suggestRepairs(opts: {
   const { predicateExpression, invariantName, rootCause, suggestedFix, hasRetryConfig, repairRepository, repairFilePath } = opts;
   const mappedPath = repairRepository && repairFilePath ? repairFilePath : null;
 
-  if (predicateExpression.includes('payload.') && !predicateExpression.includes('?.')) {
-    const fixed = predicateExpression.replace(/payload\.(\w+)/g, 'payload?.$1');
+  const fixed = optionalChainPayloadAccess(predicateExpression);
+  if (fixed !== predicateExpression) {
     const changes: RepairChange[] | null = mappedPath
       ? [{ kind: 'replace', path: mappedPath, before: predicateExpression, after: fixed }]
       : null;
