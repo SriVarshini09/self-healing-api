@@ -5,6 +5,15 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Verified in this repository
 
+- The release repair-readiness audit now consumes the backend's authoritative
+  `repairReadiness` decision instead of duplicating a demo-only invariant ID
+  and business-outcome rule in PowerShell. It fails closed when an API row is
+  missing that decision, while preserving JSON output and `-FailOnUnready` for
+  release checks. The live Docker audit reported 6/6 ready, with zero manual
+  review or missing-check blocks. Commit `8712102` passed full CI
+  [36982920667](https://github.com/SriVarshini09/self-healing-api/actions/runs/36982920667)
+  and Docker production validation
+  [36982920549](https://github.com/SriVarshini09/self-healing-api/actions/runs/36982920549).
 - Business-outcome target gating is now driven by the reviewed adapter
   registry's repository/file coordinates, not by a special invariant ID. A
   renamed invariant pointing at a reviewed adapter still requires that
