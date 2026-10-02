@@ -159,6 +159,7 @@ function generatePredicateFix(
       files: mappedPath ? [mappedPath] : [],
       repository: mappedPath ? invariant.repairRepository : null,
       confidence: 0.5,
+      ...(mappedPath ? { changes: [{ kind: 'replace', path: mappedPath, before: predicate, after: modified }] } : {}),
     };
   }
 

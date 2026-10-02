@@ -55,12 +55,20 @@ export function suggestRepairs(opts: {
     });
   }
   if (rootCause.includes('webhook') || suggestedFix.includes('predicate')) {
+    const predicateFile = mappedPath ? [mappedPath] : [`src/invariants/${invariantName}.ts`];
+    const guarded = `event.type !== undefined && (${predicateExpression})`;
+    const changes: RepairChange[] | null = mappedPath
+      ? [{ kind: 'replace', path: mappedPath, before: predicateExpression, after: guarded }]
+      : null;
+    if (changes) validateRepairChanges(changes);
     out.push({
       type: 'CODE_CHANGE',
       description: 'Update predicate to handle new event format',
-      diff: null,
-      files: [`src/invariants/${invariantName}.ts`],
+      diff: `- ${predicateExpression}\n+ ${guarded}`,
+      files: predicateFile,
+      repository: mappedPath ? repairRepository : null,
       confidence: 0.65,
+      changes,
     });
   }
   if (out.length === 0) {

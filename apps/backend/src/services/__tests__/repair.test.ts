@@ -82,6 +82,29 @@ describe('repair candidate repository mapping', () => {
     });
   });
 
+  it('creates a structured event guard for an explicitly mapped predicate', async () => {
+    const candidates = await generateRepairCandidates({
+      invariant: {
+        name: 'workflow',
+        predicateExpression: "action === 'completed'",
+        repairRepository: 'acme/demo',
+        repairFilePath: 'src/invariants/workflow.ts',
+      },
+      integration: { name: 'github', type: 'GITHUB', config: { retryAttempts: 3 } },
+    } as unknown as Parameters<typeof generateRepairCandidates>[0], diagnosis);
+    const predicate = candidates.find(candidate => candidate.description.includes('event type guard'));
+    expect(predicate).toMatchObject({
+      repository: 'acme/demo',
+      files: ['src/invariants/workflow.ts'],
+      changes: [{
+        kind: 'replace',
+        path: 'src/invariants/workflow.ts',
+        before: "action === 'completed'",
+        after: "event.type !== undefined && (action === 'completed')",
+      }],
+    });
+  });
+
   it('only generates the reviewed demo business-outcome patch for its exact target', async () => {
     const unmapped = await generateRepairCandidates(provisioningIncident(null, null), diagnosis);
     expect(unmapped.find(candidate => candidate.description.includes('silent provisioning'))).toBeUndefined();

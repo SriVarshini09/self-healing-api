@@ -31,4 +31,26 @@ describe('repair-generation', () => {
       changes: [{ kind: 'replace', path: 'src/invariants/pay.ts', before: 'event.payload.amount > 0' }],
     });
   });
+
+  it('generates a structured event guard for an explicitly mapped predicate', () => {
+    const repairs = suggestRepairs({
+      predicateExpression: "payload.action === 'completed'",
+      invariantName: 'workflow',
+      rootCause: 'webhook failures',
+      suggestedFix: 'review predicate',
+      hasRetryConfig: true,
+      repairRepository: 'acme/demo',
+      repairFilePath: 'src/invariants/workflow.ts',
+    });
+    expect(repairs.find(candidate => candidate.description.includes('event format'))).toMatchObject({
+      repository: 'acme/demo',
+      files: ['src/invariants/workflow.ts'],
+      changes: [{
+        kind: 'replace',
+        path: 'src/invariants/workflow.ts',
+        before: "payload.action === 'completed'",
+        after: "event.type !== undefined && (payload.action === 'completed')",
+      }],
+    });
+  });
 });
