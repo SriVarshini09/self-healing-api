@@ -66,6 +66,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   The demo HTTP E2E also passed its intended failure-to-recovery flow: a
   business failure returned HTTP 200 without provisioning, followed by a
   recovered webhook that provisioned successfully.
+- CI now runs the same complete workspace build and test coverage instead of
+  a hand-picked package list. Commit `db3e2a8` passed all workspace builds,
+  tests, typechecks, backend lint, production dashboard build, Prisma
+  validation, and the business-outcome job in [CI run 36965845415](https://github.com/SriVarshini09/self-healing-api/actions/runs/36965845415).
 - Integration creation now redacts generated webhook secrets from its response;
   the secret remains write-only and the regression test confirms the API returns
   only `webhookSecretConfigured`. Commit `0a70a92` passed both full CI and the
@@ -490,6 +494,8 @@ Verified locally on 2026-10-02 against the live Docker stack rebuilt from
   typechecks, tests, and builds passed. The demo HTTP E2E passed the
   failure-to-recovery business-outcome flow, including HTTP 200 on the failed
   webhook and successful provisioning after recovery.
+- The GitHub CI workflow now executes the same all-workspace build and test
+  coverage; commit `db3e2a8` passed in CI run `36965845415`.
 - GitHub Actions CI run `36961198358` and Docker production run
   `36961198357` both passed; Render Blueprint validation run
   `36954469954` also passed.
