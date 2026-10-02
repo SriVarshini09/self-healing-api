@@ -147,7 +147,7 @@ jobs:
           pnpm --dir apps/backend exec tsx scripts/production-dashboard-test.ts \
             --api-url http://localhost:3001 \
             --dashboard-url http://localhost:8080 \
-            --env-file .ci-dashboard.env
+            --env-file "$GITHUB_WORKSPACE/.ci-dashboard.env"
 
       - name: Verify signed webhook replay protection and repair readiness
         shell: bash
