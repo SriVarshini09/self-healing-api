@@ -209,6 +209,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   required checks before configuring the reviewed Stripe predicate targets. It
   can now also configure the exact demo provisioning adapter target, requiring
   both `verify` and `business-outcome` checks.
+- The invariant mapping API now enforces that same `business-outcome` check for
+  the reviewed provisioning adapter, so dashboard edits cannot accidentally
+  downgrade it to generic-CI-only verification.
 - A read-only repair-readiness audit now reports every tenant invariant as
   manual review, blocked for missing required checks, or ready for target
   review. It supports human-readable and JSON output plus a fail-on-unready
@@ -267,7 +270,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
    dashboard also edits and saves the explicit repository/file mapping.
 3. **End-to-end repair proof.** The provisioning invariant now generates a
    structured patch only for the exact reviewed demo-SaaS target and requires
-   the target `business-outcome` check in addition to generic CI. This is still
+   the target `business-outcome` check in addition to generic CI; the API also
+   rejects mappings that omit that check. This is still
    not a generic sandbox for arbitrary customer repositories. Each customer
    target still needs its own reviewed adapter and full test command. Replay
    still tests a user-entered event transformation, and PR #4 remains open for

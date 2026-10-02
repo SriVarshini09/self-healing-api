@@ -4,7 +4,12 @@ import { GitHubPRStatus, InvariantStatus, Prisma } from '@prisma/client';
 import {
   validatePredicate as sandboxValidate,
 } from '@shapi/invariant-engine';
-import { validateRepairChanges } from '@shapi/repair-generation';
+import {
+  DEMO_SAAS_PROVISIONING_PATH,
+  DEMO_SAAS_REPOSITORY,
+  isDemoSaasProvisioningTarget,
+  validateRepairChanges,
+} from '@shapi/repair-generation';
 import { evaluateInvariantWindow } from '../services/invariants.js';
 import { tenantIdFor } from '../utils/auth-context.js';
 import { config } from '../config.js';
@@ -171,6 +176,15 @@ export async function invariantRoutes(app: FastifyInstance) {
         details: 'mapped repair targets must declare at least one required GitHub check',
       });
     }
+    const businessOutcomeTargetError = reviewedBusinessOutcomeTargetError(
+      id,
+      requestedRepository,
+      requestedFilePath,
+      normalizedRequestedChecks,
+    );
+    if (businessOutcomeTargetError) {
+      return reply.code(400).send({ error: 'Invalid repair target checks', details: businessOutcomeTargetError });
+    }
 
     if (data.predicateExpression) {
       try {
@@ -298,5 +312,23 @@ export function repairRequiredChecksError(value: unknown): string | null {
     return 'each required check name must be a non-empty string of at most 200 characters';
   }
   if (normalizeRepairRequiredChecks(value).length !== value.length) return 'repairRequiredChecks must not contain duplicate names';
+  return null;
+}
+
+export function reviewedBusinessOutcomeTargetError(
+  invariantId: string,
+  repository: string | null | undefined,
+  filePath: string | null | undefined,
+  requiredChecks: readonly string[],
+): string | null {
+  if (
+    invariantId !== 'inv-stripe-provisioning' ||
+    !isDemoSaasProvisioningTarget(repository, filePath)
+  ) {
+    return null;
+  }
+  if (!requiredChecks.includes('business-outcome')) {
+    return `the reviewed ${DEMO_SAAS_REPOSITORY}/${DEMO_SAAS_PROVISIONING_PATH} adapter requires the exact business-outcome check`;
+  }
   return null;
 }

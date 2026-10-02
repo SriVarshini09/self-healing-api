@@ -138,6 +138,22 @@ describe('POST /invariants tenant quota', () => {
     expect((await patchInvariant(created.json().id, { repairRepository: null, repairFilePath: null })).statusCode).toBe(200);
   });
 
+  it('requires the business-outcome check for the reviewed provisioning adapter', async () => {
+    const created = await createInvariant('tenant-a', 'int-tenant-a');
+    const createdId = created.json().id as string;
+    const invariant = fake.invariants.get(createdId)!;
+    fake.invariants.delete(createdId);
+    invariant.id = 'inv-stripe-provisioning';
+    fake.invariants.set(invariant.id, invariant);
+
+    const target = {
+      repairRepository: 'SriVarshini09/self-healing-api',
+      repairFilePath: 'apps/demo-saas/src/business-outcome.ts',
+    };
+    expect((await patchInvariant(invariant.id, { ...target, repairRequiredChecks: ['verify'] })).statusCode).toBe(400);
+    expect((await patchInvariant(invariant.id, { ...target, repairRequiredChecks: ['verify', 'business-outcome'] })).statusCode).toBe(200);
+  });
+
   it('invalidates stale verification when an actionable repair target changes', async () => {
     const created = await createInvariant('tenant-a', 'int-tenant-a', {
       repairRepository: 'acme/demo',
