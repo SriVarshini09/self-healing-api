@@ -73,6 +73,20 @@ describe('authentication routes', () => {
     expect(fake.authenticateSession).toHaveBeenCalledWith(undefined);
   });
 
+  it('rejects an OIDC callback with invalid state before contacting the provider', async () => {
+    fake.oidcEnabled.mockReturnValue(true);
+    const providerRequest = vi.spyOn(globalThis, 'fetch');
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/auth/callback?code=authorization-code&state=unexpected-state',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({ error: 'Invalid OIDC callback state' });
+    expect(providerRequest).not.toHaveBeenCalled();
+  });
+
   it('returns the tenant-scoped session user without exposing session data', async () => {
     fake.authenticateSession.mockResolvedValue({
       id: 'user-1',
