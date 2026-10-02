@@ -5,6 +5,13 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Verified in this repository
 
+- Production image builds now retry the pinned pnpm bootstrap up to five times
+  in both backend and dashboard Dockerfiles, so a transient package-registry
+  socket reset does not fail an otherwise valid release build. Commit `e82d385`
+  passed the full local readiness gate, CI
+  [36989024140](https://github.com/SriVarshini09/self-healing-api/actions/runs/36989024140),
+  and Docker production validation
+  [36989024124](https://github.com/SriVarshini09/self-healing-api/actions/runs/36989024124).
 - The reviewed business-outcome adapter catalog now validates at module load and
   in tests. Duplicate IDs/targets, invalid confidence, malformed structured
   changes, no-op replacements, and repairs that do not touch the declared target
