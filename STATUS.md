@@ -643,6 +643,12 @@ repeatable. Do not claim a replay-verified fix prematurely.
 Verified locally on 2026-10-02 against the live Docker stack rebuilt from the
 current working tree after `340448c` (documentation synchronized by `4438da7`):
 
+- The full `production-readiness.ps1` gate passed with GitHub App mode enabled:
+  API/database/dashboard readiness, security headers and 401/404 behavior,
+  20/20 authenticated requests, production dashboard browser smoke, signed
+  GitHub webhook replay deduplication, and fail-closed repair audit all passed.
+  The audit reported 6/6 ready for target review, 0 manual-review targets, and
+  0 blocked for missing required checks or business-outcome proof.
 - The dashboard image rebuilt from `d1127e0` passed direct-API and same-origin
   browser smoke, including the corrected incident headings, live telemetry,
   GitHub connection status, connected integrations, repair-review counts, alert
