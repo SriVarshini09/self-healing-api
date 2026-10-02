@@ -95,6 +95,13 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   checks, live production readiness, CI, and Docker validation:
   [CI run 36968322179](https://github.com/SriVarshini09/self-healing-api/actions/runs/36968322179),
   [Docker run 36968322137](https://github.com/SriVarshini09/self-healing-api/actions/runs/36968322137).
+- Reviewed business-outcome adapters now have an explicit registry and stable
+  adapter IDs. Readiness responses and the production dashboard identify the
+  reviewed adapter instead of inferring it from a file path; unknown customer
+  targets remain unrecognized and fail closed. Commit `4e7af0e` passed the
+  live readiness gate, full CI, and Docker validation:
+  [CI run 36968884407](https://github.com/SriVarshini09/self-healing-api/actions/runs/36968884407),
+  [Docker run 36968884448](https://github.com/SriVarshini09/self-healing-api/actions/runs/36968884448).
 - CI now runs the same complete workspace build and test coverage instead of
   a hand-picked package list. The workflow change passed all workspace
   builds, tests, typechecks, backend lint, production dashboard build, Prisma
