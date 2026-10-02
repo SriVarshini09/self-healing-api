@@ -607,6 +607,25 @@ describe('workflow_run webhook scoping', () => {
 });
 
 describe('pull_request merge webhook lifecycle path', () => {
+  it('ignores non-lifecycle pull-request actions instead of reopening a closed PR', async () => {
+    db.prs[0].status = 'CLOSED';
+    const payload = {
+      action: 'synchronize',
+      repository: { full_name: 'acme/demo' },
+      pull_request: { number: 10, merged: false, base: { repo: { full_name: 'acme/demo' } } },
+    };
+    const res = await app.inject({
+      method: 'POST',
+      url: '/github/webhook',
+      headers: signedHeaders(payload, 'pull_request'),
+      payload,
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(pr('pr-1').status).toBe('CLOSED');
+    expect(incident('inc-1').status).toBe('REPAIRED');
+  });
+
   it('closed+merged sets PR MERGED, incident RESOLVED, resolvedAt', async () => {
     const res = await app.inject({
       method: 'POST',

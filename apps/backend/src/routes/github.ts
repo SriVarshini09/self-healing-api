@@ -679,9 +679,10 @@ async function handlePullRequestEvent(payload: Record<string, unknown>, integrat
       closed: merged ? GitHubPRStatus.MERGED : GitHubPRStatus.CLOSED,
       reopened: GitHubPRStatus.OPEN,
     };
+    if (!(action in statusMap)) return;
     await prisma.gitHubPullRequest.update({
       where: { id: ourPR.id },
-      data: { status: statusMap[action] ?? GitHubPRStatus.OPEN },
+      data: { status: statusMap[action] },
     });
 
     if (action === 'closed' && merged) {
