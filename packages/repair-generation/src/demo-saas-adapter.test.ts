@@ -6,8 +6,10 @@ import {
   DEMO_SAAS_PROVISIONING_ADAPTER_ID,
   DEMO_SAAS_PROVISIONING_PATH,
   DEMO_SAAS_PROVISIONING_REPAIR,
+  REVIEWED_BUSINESS_OUTCOME_ADAPTERS,
   reviewedBusinessOutcomeAdapter,
   proveBusinessOutcomeRepair,
+  validateReviewedBusinessOutcomeAdapters,
 } from './index.js';
 
 type DemoUser = {
@@ -55,6 +57,29 @@ function createUsers() {
 }
 
 describe('real demo-saas business-outcome adapter', () => {
+  it('validates the reviewed adapter catalog', () => {
+    expect(() => validateReviewedBusinessOutcomeAdapters(REVIEWED_BUSINESS_OUTCOME_ADAPTERS)).not.toThrow();
+  });
+
+  it('fails closed when a reviewed adapter does not change its declared target', () => {
+    const broken = {
+      ...REVIEWED_BUSINESS_OUTCOME_ADAPTERS[0],
+      repair: {
+        ...REVIEWED_BUSINESS_OUTCOME_ADAPTERS[0].repair,
+        changes: [{ ...DEMO_SAAS_PROVISIONING_REPAIR[0], path: 'src/other.ts' }],
+      },
+    };
+
+    expect(() => validateReviewedBusinessOutcomeAdapters([broken])).toThrow(/declared target file/);
+  });
+
+  it('fails closed for duplicate reviewed targets', () => {
+    expect(() => validateReviewedBusinessOutcomeAdapters([
+      ...REVIEWED_BUSINESS_OUTCOME_ADAPTERS,
+      { ...REVIEWED_BUSINESS_OUTCOME_ADAPTERS[0], adapterId: 'duplicate-target' },
+    ])).toThrow(/must be unique/);
+  });
+
   it('exposes explicit reviewed adapter metadata', () => {
     expect(reviewedBusinessOutcomeAdapter('SriVarshini09/self-healing-api', targetPath)).toMatchObject({
       adapterId: DEMO_SAAS_PROVISIONING_ADAPTER_ID,
