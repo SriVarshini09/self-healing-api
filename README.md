@@ -430,8 +430,13 @@ For a bounded authenticated load baseline, run:
   Add `-IncludeProvisioningAdapter` to also map the reviewed provisioning
   business-outcome patch to `apps/demo-saas/src/business-outcome.ts`; that
   target requires both the generic `verify` check and the dedicated
-  `business-outcome` check before it can be considered verified. Customer
-  repositories still need their own reviewed adapter and test command.
+  `business-outcome` check before it can be considered verified. Add
+  `-IncludeGitHubTargets` to map the reviewed pull-request and workflow
+  predicates to `apps/backend/src/services/github-invariants.ts`; those targets
+  require the exact `verify` check and do not receive a business-outcome claim.
+  Fresh databases receive all six reviewed mappings from `prisma/seed.ts`, so
+  clean CI or deployment environments do not depend on this operator script.
+  Customer repositories still need their own reviewed adapter and test command.
 
 Before opening repair PRs, audit the authenticated tenant without changing any
 invariant configuration:
