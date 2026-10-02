@@ -11,14 +11,19 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   `/api/v1/alerts/status` endpoint returned 200. The live alert status response
   included pending, processing, retrying, delivered, and failed counts, and the
   dashboard smoke verified all five labels in the live alert-delivery panel.
-- The latest `master` head `2373b8a` passed GitHub Actions CI, including the
+- The latest `master` head `2ec5ceb` passed GitHub Actions CI, including the
   business-outcome regression, production builds, unit tests, and Prisma
   validation:
-  [run 36954043948](https://github.com/SriVarshini09/self-healing-api/actions/runs/36954043948).
+  [run 36954469951](https://github.com/SriVarshini09/self-healing-api/actions/runs/36954469951).
   The matching production Docker workflow passed Compose validation, image
   builds, stack readiness, authenticated security/load checks, and the
   non-root backend assertion:
-  [run 36954043839](https://github.com/SriVarshini09/self-healing-api/actions/runs/36954043839).
+  [run 36954469984](https://github.com/SriVarshini09/self-healing-api/actions/runs/36954469984).
+  Render Blueprint schema validation also passed:
+  [run 36954469954](https://github.com/SriVarshini09/self-healing-api/actions/runs/36954469954).
+- CI, Docker production, and Render Blueprint workflows now declare
+  read-only repository permissions and cancel obsolete same-branch runs, so
+  superseded commits do not continue consuming runners.
 - The separate `business-outcome` check includes the real demo HTTP
   checkout/webhook flow; CI passes both the failure-that-still-returns-200
   assertion and the recovered provisioning assertion. CI also checks workspace
@@ -350,11 +355,12 @@ Verified locally on 2026-10-01 against the live Docker stack rebuilt from
 - Workspace tests passed: 16 backend test files and 89 backend tests; the
   repair-generation package suite includes the structured business-outcome
   proof and real demo adapter proof.
-- GitHub Actions CI run `36954043948` and Docker production run
-  `36954043839` both passed.
+- GitHub Actions CI run `36954469951` and Docker production run
+  `36954469984` both passed; Render Blueprint validation run
+  `36954469954` also passed.
 - The latest business-outcome HTTP E2E and full CI verification passed in run
-  `36954043948`; the Docker workflow also ran because the backend image and
-  production workflow changed.
+  `36954469951`; the Docker workflow also ran because the workflow definition
+  changed.
 
 ```sh
 pnpm typecheck
