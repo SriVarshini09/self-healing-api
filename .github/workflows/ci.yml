@@ -53,11 +53,14 @@ jobs:
           $expected = (Get-Content -LiteralPath $fixture -Raw).Trim()
           if ($decoded -ne $expected) { throw 'The encoded PEM did not round-trip.' }
 
-          $PSNativeCommandUseErrorActionPreference = $false
-          & pwsh -NoLogo -NoProfile -File ./scripts/encode-github-app-private-key.ps1 `
-            -PemFile ./README.md -OutputFile $output 2>$null
-          $invalidExitCode = $LASTEXITCODE
-          if ($invalidExitCode -eq 0) { throw 'The encoder accepted malformed PEM input.' }
+          $invalidRejected = $false
+          try {
+            & ./scripts/encode-github-app-private-key.ps1 -PemFile ./README.md -OutputFile $output
+          } catch {
+            if ($_.Exception.Message -notlike '*complete PEM private key*') { throw }
+            $invalidRejected = $true
+          }
+          if (-not $invalidRejected) { throw 'The encoder accepted malformed PEM input.' }
 
       - name: Generate Prisma Client
         run: pnpm --filter @shapi/backend db:generate
