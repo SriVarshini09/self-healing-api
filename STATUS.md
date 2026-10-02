@@ -5,6 +5,13 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Verified in this repository
 
+- The complete subscription-outcome release path passed after the final runtime
+  loading hardening: CI [36992842575](https://github.com/SriVarshini09/self-healing-api/actions/runs/36992842575)
+  and Docker production validation
+  [36992842634](https://github.com/SriVarshini09/self-healing-api/actions/runs/36992842634)
+  both passed on commit `718752b`. The Docker run covered production startup,
+  readiness, authenticated load, dashboard browser behavior, signed webhook
+  replay protection, and repair readiness.
 - Business-outcome verification now covers two real demo application outcomes:
   payment provisioning and subscription activation. The SDK supports explicit
   success/failure outcome event names, the demo sends both outcomes through the
@@ -671,14 +678,16 @@ without that repository's own adapter and test command.
 ### Latest verification snapshot
 
 Verified locally on 2026-10-02 against the live Docker stack rebuilt from the
-current working tree after `340448c` (documentation synchronized by `4438da7`):
+current working tree after `718752b`:
 
 - The full `production-readiness.ps1` gate passed with GitHub App mode enabled:
   API/database/dashboard readiness, security headers and 401/404 behavior,
   20/20 authenticated requests, production dashboard browser smoke, signed
   GitHub webhook replay deduplication, and fail-closed repair audit all passed.
   The audit reported 6/6 ready for target review, 0 manual-review targets, and
-  0 blocked for missing required checks or business-outcome proof.
+  0 blocked for missing required checks or business-outcome proof; the current
+  seed contains 7/7 ready repair targets, including the subscription activation
+  adapter.
 - The dashboard image rebuilt from `d1127e0` passed direct-API and same-origin
   browser smoke, including the corrected incident headings, live telemetry,
   GitHub connection status, connected integrations, repair-review counts, alert
