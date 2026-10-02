@@ -9,8 +9,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   dashboard. On 2026-10-01, the backend was rebuilt from `master`; `/health`,
   `/ready`, and the dashboard returned 200.
 - GitHub Actions CI on `master` passed for the current verified product code
-  head `d343b99`, including the repair-readiness release-gate integration:
-  [run 36943697977](https://github.com/SriVarshini09/self-healing-api/actions/runs/36943697977).
+  head `f9d9f0b`, including the repair-readiness release-gate integration:
+  [run 36944231109](https://github.com/SriVarshini09/self-healing-api/actions/runs/36944231109).
   CI checks workspace types, backend lint, package/backend unit tests, backend
   and dashboard builds, and Prisma schema validation.
 - Webhook and SDK events feed behavioral invariants; drift detection and
@@ -42,6 +42,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   no longer offers a preview action for empty or unmapped repair changes.
 - Invariant settings now let operators create or edit the repository/file
   repair mapping and required GitHub check names without using the API.
+- The seeded GitHub PR-merged and workflow-success predicates now live in a
+  named backend module with regression tests covering valid, invalid, and
+  in-progress events. Their repair targets remain intentionally unmapped until
+  target behavior is reviewed.
 - Incident PRs now display persisted verification evidence after reload,
   including the exact verified head SHA and individual check conclusions.
 - Changing an invariant's predicate, repair target, or required checks now
