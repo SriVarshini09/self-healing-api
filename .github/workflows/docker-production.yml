@@ -149,6 +149,7 @@ jobs:
             -EnvFile .ci-compose.env \
             -ComposeFile docker-compose.production.yml \
             -ProjectName "$COMPOSE_PROJECT_NAME" \
+            -Database "$POSTGRES_DB" \
             -ConfirmDrill
 
       - uses: pnpm/action-setup@v6
