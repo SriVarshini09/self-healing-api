@@ -201,6 +201,122 @@ function GitHubSetupGuide({ status }: { status: GitHubStatus | null }) {
   );
 }
 
+type IntegrationSummary = {
+  id: string;
+  name: string;
+  type: string;
+  webhookEnabled: boolean;
+  webhookSecretConfigured: boolean;
+  _count?: { webhookEvents?: number; invariants?: number; incidents?: number };
+};
+
+function ConnectionsPanel() {
+  const [githubStatus, setGithubStatus] = useState<GitHubStatus | null>(null);
+  const [integrations, setIntegrations] = useState<IntegrationSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [status, response] = await Promise.all([
+        fetchShapi<GitHubStatus>('github/status'),
+        fetchShapi<{ data: IntegrationSummary[] }>('integrations?pageSize=100'),
+      ]);
+      setGithubStatus(status);
+      setIntegrations(response.data ?? []);
+      setError(null);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Could not load connections');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  return (
+    <section id="connections" className="mt-3.5 grid gap-3.5 xl:grid-cols-[1.15fr_1fr]">
+      <div className="rounded-md border border-border bg-card p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold">GitHub repair connection</h2>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Review the App connection before SHAPI can preview or create a repair PR.
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
+            {loading ? 'Checking…' : 'Refresh'}
+          </Button>
+        </div>
+        {error ? (
+          <p className="mt-3 rounded border border-critical/30 bg-critical/5 p-2 text-[10px] text-critical">
+            {error}
+          </p>
+        ) : (
+          <>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span
+                className={`rounded px-2 py-1 font-mono text-[10px] uppercase ${githubStatus?.mode === 'app' ? 'bg-success/15 text-success' : githubStatus?.mode === 'unconfigured' ? 'bg-critical/15 text-critical' : 'bg-warning/15 text-warning'}`}
+              >
+                {githubStatus?.mode ?? 'checking'}
+              </span>
+              {githubStatus && (
+                <span className="font-mono text-[10px] text-muted-foreground">
+                  {githubStatus.repositoryCount} repo{githubStatus.repositoryCount === 1 ? '' : 's'} ·{' '}
+                  {githubStatus.realInstallations} installation{githubStatus.realInstallations === 1 ? '' : 's'} · webhook{' '}
+                  {githubStatus.webhookConfigured ? 'ready' : 'not configured'}
+                </span>
+              )}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {githubStatus?.message ?? 'Checking GitHub configuration…'}
+            </p>
+            <GitHubSetupGuide status={githubStatus} />
+          </>
+        )}
+      </div>
+      <div className="rounded-md border border-border bg-card p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold">Connected integrations</h2>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Live provider connections and the behavioral checks attached to each one.
+            </p>
+          </div>
+          <span className="font-mono text-[10px] text-muted-foreground">
+            {loading ? '…' : `${integrations.length} total`}
+          </span>
+        </div>
+        {error ? (
+          <p className="mt-3 text-[10px] text-critical">Integration data unavailable.</p>
+        ) : integrations.length ? (
+          <div className="mt-3 divide-y divide-border">
+            {integrations.map(integration => (
+              <div key={integration.id} className="flex items-center gap-3 py-2 first:pt-0 last:pb-0">
+                <span className={`size-2 rounded-full ${integration.webhookEnabled && integration.webhookSecretConfigured ? 'bg-success' : 'bg-warning'}`} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-medium">{integration.name}</p>
+                  <p className="font-mono text-[10px] text-muted-foreground">
+                    {integration.type} · {integration._count?.invariants ?? 0} invariants · {integration._count?.incidents ?? 0} incidents
+                  </p>
+                </div>
+                <span className="font-mono text-[10px] text-muted-foreground">
+                  {integration.webhookEnabled && integration.webhookSecretConfigured ? 'ready' : 'setup needed'}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-3 text-[10px] text-muted-foreground">No integrations configured for this tenant.</p>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function incidentTone(severity: string): 'critical' | 'elevated' | 'observed' {
   return severity === 'CRITICAL' || severity === 'HIGH'
     ? 'critical'
@@ -837,6 +953,10 @@ export function HealingDashboard() {
               {manualReviewCount}
             </span>
           </a>
+          <a className="nav-item" href="#connections">
+            <GitBranch />
+            Connections
+          </a>
           <a className="nav-item" href="#incidents">
             <Network />
             Service events
@@ -948,6 +1068,8 @@ export function HealingDashboard() {
               </article>
             ))}
           </div>
+
+          <ConnectionsPanel />
 
           <section
             id="traffic"

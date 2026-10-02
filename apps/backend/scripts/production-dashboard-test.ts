@@ -1,6 +1,7 @@
 // Read-only browser smoke for the production dashboard served by Docker.
-// It checks the real command center, live API wiring, repair-target panel, and
-// diagnosis modal without creating incidents, replay jobs, or pull requests.
+// It checks the real command center, live API wiring, connection/onboarding
+// panel, repair-target panel, and diagnosis modal without creating incidents,
+// replay jobs, or pull requests.
 import fs from 'node:fs';
 import { chromium } from '@playwright/test';
 
@@ -104,6 +105,8 @@ async function runDashboardSmoke(mode: {
     await page.getByText('Incident signals', { exact: true }).waitFor({ timeout: 15000 });
     await page.getByRole('heading', { name: 'Incident activity', exact: true }).waitFor({ timeout: 15000 });
     await page.getByRole('heading', { name: 'Recent incidents', exact: true }).waitFor({ timeout: 15000 });
+    await page.getByRole('heading', { name: 'GitHub repair connection', exact: true }).waitFor({ timeout: 15000 });
+    await page.getByRole('heading', { name: 'Connected integrations', exact: true }).waitFor({ timeout: 15000 });
     await page.getByRole('heading', { name: 'Repair targets', exact: true }).waitFor({ timeout: 15000 });
     await page.getByText('Repair review', { exact: true }).waitFor({ timeout: 15000 });
     const repairReviewCell = page.locator('p').filter({ hasText: 'Repair review' }).first().locator('..');
@@ -123,6 +126,12 @@ async function runDashboardSmoke(mode: {
     if (mode.requireSameOrigin && apiRequests.length === 0) {
       throw new Error(`same-origin dashboard smoke observed no /api/v1 proxy requests; observed: ${[...new Set(allRequests)].join(', ')}`);
     }
+    if (!apiRequests.some(url => url.includes('/github/status'))) {
+      throw new Error(`${mode.label} dashboard smoke observed no GitHub status request`);
+    }
+    if (!apiRequests.some(url => url.includes('/integrations?pageSize=100'))) {
+      throw new Error(`${mode.label} dashboard smoke observed no integrations request`);
+    }
   } finally {
     await context.close();
   }
@@ -141,7 +150,7 @@ try {
     apiRequestPrefix: `${dashboardUrl}/api/v1`,
     requireSameOrigin: true,
   });
-  console.log('Production dashboard smoke passed: direct API, same-origin proxy, command center, live telemetry, repair review queue, alert delivery, repair targets, and diagnosis modal.');
+  console.log('Production dashboard smoke passed: direct API, same-origin proxy, command center, live telemetry, connection panel, integration list, repair review queue, alert delivery, repair targets, and diagnosis modal.');
 } finally {
   await browser.close();
 }
