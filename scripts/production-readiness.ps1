@@ -24,6 +24,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+& "$PSScriptRoot\validate-env.ps1" -EnvFile $EnvFile
+
 if ($IncludeBackupRestoreDrill -and -not $ConfirmDrill) {
   throw 'The backup/restore drill creates and drops a temporary database. Re-run with -IncludeBackupRestoreDrill -ConfirmDrill.'
 }

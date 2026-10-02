@@ -26,6 +26,7 @@ $ErrorActionPreference = 'Stop'
 
 if (-not (Test-Path -LiteralPath $EnvFile)) { throw "Environment file not found: $EnvFile" }
 if (-not (Test-Path -LiteralPath $ComposeFile)) { throw "Compose file not found: $ComposeFile" }
+& "$PSScriptRoot\validate-env.ps1" -EnvFile $EnvFile
 if ($StartupTimeoutSec -lt 1) { throw '-StartupTimeoutSec must be positive' }
 if ($IncludeBackupRestoreDrill -and -not $ConfirmDrill) {
   throw 'The backup/restore drill creates and drops a temporary database. Re-run with -IncludeBackupRestoreDrill -ConfirmDrill.'

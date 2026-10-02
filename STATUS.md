@@ -243,6 +243,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   a bounded startup window. This prevents a transient container restart race
   from producing a false production-readiness failure; the full local gate
   passed with the retry parameters enabled.
+- Production readiness and deploy commands now preflight dotenv syntax and
+  duplicate variable names without printing secret values, so malformed
+  pasted private-key/base64 lines fail with a safe line-number diagnostic.
 
 ## Not complete
 

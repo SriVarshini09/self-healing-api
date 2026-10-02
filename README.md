@@ -80,6 +80,14 @@ not fail on the first connection while a restarted container is becoming
 healthy. Adjust `-StartupTimeoutSec` and `-RetryDelaySec` when a provider has a
 slower startup profile.
 
+Before starting the stack, validate the dotenv file syntax without printing
+any values. This catches a pasted private-key/base64 line that is missing its
+variable name and reports only the line number:
+
+```powershell
+./scripts/validate-env.ps1 -EnvFile ./path/to/.env
+```
+
 ### Render Blueprint
 
 `render.yaml` provides a hosted option with one Docker API service, one Docker
