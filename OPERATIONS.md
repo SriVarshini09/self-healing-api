@@ -98,6 +98,16 @@ deduplication, and repair-target readiness. A production release should stop if
 any check fails or if the audit reports a manual-review or blocked target that
 the release owner has not explicitly accepted.
 
+For a repeatable hosted check, configure the repository Actions secrets
+`SHAPI_API_KEY`, `GITHUB_WEBHOOK_SECRET_APP`, `GITHUB_APP_ID`,
+`GITHUB_APP_SLUG`, and `GITHUB_APP_PRIVATE_KEY_B64` (plus the OIDC and alert
+secrets when those features are enabled), then run the `hosted-readiness`
+workflow from the GitHub Actions UI. Supply the public API and dashboard URLs;
+the workflow writes an ephemeral operator file on the runner, runs the same
+secret-safe preflight and hosted gate, and removes the file when the step exits.
+It can optionally require OIDC, require every repair target, and run the
+bounded capacity smoke.
+
 ## 5. Rollback and recovery
 
 - If a deployment fails readiness, keep the previous Render deploy active and
