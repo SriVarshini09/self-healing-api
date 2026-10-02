@@ -704,8 +704,7 @@ async function handlePushEvent(_payload: Record<string, unknown>) {
 async function handleWorkflowRunEvent(payload: Record<string, unknown>, integrationId: string) {
   const action = str(payload.action);
   const workflowRun = obj(payload.workflow_run);
-  if (action !== 'completed') return;
-  if (str(workflowRun.conclusion) !== 'success') return;
+  if (!['completed', 'requested', 'in_progress'].includes(action)) return;
 
   // Only PRs explicitly referenced by this workflow run, in this repository.
   // Never sweep every open SHAPI PR: an unrelated green run must not verify them.
@@ -713,7 +712,10 @@ async function handleWorkflowRunEvent(payload: Record<string, unknown>, integrat
   if (!repoFullName) return;
   const refs = Array.isArray(workflowRun.pull_requests) ? workflowRun.pull_requests : [];
 
-  const { verifyRepairPr } = await import('@shapi/github-integration');
+  const completedSuccessfully = action === 'completed' && str(workflowRun.conclusion) === 'success';
+  const { verifyRepairPr } = completedSuccessfully
+    ? await import('@shapi/github-integration')
+    : { verifyRepairPr: null };
 
   for (const ref of refs) {
     const prNumber = Number(obj(ref).number);
@@ -726,6 +728,22 @@ async function handleWorkflowRunEvent(payload: Record<string, unknown>, integrat
       },
     });
     if (!ours) continue;
+
+    // A prior green result is no longer proof when a new run is in progress
+    // or the referenced run completed unsuccessfully. Clear it explicitly so
+    // the dashboard cannot display stale verification evidence.
+    if (!completedSuccessfully || !verifyRepairPr) {
+      await prisma.gitHubPullRequest.update({
+        where: { id: ours.id },
+        data: {
+          verified: false,
+          verifiedAt: null,
+          verificationHeadSha: null,
+          verificationChecks: Prisma.DbNull,
+        },
+      });
+      continue;
+    }
 
     let result;
     try {

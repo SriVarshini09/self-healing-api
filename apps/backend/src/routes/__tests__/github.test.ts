@@ -576,6 +576,42 @@ describe('workflow_run webhook scoping', () => {
     expect(pr('pr-1').verified).toBe(false);
   });
 
+  it('clears stale verification when a referenced workflow is running', async () => {
+    db.prs[0].verified = true;
+    db.prs[0].verifiedAt = new Date();
+    db.prs[0].verificationHeadSha = 'old-head';
+    db.prs[0].verificationChecks = [{ name: 'verify', conclusion: 'success' }];
+
+    const res = await postWorkflow(workflowPayload({
+      action: 'in_progress',
+      workflow_run: { conclusion: null, head_sha: 'new-head', pull_requests: [{ number: 10 }] },
+    }));
+
+    expect(res.statusCode).toBe(200);
+    expect(verifyRepairPrMock).not.toHaveBeenCalled();
+    expect(pr('pr-1')).toMatchObject({
+      verified: false,
+      verifiedAt: null,
+      verificationHeadSha: null,
+    });
+    expect(pr('pr-1').verificationChecks).toBeDefined();
+  });
+
+  it('clears stale verification when a referenced workflow fails', async () => {
+    db.prs[0].verified = true;
+    db.prs[0].verifiedAt = new Date();
+    db.prs[0].verificationHeadSha = 'old-head';
+    db.prs[0].verificationChecks = [{ name: 'verify', conclusion: 'success' }];
+
+    const res = await postWorkflow(workflowPayload({
+      workflow_run: { conclusion: 'failure', head_sha: 'new-head', pull_requests: [{ number: 10 }] },
+    }));
+
+    expect(res.statusCode).toBe(200);
+    expect(verifyRepairPrMock).not.toHaveBeenCalled();
+    expect(pr('pr-1')).toMatchObject({ verified: false, verifiedAt: null, verificationHeadSha: null });
+  });
+
   it('ignores non-completed actions', async () => {
     const res = await postWorkflow(workflowPayload({ action: 'requested' }));
     expect(res.statusCode).toBe(200);
