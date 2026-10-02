@@ -1,6 +1,6 @@
 # SHAPI product status
 
-Updated 2026-10-01. This is a current-state checklist, not a claim that the
+Updated 2026-10-02. This is a current-state checklist, not a claim that the
 product is production-ready. See [README.md](README.md) for setup and API details.
 
 ## Verified in this repository
@@ -24,14 +24,27 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   the live readiness gate, CI, and production Docker validation:
   [CI run 36961198358](https://github.com/SriVarshini09/self-healing-api/actions/runs/36961198358),
   [Docker run 36961198357](https://github.com/SriVarshini09/self-healing-api/actions/runs/36961198357).
-- The latest production-code head `fc1ef08` passed GitHub Actions CI, including
+- The production command center now exposes GitHub repair connection status and
+  the tenant's connected integrations on the main page, including App mode,
+  repository/install counts, webhook readiness, and provider check counts. It
+  does not display secrets. The live direct-API and same-origin browser smoke
+  passed locally, and commit `af7ddb0` passed CI and production Docker checks:
+  [CI run 36962625769](https://github.com/SriVarshini09/self-healing-api/actions/runs/36962625769),
+  [Docker run 36962625753](https://github.com/SriVarshini09/self-healing-api/actions/runs/36962625753).
+- Integration creation now redacts generated webhook secrets from its response;
+  the secret remains write-only and the regression test confirms the API returns
+  only `webhookSecretConfigured`. Commit `0a70a92` passed both full CI and the
+  production Docker workflow:
+  [CI run 36962263558](https://github.com/SriVarshini09/self-healing-api/actions/runs/36962263558),
+  [Docker run 36962263552](https://github.com/SriVarshini09/self-healing-api/actions/runs/36962263552).
+- The latest production-code head `af7ddb0` passed GitHub Actions CI, including
   the business-outcome regression, production builds, unit tests, and Prisma
   validation:
-  [run 36960435032](https://github.com/SriVarshini09/self-healing-api/actions/runs/36960435032).
+  [run 36962625769](https://github.com/SriVarshini09/self-healing-api/actions/runs/36962625769).
   It also passed the production Docker workflow, including Compose validation,
   image builds, stack readiness, authenticated security/load checks, and the
   non-root backend assertion:
-  [run 36960434995](https://github.com/SriVarshini09/self-healing-api/actions/runs/36960434995).
+  [run 36962625753](https://github.com/SriVarshini09/self-healing-api/actions/runs/36962625753).
   The follow-up status-ledger commit `092eec5` passed full CI in
   [run 36960535445](https://github.com/SriVarshini09/self-healing-api/actions/runs/36960535445).
   Subsequent documentation-only commits were also verified by full CI.
@@ -396,12 +409,13 @@ claim a replay-verified fix prematurely.
 
 ### Latest verification snapshot
 
-Verified locally on 2026-10-01 against the live Docker stack rebuilt from
-`64768a3` with the current documentation at `bbbe7a2`:
+Verified locally on 2026-10-02 against the live Docker stack rebuilt from
+`af7ddb0`:
 
-- The dashboard image rebuilt from `296a7b0` passed direct-API and same-origin
+- The dashboard image rebuilt from `af7ddb0` passed direct-API and same-origin
   browser smoke, including the corrected incident headings, live telemetry,
-  repair-review counts, alert delivery, repair targets, and diagnosis modal.
+  GitHub connection status, connected integrations, repair-review counts, alert
+  delivery, repair targets, and diagnosis modal.
 - The most recent full production readiness gate passed against the same
   backend runtime: API, database, dashboard, GitHub App mode, security, 20
   authenticated requests with 0 errors, signed webhook replay, dashboard
@@ -433,8 +447,8 @@ Verified locally on 2026-10-01 against the live Docker stack rebuilt from
   `36961198357` both passed; Render Blueprint validation run
   `36954469954` also passed.
 - The latest business-outcome HTTP E2E and full CI verification passed in run
-  `36961198358`; the Docker workflow rebuilt the images and passed production
-  readiness in run `36961198357`.
+  `36962625769`; the Docker workflow rebuilt the images and passed production
+  readiness in run `36962625753`.
 - The bounded sustained-capacity profile passed with 275 authenticated
   requests over 30 seconds at concurrency 1 plus a 100 ms delay: 0.000% error
   rate, 9.2 requests/second, p50 3.7 ms, p95 5.4 ms, and maximum 33.9 ms.
