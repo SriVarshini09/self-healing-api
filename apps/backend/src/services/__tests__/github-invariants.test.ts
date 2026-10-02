@@ -33,6 +33,19 @@ describe('reviewed GitHub invariants', () => {
     }
   });
 
+  it('fails closed without throwing for incomplete pull request payloads', () => {
+    const cases = [
+      {},
+      { action: 'closed' },
+      { action: 'closed', pull_request: {} },
+      { action: 'closed', pull_request: { merged: true } },
+    ];
+
+    for (const payload of cases) {
+      expect(evaluatePredicate(GITHUB_PR_MERGED_PREDICATE, event('pull_request', payload)).passed).toBe(false);
+    }
+  });
+
   it('accepts only completed successful workflow runs', () => {
     const success = evaluatePredicate(GITHUB_WORKFLOW_SUCCESS_PREDICATE, event('workflow_run', {
       action: 'completed',
@@ -50,5 +63,13 @@ describe('reviewed GitHub invariants', () => {
     expect(success.passed).toBe(true);
     expect(failure.passed).toBe(false);
     expect(inProgress.passed).toBe(false);
+  });
+
+  it('fails closed without throwing for incomplete workflow payloads', () => {
+    const cases = [{}, { action: 'completed' }, { action: 'completed', workflow_run: {} }];
+
+    for (const payload of cases) {
+      expect(evaluatePredicate(GITHUB_WORKFLOW_SUCCESS_PREDICATE, event('workflow_run', payload)).passed).toBe(false);
+    }
   });
 });

@@ -7,7 +7,7 @@
  * reviewed.
  */
 export const GITHUB_PR_MERGED_PREDICATE =
-  "event.type === 'pull_request' && event.payload.action === 'closed' && event.payload.pull_request.merged === true && event.payload.pull_request.base.ref === 'main'";
+  "event.type === 'pull_request' && event.payload?.action === 'closed' && event.payload?.pull_request?.merged === true && event.payload?.pull_request?.base?.ref === 'main'";
 
 export const GITHUB_WORKFLOW_SUCCESS_PREDICATE =
-  "event.type === 'workflow_run' && event.payload.action === 'completed' && event.payload.workflow_run.conclusion === 'success'";
+  "event.type === 'workflow_run' && event.payload?.action === 'completed' && event.payload?.workflow_run?.conclusion === 'success'";
