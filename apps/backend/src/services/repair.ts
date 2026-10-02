@@ -1,8 +1,5 @@
 import type { Incident, Integration, Invariant, Prisma } from '@prisma/client';
-import {
-  optionalChainPayloadAccess,
-  reviewedBusinessOutcomeAdapter,
-} from '@shapi/repair-generation';
+import * as repairGeneration from '@shapi/repair-generation';
 import type { DiagnosisResult } from './diagnosis.js';
 
 export interface RepairCandidate {
@@ -64,7 +61,7 @@ export function repairCandidateReadiness(
   }
 
   const adapter = candidate.repository && candidate.files
-    ? candidate.files.map(filePath => reviewedBusinessOutcomeAdapter(candidate.repository, filePath)).find(Boolean) ?? null
+    ? candidate.files.map(filePath => repairGeneration.reviewedBusinessOutcomeAdapter(candidate.repository, filePath)).find(Boolean) ?? null
     : null;
   if (adapter && !requiredChecks.includes(adapter.requiredCheck)) {
     return {
@@ -124,7 +121,7 @@ export async function generateRepairCandidates(
 }
 
 function generateReviewedBusinessOutcomeFix(invariant: Invariant): RepairCandidate | null {
-  const adapter = reviewedBusinessOutcomeAdapter(invariant.repairRepository, invariant.repairFilePath);
+  const adapter = repairGeneration.reviewedBusinessOutcomeAdapter(invariant.repairRepository, invariant.repairFilePath);
   if (!adapter?.repair) {
     return null;
   }
@@ -148,7 +145,7 @@ function generatePredicateFix(
   const mappedPath = invariant.repairRepository && invariant.repairFilePath
     ? invariant.repairFilePath : null;
 
-  const modified = optionalChainPayloadAccess(predicate);
+  const modified = repairGeneration.optionalChainPayloadAccess(predicate);
   if (modified !== predicate) {
     return {
       type: 'CODE_CHANGE',

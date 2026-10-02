@@ -9,9 +9,9 @@ import { registerPlugins } from '../src/plugins/index.js';
 import { registerRoutes } from '../src/routes/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const BACKEND_PORT = 3001;
-const DEMO_PORT = 3000;
-const DASHBOARD_PORT = 5173;
+const BACKEND_PORT = Number(process.env.STACK_CHECK_BACKEND_PORT ?? 3001);
+const DEMO_PORT = Number(process.env.STACK_CHECK_DEMO_PORT ?? 3000);
+const DASHBOARD_PORT = Number(process.env.STACK_CHECK_DASHBOARD_PORT ?? 5173);
 
 async function waitFor(url: string, timeoutMs = 30000): Promise<void> {
   const start = Date.now();

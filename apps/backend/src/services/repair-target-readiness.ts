@@ -1,4 +1,4 @@
-import { reviewedBusinessOutcomeAdapter } from '@shapi/repair-generation';
+import * as repairGeneration from '@shapi/repair-generation';
 
 export type RepairTargetReadinessState =
   | 'MANUAL_REVIEW'
@@ -23,7 +23,7 @@ type RepairTargetInvariant = {
 export function repairTargetReadiness(invariant: RepairTargetInvariant): RepairTargetReadiness {
   const requiredChecks = [...new Set(invariant.repairRequiredChecks.map(check => check.trim()).filter(Boolean))];
   const mapped = Boolean(invariant.repairRepository && invariant.repairFilePath);
-  const adapter = reviewedBusinessOutcomeAdapter(invariant.repairRepository, invariant.repairFilePath);
+  const adapter = repairGeneration.reviewedBusinessOutcomeAdapter(invariant.repairRepository, invariant.repairFilePath);
 
   if (!mapped) {
     return {

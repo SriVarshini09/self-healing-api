@@ -4,10 +4,7 @@ import { GitHubPRStatus, InvariantStatus, Prisma } from '@prisma/client';
 import {
   validatePredicate as sandboxValidate,
 } from '@shapi/invariant-engine';
-import {
-  reviewedBusinessOutcomeAdapter,
-  validateRepairChanges,
-} from '@shapi/repair-generation';
+import * as repairGeneration from '@shapi/repair-generation';
 import { evaluateInvariantWindow } from '../services/invariants.js';
 import { tenantIdFor } from '../utils/auth-context.js';
 import { config } from '../config.js';
@@ -300,7 +297,7 @@ export function repairTargetError(repository: unknown, filePath: unknown): strin
   }
   if (filePath.length > 400) return 'repairFilePath is too long';
   try {
-    validateRepairChanges([{ kind: 'create', path: filePath, content: '' }]);
+    repairGeneration.validateRepairChanges([{ kind: 'create', path: filePath, content: '' }]);
   } catch (error) {
     return error instanceof Error ? error.message : 'invalid repairFilePath';
   }
@@ -329,7 +326,7 @@ export function reviewedBusinessOutcomeTargetError(
   filePath: string | null | undefined,
   requiredChecks: readonly string[],
 ): string | null {
-  const adapter = reviewedBusinessOutcomeAdapter(repository, filePath);
+  const adapter = repairGeneration.reviewedBusinessOutcomeAdapter(repository, filePath);
   if (adapter && !requiredChecks.includes(adapter.requiredCheck)) {
     return `the reviewed ${adapter.repository}/${adapter.targetPath} adapter requires the exact ${adapter.requiredCheck} check`;
   }
