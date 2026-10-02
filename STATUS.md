@@ -212,6 +212,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - The invariant mapping API now enforces that same `business-outcome` check for
   the reviewed provisioning adapter, so dashboard edits cannot accidentally
   downgrade it to generic-CI-only verification.
+- The rebuilt local Docker API rejected a live attempt to downgrade that adapter
+  to `verify`-only with HTTP 400 and preserved the stored `verify` plus
+  `business-outcome` checks.
 - A read-only repair-readiness audit now reports every tenant invariant as
   manual review, blocked for missing required checks, or ready for target
   review. It supports human-readable and JSON output plus a fail-on-unready
@@ -304,7 +307,7 @@ claim a replay-verified fix prematurely.
 ### Latest verification snapshot
 
 Verified locally on 2026-10-01 against the live Docker stack at commit
-`148d80b`:
+`93785c0`:
 
 - Production readiness passed: API, database, dashboard, GitHub App mode,
   security, and 100 authenticated requests with 0 errors.
@@ -317,10 +320,10 @@ Verified locally on 2026-10-01 against the live Docker stack at commit
   correctly produces HTTP 429 responses instead of service errors.
 - Repair readiness audit reported 4/6 ready for target review, 2 explicit
   `MANUAL_REVIEW` GitHub invariants, and 0 blocked for missing checks.
-- Workspace tests passed: 11 projects, 15 backend test files, and 86 backend
+- Workspace tests passed: 11 projects, 15 backend test files, and 87 backend
   tests; the repair-generation package suite includes 21 tests.
-- GitHub Actions CI run `36949446108` and Docker production run
-  `36949446109` both passed.
+- GitHub Actions CI run `36950087304` and Docker production run
+  `36950087232` both passed.
 
 ```sh
 pnpm typecheck
