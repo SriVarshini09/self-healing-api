@@ -398,6 +398,10 @@ Verified locally on 2026-10-01 against the live Docker stack rebuilt from
   duplicate acknowledgment.
 - Repair readiness audit reported 4/6 ready for target review, 2 explicit
   `MANUAL_REVIEW` GitHub invariants, and 0 blocked for missing checks.
+- The guarded backup/restore drill passed against the live Docker PostgreSQL
+  instance: it created a temporary database, restored the SQL backup, matched
+  the key table row counts to the live database, and removed the temporary
+  database and backup artifacts.
 - Workspace tests passed: 17 backend test files and 92 backend tests; the
   repair-generation package suite includes the structured business-outcome
   proof and real demo adapter proof.
