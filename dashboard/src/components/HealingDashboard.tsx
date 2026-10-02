@@ -717,7 +717,6 @@ export function HealingDashboard() {
       incident => incident.status !== 'RESOLVED' && incident.status !== 'DISMISSED'
     ) ?? [];
   const activeIncidentCount = activeIncidents.length;
-  const healingActionCount = activeIncidents.length;
   const activeRepairCandidates = activeIncidents.flatMap(incident => incident.repairCandidates ?? []);
   const prReadyCandidateCount = activeRepairCandidates.filter(
     candidate =>
@@ -826,9 +825,9 @@ export function HealingDashboard() {
           </a>
           <a className="nav-item" href="#healing">
             <GitBranch />
-            Healing activity
+            Incident activity
             <span className="ml-auto rounded bg-warning/15 px-1.5 text-[10px] text-warning">
-              {healingActionCount}
+              {activeIncidentCount}
             </span>
           </a>
           <a className="nav-item" href="#repair-targets">
@@ -1098,10 +1097,10 @@ export function HealingDashboard() {
           <section id="healing" className="mt-4 grid gap-4 xl:grid-cols-[1fr_1fr]">
             <div className="rounded-md border border-border bg-card">
               <div className="border-b border-border px-4 py-3">
-                <h2 className="text-sm font-semibold">Healing activity</h2>
+                <h2 className="text-sm font-semibold">Incident activity</h2>
                 <p className="text-[11px] text-muted-foreground">
                   {liveSnapshot
-                    ? 'Live incident activity from SHAPI'
+                    ? 'Live incident states from SHAPI'
                     : 'Waiting for SHAPI telemetry'}
                 </p>
               </div>
@@ -1124,8 +1123,8 @@ export function HealingDashboard() {
                     <Check className="size-4 text-success" />
                     <p>
                       {liveSnapshot
-                        ? 'No live healing actions'
-                        : 'Connecting to live healing activity…'}
+                        ? 'No active incidents'
+                        : 'Connecting to live incident activity…'}
                     </p>
                   </div>
                 )}
@@ -1217,7 +1216,7 @@ export function HealingDashboard() {
             className="mt-4 overflow-hidden rounded-md border border-border bg-card"
           >
             <div className="border-b border-border px-4 py-3">
-              <h2 className="text-sm font-semibold">Recent interventions</h2>
+              <h2 className="text-sm font-semibold">Recent incidents</h2>
               <p className="text-[11px] text-muted-foreground">
                 {liveSnapshot ? 'Live incidents from SHAPI' : 'Waiting for live SHAPI data'}
               </p>
@@ -1226,49 +1225,43 @@ export function HealingDashboard() {
               <table className="w-full min-w-[700px] text-left text-xs">
                 <thead className="bg-secondary/40 font-mono text-[10px] uppercase text-muted-foreground">
                   <tr>
-                    <th className="px-4 py-3 font-medium">Service</th>
+                    <th className="px-4 py-3 font-medium">Integration</th>
                     <th className="px-4 py-3 font-medium">Detection</th>
-                    <th className="px-4 py-3 font-medium">Region</th>
-                    <th className="px-4 py-3 font-medium">Action</th>
+                    <th className="px-4 py-3 font-medium">Severity</th>
                     <th className="px-4 py-3 font-medium">State</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {(activeIncidents.length
                     ? activeIncidents.map(item => ({
-                        service: item.integrationId,
+                        integration: item.integrationId,
                         issue: item.title,
-                        region: 'SHAPI',
-                        action: item.severity,
-                        time: item.detectedAt,
+                        severity: item.severity,
                         state: item.status,
                       }))
                     : [
                         {
-                          service: liveSnapshot ? 'SHAPI' : '—',
+                          integration: liveSnapshot ? 'SHAPI' : '—',
                           issue: liveSnapshot
                             ? 'No active incidents'
                             : apiError
                               ? 'Live incident data unavailable'
                               : 'Waiting for live SHAPI data',
-                          region: '—',
-                          action: liveSnapshot ? 'Monitoring' : '—',
-                          time: '',
+                          severity: liveSnapshot ? '—' : '—',
                           state: liveSnapshot ? 'HEALTHY' : 'WAITING',
                         },
                       ]
                   ).map(item => (
-                    <tr key={`${item.service}-${item.issue}`}>
-                      <td className="px-4 py-3 font-mono">{item.service}</td>
+                    <tr key={`${item.integration}-${item.issue}`}>
+                      <td className="px-4 py-3 font-mono">{item.integration}</td>
                       <td className="px-4 py-3 text-muted-foreground">{item.issue}</td>
-                      <td className="px-4 py-3 font-mono text-muted-foreground">{item.region}</td>
-                      <td className="px-4 py-3">{item.action}</td>
+                      <td className="px-4 py-3">{item.severity}</td>
                       <td className="px-4 py-3">
                         <span
                           className={
-                            item.state === 'Healing' || item.state === 'REPLAYING'
-                              ? 'status-healing'
-                              : 'status-resolved'
+                            item.state === 'HEALTHY' || item.state === 'RESOLVED' || item.state === 'DISMISSED'
+                              ? 'status-resolved'
+                              : 'status-healing'
                           }
                         >
                           {item.state}
@@ -1300,7 +1293,7 @@ export function HealingDashboard() {
                 autoFocus
                 value={query}
                 onChange={event => setQuery(event.target.value)}
-                placeholder="Search services, signals, regions..."
+                placeholder="Search services and signals..."
                 className="h-12 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               />
               <Button
