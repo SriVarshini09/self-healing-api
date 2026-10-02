@@ -8,6 +8,7 @@ on:
       - docker/**
       - apps/backend/**
       - apps/backend/prisma/**
+      - apps/dashboard/**
       - dashboard/**
       - packages/**
       - scripts/**
@@ -23,6 +24,7 @@ on:
       - docker/**
       - apps/backend/**
       - apps/backend/prisma/**
+      - apps/dashboard/**
       - dashboard/**
       - packages/**
       - scripts/**
