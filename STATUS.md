@@ -303,6 +303,8 @@ Verified locally on 2026-10-01 against the live Docker stack at commit
   security, and 100 authenticated requests with 0 errors.
 - Production dashboard smoke passed for the direct API, same-origin proxy,
   command center, live telemetry, repair targets, and diagnosis modal.
+- The guarded backup/restore drill passed, including restore into an isolated
+  database and representative row-count verification.
 - Repair readiness audit reported 4/6 ready for target review, 2 explicit
   `MANUAL_REVIEW` GitHub invariants, and 0 blocked for missing checks.
 - Workspace tests passed: 11 projects, 15 backend test files, and 85 backend
