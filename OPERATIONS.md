@@ -80,6 +80,17 @@ readiness credentials, including `SHAPI_API_KEY` and
   -RequireRepairTargets
 ```
 
+Before the public gate, validate the operator file without printing any secret
+values:
+
+```powershell
+./scripts/validate-hosted-env.ps1 -EnvFile ./hosted-operator.env -RequireGitHubApp
+```
+
+Add `-RequireOidc` when the dashboard is configured for OIDC-only login. The
+preflight rejects placeholder values, partial OIDC configuration, multiple
+GitHub private-key sources, and mismatched alert-webhook configuration.
+
 The gate refuses localhost and non-HTTPS URLs. It checks API/database
 readiness, security headers and unauthenticated rejection, authenticated load,
 GitHub App mode, the live dashboard, signed webhook delivery plus replay

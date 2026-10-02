@@ -5,6 +5,12 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Verified in this repository
 
+- Hosted readiness now has a secret-safe preflight that validates the external
+  operator env file before any public request: it rejects placeholders, partial
+  OIDC configuration, multiple GitHub private-key sources, invalid OIDC callback
+  URLs, and mismatched alert-webhook settings without printing secret values.
+  The local GitHub-App environment passed the preflight; the intentional OIDC
+  negative check failed closed on the missing provider configuration.
 - Production image builds now retry the pinned pnpm bootstrap up to five times
   in both backend and dashboard Dockerfiles, so a transient package-registry
   socket reset does not fail an otherwise valid release build. Commit `e82d385`

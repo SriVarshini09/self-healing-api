@@ -18,7 +18,8 @@ param(
   [switch]$IncludeGitHubWebhookSmoke = $true,
   # Retained for command-line compatibility; the audit is now always included.
   [switch]$IncludeRepairAudit,
-  [switch]$RequireRepairTargets
+  [switch]$RequireRepairTargets,
+  [switch]$RequireOidc
 )
 
 $ErrorActionPreference = 'Stop'
@@ -36,6 +37,12 @@ function Assert-PublicHttpsUrl([string]$Name, [string]$Value) {
 if (-not (Test-Path -LiteralPath $EnvFile)) { throw "Environment file not found: $EnvFile" }
 Assert-PublicHttpsUrl 'ApiUrl' $ApiUrl
 Assert-PublicHttpsUrl 'DashboardUrl' $DashboardUrl
+
+$envValidationParams = @{ EnvFile = $EnvFile }
+if ($RequireGitHubApp) { $envValidationParams.RequireGitHubApp = $true }
+if ($RequireOidc) { $envValidationParams.RequireOidc = $true }
+& "$PSScriptRoot\validate-hosted-env.ps1" @envValidationParams
+if ($LASTEXITCODE -ne 0) { throw "Hosted environment preflight failed with exit code $LASTEXITCODE" }
 
 $readinessScript = Join-Path $PSScriptRoot 'production-readiness.ps1'
 $readinessParams = @{
