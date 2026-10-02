@@ -102,6 +102,12 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   live readiness gate, full CI, and Docker validation:
   [CI run 36968884407](https://github.com/SriVarshini09/self-healing-api/actions/runs/36968884407),
   [Docker run 36968884448](https://github.com/SriVarshini09/self-healing-api/actions/runs/36968884448).
+- Docker production CI now verifies the signed GitHub webhook path and replay
+  deduplication inside the backend container, then runs the authenticated
+  repair-readiness audit. The webhook smoke uses Node byte-exact UTF-8
+  requests so the signature check is deterministic across CI and local Docker
+  environments. The local Docker gate passed with 4/6 targets ready, 2 GitHub
+  invariants in explicit manual review, and 0 blocked targets.
 - CI now runs the same complete workspace build and test coverage instead of
   a hand-picked package list. The workflow change passed all workspace
   builds, tests, typechecks, backend lint, production dashboard build, Prisma
