@@ -1166,12 +1166,13 @@ export function HealingDashboard() {
                     {alertStatus ? `${alertStatus.failed} failed` : '—'}
                   </span>
                 </div>
-                <div className="mt-3 grid grid-cols-4 divide-x divide-border text-center">
+                <div className="mt-3 grid grid-cols-5 divide-x divide-border text-center">
                   {[
                     ['Pending', alertStatus?.pending],
                     ['Processing', alertStatus?.processing],
                     ['Retrying', alertStatus?.retrying],
                     ['Failed', alertStatus?.failed],
+                    ['Delivered', alertStatus?.delivered],
                   ].map(([label, value]) => (
                     <div key={label}>
                       <p className="font-mono text-sm font-semibold">{value ?? '—'}</p>

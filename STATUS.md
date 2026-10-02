@@ -216,9 +216,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   command search, and intervention rows from active incidents only; resolved
   and dismissed history no longer appears as live healing work.
 - The production command center now reads the tenant-scoped alert outbox and
-  shows pending, processing, retrying, and failed delivery counts from the
-  real `/alerts/status` endpoint; alert-status failure does not hide the core
-  incident view. Dashboard smoke now checks the alert-delivery panel.
+  shows pending, processing, retrying, delivered, and failed delivery counts
+  from the real `/alerts/status` endpoint; alert-status failure does not hide
+  the core incident view. Dashboard smoke now checks the alert-delivery panel,
+  and security smoke validates the full response shape.
 - A guarded demo mapping command now validates exact source preconditions and
   required checks before configuring the reviewed Stripe predicate targets. It
   can now also configure the exact demo provisioning adapter target, requiring

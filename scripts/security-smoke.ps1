@@ -40,7 +40,7 @@ Assert-Status 'Unauthenticated metrics rejected' "$base/metrics" 404 | Out-Null
 
 $status = Assert-Status 'Authenticated alert status' "$base/api/v1/alerts/status" 200 @{ 'x-api-key' = $apiKey }
 $payload = $status.Content | ConvertFrom-Json
-foreach ($field in @('webhookConfigured', 'pending', 'retrying', 'delivered', 'failed')) {
+foreach ($field in @('webhookConfigured', 'pending', 'processing', 'retrying', 'delivered', 'failed')) {
   if ($null -eq $payload.$field) { throw "FAIL alert status: missing '$field'" }
 }
 Write-Host 'PASS alert status shape (no secret fields returned)'
