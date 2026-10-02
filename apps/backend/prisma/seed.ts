@@ -1,4 +1,8 @@
 import { PrismaClient, IntegrationType, InvariantStatus, TenantRole } from '@prisma/client';
+import {
+  GITHUB_PR_MERGED_PREDICATE,
+  GITHUB_WORKFLOW_SUCCESS_PREDICATE,
+} from '../src/services/github-invariants.js';
 
 const prisma = new PrismaClient();
 
@@ -126,7 +130,7 @@ async function main() {
       integrationId: githubIntegration.id,
       name: 'PR Merged Invariant',
       description: 'Pull request merged events should have merged = true and base branch = main',
-      predicateExpression: "event.type === 'pull_request' && event.payload.action === 'closed' && event.payload.pull_request.merged === true && event.payload.pull_request.base.ref === 'main'",
+      predicateExpression: GITHUB_PR_MERGED_PREDICATE,
       predicateDescription: 'Merged PRs should be closed with merged=true targeting main',
       predicateExample: "event.type === 'pull_request' && event.payload.action === 'closed' && event.payload.pull_request.merged === true",
       evaluationWindowSec: 300,
@@ -139,7 +143,7 @@ async function main() {
       integrationId: githubIntegration.id,
       name: 'Workflow Success Invariant',
       description: 'Workflow run completed events should have conclusion = success',
-      predicateExpression: "event.type === 'workflow_run' && event.payload.action === 'completed' && event.payload.workflow_run.conclusion === 'success'",
+      predicateExpression: GITHUB_WORKFLOW_SUCCESS_PREDICATE,
       predicateDescription: 'CI/CD workflows should complete successfully',
       predicateExample: "event.type === 'workflow_run' && event.payload.workflow_run.conclusion === 'success'",
       evaluationWindowSec: 600,
