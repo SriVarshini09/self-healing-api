@@ -66,6 +66,13 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   The demo HTTP E2E also passed its intended failure-to-recovery flow: a
   business failure returned HTTP 200 without provisioning, followed by a
   recovered webhook that provisioned successfully.
+- Predicate repair generation now makes every nested payload segment
+  null-safe, including partially chained expressions such as
+  `payload?.data.object`. The shared helper is used by both the repair package
+  and backend candidate generation, with regression coverage for nested
+  mappings. Commit `471359f` passed full CI and the production Docker workflow:
+  [CI run 36966846545](https://github.com/SriVarshini09/self-healing-api/actions/runs/36966846545),
+  [Docker run 36966846533](https://github.com/SriVarshini09/self-healing-api/actions/runs/36966846533).
 - CI now runs the same complete workspace build and test coverage instead of
   a hand-picked package list. The workflow change passed all workspace
   builds, tests, typechecks, backend lint, production dashboard build, Prisma
@@ -494,6 +501,12 @@ Verified locally on 2026-10-02 against the live Docker stack rebuilt from
   typechecks, tests, and builds passed. The demo HTTP E2E passed the
   failure-to-recovery business-outcome flow, including HTTP 200 on the failed
   webhook and successful provisioning after recovery.
+- After rebuilding the live Docker stack from `471359f`, production readiness
+  passed again: API/database/dashboard health, security smoke, 100/100
+  authenticated requests, dashboard browser smoke, signed GitHub webhook
+  replay deduplication, and repair-readiness audit all passed. The audit
+  remained 4/6 ready, with 2 explicit GitHub `MANUAL_REVIEW` invariants and
+  0 blocked targets.
 - The GitHub CI workflow now executes the same all-workspace build and test
   coverage; the follow-up documentation commit passed in [CI run 36966010061](https://github.com/SriVarshini09/self-healing-api/actions/runs/36966010061).
 - GitHub Actions CI run `36961198358` and Docker production run
