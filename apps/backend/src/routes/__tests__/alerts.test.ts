@@ -53,11 +53,12 @@ describe('alert status tenant isolation', () => {
     expect(response.json()).toEqual({
       webhookConfigured: true,
       pending: 1,
+      processing: 1,
       retrying: 1,
       delivered: 1,
       failed: 1,
     });
-    expect(fake.whereClauses).toHaveLength(4);
+    expect(fake.whereClauses).toHaveLength(5);
     for (const where of fake.whereClauses) {
       expect(where).toMatchObject({
         incident: { integration: { tenantId: 'tenant-42' } },

@@ -184,7 +184,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   the same incident, candidate, repository, branch, and commit.
 - Incident alerts now use a durable, retryable webhook outbox with HMAC-SHA256
   signatures, bounded backoff, tenant-scoped status reporting, and fail-closed
-  production configuration when a URL is supplied without a secret.
+  production configuration when a URL is supplied without a secret. A stale
+  `PROCESSING` delivery is reclaimed after a five-minute lease, requeued while
+  attempts remain, or marked failed at the configured attempt limit; the status
+  endpoint now exposes the processing count.
 - Business-outcome verification now exposes a reusable, fail-closed target
   contract (`proveBusinessOutcomeRepair`) that requires an explicit source
   loader, isolated state factory, event runner, and failure/recovery predicates;

@@ -8,12 +8,13 @@ export async function alertRoutes(app: FastifyInstance) {
   app.get('/alerts/status', async request => {
     const tenantId = tenantIdFor(request);
     const where = { incident: { integration: { tenantId } } };
-    const [pending, retrying, delivered, failed] = await Promise.all([
+    const [pending, processing, retrying, delivered, failed] = await Promise.all([
       prisma.alertDelivery.count({ where: { ...where, status: AlertDeliveryStatus.PENDING } }),
+      prisma.alertDelivery.count({ where: { ...where, status: AlertDeliveryStatus.PROCESSING } }),
       prisma.alertDelivery.count({ where: { ...where, status: AlertDeliveryStatus.RETRYING } }),
       prisma.alertDelivery.count({ where: { ...where, status: AlertDeliveryStatus.DELIVERED } }),
       prisma.alertDelivery.count({ where: { ...where, status: AlertDeliveryStatus.FAILED } }),
     ]);
-    return { webhookConfigured: Boolean(config.ALERT_WEBHOOK_URL), pending, retrying, delivered, failed };
+    return { webhookConfigured: Boolean(config.ALERT_WEBHOOK_URL), pending, processing, retrying, delivered, failed };
   });
 }

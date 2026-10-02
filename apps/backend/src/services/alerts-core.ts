@@ -1,5 +1,7 @@
 import { createHmac } from 'node:crypto';
 
+export const DEFAULT_ALERT_PROCESSING_LEASE_MS = 5 * 60 * 1000;
+
 export type IncidentAlertInput = {
   id: string;
   title: string;
@@ -35,4 +37,11 @@ export function signAlertBody(body: string, secret: string): string {
 export function nextAlertAttempt(attempt: number, now = new Date()): Date {
   const delayMs = Math.min(5 * 60 * 1000, 1000 * 2 ** Math.max(0, attempt - 1));
   return new Date(now.getTime() + delayMs);
+}
+
+export function alertProcessingCutoff(
+  now = new Date(),
+  leaseMs = DEFAULT_ALERT_PROCESSING_LEASE_MS,
+): Date {
+  return new Date(now.getTime() - leaseMs);
 }

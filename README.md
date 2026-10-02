@@ -512,10 +512,13 @@ mistake a suggestion-only diff for an automatable repair.
   `ALERT_WEBHOOK_SECRET`. New drift incidents enter a durable outbox; the
   scheduler sends signed `incident.detected` JSON with HMAC-SHA256 in
   `x-shapi-alert-signature`, retries transient failures with bounded backoff,
-  and reports pending/retry/delivered/failed counts through `/alerts/status`.
-  Leave the URL empty to disable delivery. Production rejects a URL without
-  its signing secret, and receivers must verify the signature against the
-  exact request body.
+  and reports pending/processing/retry/delivered/failed counts through
+  `/alerts/status`. A delivery claimed as `PROCESSING` is leased for five
+  minutes; if a process crashes, the scheduler requeues it (or marks it failed
+  after the attempt limit), so rows cannot remain stuck forever. Leave the URL
+  empty to disable delivery. Production rejects a URL without its signing
+  secret, and receivers must verify the signature against the exact request
+  body.
 - Unit tests, typechecks, backend lint, and the dashboard production build are
   run in CI/local verification. Live Postgres E2E requires Docker or a configured
   external database and is intentionally not claimed by the repository docs.

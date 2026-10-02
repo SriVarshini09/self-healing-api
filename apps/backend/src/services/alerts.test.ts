@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildIncidentAlertPayload, nextAlertAttempt, signAlertBody } from './alerts-core.js';
+import { alertProcessingCutoff, buildIncidentAlertPayload, nextAlertAttempt, signAlertBody } from './alerts-core.js';
 
 describe('incident alert delivery helpers', () => {
   it('signs the exact JSON body with an HMAC header value', () => {
@@ -30,5 +30,11 @@ describe('incident alert delivery helpers', () => {
     expect(nextAlertAttempt(1, now).toISOString()).toBe('2026-10-01T00:00:01.000Z');
     expect(nextAlertAttempt(3, now).toISOString()).toBe('2026-10-01T00:00:04.000Z');
     expect(nextAlertAttempt(20, now).toISOString()).toBe('2026-10-01T00:05:00.000Z');
+  });
+
+  it('uses a bounded lease cutoff for crashed in-progress deliveries', () => {
+    const now = new Date('2026-10-01T00:05:00.000Z');
+    expect(alertProcessingCutoff(now).toISOString()).toBe('2026-10-01T00:00:00.000Z');
+    expect(alertProcessingCutoff(now, 30_000).toISOString()).toBe('2026-10-01T00:04:30.000Z');
   });
 });
