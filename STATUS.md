@@ -637,7 +637,7 @@ repeatable. Do not claim a replay-verified fix prematurely.
 ### Latest verification snapshot
 
 Verified locally on 2026-10-02 against the live Docker stack rebuilt from the
-current working tree after `7076c65`:
+current working tree after `340448c` (documentation synchronized by `4438da7`):
 
 - The dashboard image rebuilt from `d1127e0` passed direct-API and same-origin
   browser smoke, including the corrected incident headings, live telemetry,
@@ -671,7 +671,7 @@ current working tree after `7076c65`:
   instance: it created a temporary database, restored the SQL backup, matched
   the key table row counts to the live database, and removed the temporary
   database and backup artifacts.
-- Workspace tests passed: 21 backend test files and 112 backend tests; the
+- Workspace tests passed: 21 backend test files and 120 backend tests; the
   repair-generation package suite includes the structured business-outcome
   proof and real demo adapter proof.
 - The full workspace verification passed locally on 2026-10-02: all workspace
