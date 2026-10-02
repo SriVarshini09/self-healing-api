@@ -7,11 +7,16 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 - The local production Docker stack runs PostgreSQL, the backend, and the
   dashboard. On 2026-10-01, the backend and dashboard were rebuilt from the
-  dashboard fidelity change at `296a7b0`; `/health`, `/ready`, the dashboard,
+  latest dashboard cleanup at `fc1ef08`; `/health`, `/ready`, the dashboard,
   and the authenticated
   `/api/v1/alerts/status` endpoint returned 200. The live alert status response
   included pending, processing, retrying, delivered, and failed counts, and the
   dashboard smoke verified all five labels in the live alert-delivery panel.
+- The latest dashboard cleanup removes the unused synthetic Globe.gl component
+  and its dependencies. The navigation and social metadata now describe live
+  incident signals, repair review, and SHAPI outcome verification instead of
+  implying geographic traffic telemetry. Dashboard typecheck, production build,
+  Docker rebuild, and live browser smoke passed locally from `fc1ef08`.
 - The latest application change `296a7b0` passed GitHub Actions CI, including the
   business-outcome regression, production builds, unit tests, and Prisma
   validation:
