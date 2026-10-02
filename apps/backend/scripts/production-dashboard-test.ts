@@ -195,6 +195,58 @@ async function runOidcAccessSmoke() {
   }
 }
 
+async function runOidcSessionSmoke() {
+  const context = await browser.newContext();
+  const oidcDashboardUrl = /^http:\/\/(localhost|127\.0\.0\.1)(?::\d+)?$/u.test(dashboardUrl)
+    ? dashboardUrl.replace(/(localhost|127\.0\.0\.1)/u, 'dashboard.localtest.me')
+    : dashboardUrl;
+  let signOutCalled = false;
+  await context.route('**/config.js', route => route.fulfill({
+    contentType: 'application/javascript',
+    body: 'window.__SHAPI_CONFIG__ = { apiUrl: "/api/v1", apiKey: "" };',
+  }));
+  await context.route('**/api/v1/**', route => {
+    const requestUrl = new URL(route.request().url());
+    const path = requestUrl.pathname;
+    const fulfillJson = (body: unknown, status = 200) => route.fulfill({
+      status,
+      contentType: 'application/json',
+      body: JSON.stringify(body),
+    });
+    if (path.endsWith('/auth/me')) {
+      return fulfillJson({ user: { id: 'oidc-user', name: 'OIDC Smoke User', tenantId: 'tenant', role: 'OWNER' } });
+    }
+    if (path.endsWith('/auth/logout') && route.request().method() === 'POST') {
+      signOutCalled = true;
+      return route.fulfill({ status: 204 });
+    }
+    if (path.endsWith('/drift/summary')) {
+      return fulfillJson({ totalInvariants: 0, monitoredIntegrations: 0, activeAlerts: 0 });
+    }
+    if (path.endsWith('/incidents')) return fulfillJson({ data: [] });
+    if (path.endsWith('/alerts/status')) {
+      return fulfillJson({ webhookConfigured: false, pending: 0, processing: 0, retrying: 0, delivered: 0, failed: 0 });
+    }
+    if (path.endsWith('/github/status')) {
+      return fulfillJson({ mode: 'unconfigured', message: 'OIDC smoke', appCredentialsConfigured: false, tokenConfigured: false, webhookConfigured: false, realInstallations: 0, installationCount: 0, repositoryCount: 0, appInstallUrl: null });
+    }
+    if (path.endsWith('/integrations')) return fulfillJson({ data: [] });
+    if (path.endsWith('/invariants')) return fulfillJson({ data: [] });
+    if (path.endsWith('/github/installations')) return fulfillJson([]);
+    return fulfillJson({ data: [] });
+  });
+  try {
+    const page = await context.newPage();
+    await page.goto(`${oidcDashboardUrl}/`, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: 'Sign out', exact: true }).waitFor({ timeout: 15000 });
+    await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+    await page.waitForTimeout(250);
+    if (!signOutCalled) throw new Error('OIDC session smoke did not call the logout endpoint');
+  } finally {
+    await context.close();
+  }
+}
+
 try {
   await runDashboardSmoke({
     label: 'direct API',
@@ -209,7 +261,8 @@ try {
     requireSameOrigin: true,
   });
   await runOidcAccessSmoke();
-  console.log('Production dashboard smoke passed: direct API, same-origin proxy, live telemetry, OIDC access gate, connection panel, integration list, repair review queue, alert delivery, repair targets, and diagnosis modal.');
+  await runOidcSessionSmoke();
+  console.log('Production dashboard smoke passed: direct API, same-origin proxy, live telemetry, OIDC access gate, OIDC session sign-out, connection panel, integration list, repair review queue, alert delivery, repair targets, and diagnosis modal.');
 } finally {
   await browser.close();
 }

@@ -651,6 +651,14 @@ function HealingDashboardContent() {
   const [alertStatus, setAlertStatus] = useState<AlertStatus | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
 
+  const signOut = async () => {
+    try {
+      await fetch(`${SHAPI_API}/auth/logout`, { method: 'POST', credentials: 'include' });
+    } finally {
+      window.location.reload();
+    }
+  };
+
   const openDiagnosis = () => {
     const selected = liveSnapshot?.incidents.find(
       item => item.status !== 'RESOLVED' && item.status !== 'DISMISSED'
@@ -1179,6 +1187,11 @@ function HealingDashboardContent() {
             >
               <Bell className="size-4" />
             </Button>
+            {!SHAPI_KEY && (
+              <Button variant="outline" size="sm" onClick={() => void signOut()}>
+                Sign out
+              </Button>
+            )}
           </div>
         </header>
         <section id="overview" className="mx-auto max-w-[1600px] px-4 pb-12 pt-5 md:px-5">
