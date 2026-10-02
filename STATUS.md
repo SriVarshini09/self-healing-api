@@ -3,6 +3,30 @@
 Updated 2026-10-02. This is a current-state checklist, not a claim that the
 product is production-ready. See [README.md](README.md) for setup and API details.
 
+## Current hosted state (2026-10-02)
+
+- The Render Blueprint has now been applied in the intended workspace. The
+  hosted API is live at `https://shapi-api.onrender.com` and the hosted
+  dashboard is live at `https://shapi-dashboard.onrender.com`; both public
+  services pass the health, readiness, HTTPS, security-header, same-origin
+  proxy, and unauthenticated-rejection checks.
+- The secret-free hosted infrastructure workflow passed on commit `61d8b10`
+  in [run 37056500056](https://github.com/SriVarshini09/self-healing-api/actions/runs/37056500056).
+  The exact commit also passed the complete Docker production workflow in
+  [run 37056715418](https://github.com/SriVarshini09/self-healing-api/actions/runs/37056715418),
+  including authenticated security/load behavior, backup/restore, dashboard
+  browser behavior, signed webhook replay protection, and repair-readiness.
+- The hosted dashboard is intentionally still at its authentication gate:
+  Render currently serves an empty runtime API-key configuration and the API
+  reports OIDC disabled. This is a safe fail-closed state, not a dashboard
+  rendering failure. Hosted tenant bootstrap and either OIDC or a separately
+  scoped dashboard operator key are still required before operators can use
+  the command center.
+- The remaining hosted onboarding input is the bootstrap token in the local
+  operator env file. It is not present in the checked external env file, so no
+  hosted tenant or API key was created by automation and no secret is recorded
+  in this repository.
+
 ## Verified in this repository
 
 - The complete local release procedure passed on 2026-10-02 against the live
@@ -633,15 +657,12 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Not complete
 
-1. **Production GitHub App deployment.** The local stack now has a real App
+1. **Hosted GitHub App onboarding.** The local stack has a real App
    installation, repository permissions, a public webhook URL, and a verified
-   `200` delivery. A provider-specific Render Blueprint is now committed for
-   the API, dashboard, and PostgreSQL. The connected Render workspace was
-   inspected read-only on 2026-10-02: it contains unrelated services but no
-   SHAPI services or Postgres database. Production rollout still needs the
-   Blueprint applied to the intended workspace, secure secret entry, hosted
-   tenant-isolated onboarding, and running the hosted signed-webhook smoke
-   against that URL. No external Render resources were created or modified.
+   `200` delivery. The Render API, dashboard, and PostgreSQL services are now
+   live and pass the secret-free public infrastructure smoke. The hosted
+   tenant still needs secure bootstrap, a tenant-scoped GitHub integration,
+   the hosted webhook URL/secret, and the authenticated signed-webhook smoke.
 2. **Repository-aware repair workflow.** Invariants can now store an explicit
    `repairRepository` and `repairFilePath`, and a structured predicate edit
    is generated only for a mapped target. Three reviewed Stripe predicate
@@ -662,14 +683,12 @@ product is production-ready. See [README.md](README.md) for setup and API detail
    still tests a user-entered event transformation, and PR #4 remains open for
    human review; CI evidence is not the same as proving the business outcome
    in production.
-4. **Production operations.** Public deployment, secure secret storage,
-   hosted tenant onboarding, and hosted sustained capacity/load testing remain
-   to be completed before a production launch. Backup/restore, security, and
-   bounded local load drills are now repeatable; the local sustained profile
-   passed and the rate-limit boundary has been observed under stress. Secure
-   secret storage, public deployment, and hosted capacity still require a real
-   hosting environment; the hosted readiness command now includes the signed
-   webhook and retry-deduplication check.
+4. **Production operations.** Secure hosted secret storage, tenant onboarding,
+   authenticated hosted readiness, and hosted sustained capacity/load testing
+   remain before a production launch. Backup/restore, security, and bounded
+   local load drills are repeatable; the local sustained profile passed and the
+   rate-limit boundary has been observed under stress. The hosted readiness
+   command now includes the signed webhook and retry-deduplication check.
 5. **Dashboard data fidelity.** The production command view now uses only live
    SHAPI incidents, shows exact active/severity/integration/invariant counts,
    and avoids presenting invented regions, map coordinates, correlation
@@ -680,9 +699,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Next engineering priority
 
-Apply the hosted Blueprint with secure secrets and tenant-isolated onboarding,
-then run the public HTTPS readiness gate. Local deployment and readiness gates
-are repeatable, and two distinct demo business outcomes now have reviewed
+Complete hosted tenant bootstrap with secure secrets, configure OIDC or the
+separately scoped dashboard key, connect the GitHub App integration, and run
+the authenticated public HTTPS readiness gate. Local deployment and readiness
+gates are repeatable, and two distinct demo business outcomes now have reviewed
 proofs. Do not claim a replay-verified fix for an arbitrary customer repository
 without that repository's own adapter and test command.
 
