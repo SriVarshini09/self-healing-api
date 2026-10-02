@@ -50,9 +50,12 @@ jobs:
       JWT_SECRET: shapi_ci_jwt_secret_0123456789_abcdefghijklmnopqrstuvwxyz
       VITE_API_URL: http://localhost:3001/api/v1
       SHAPI_CI_API_KEY: shapi_ci_api_key_20261001
+      # Synthetic values satisfy production configuration validation for the
+      # tokenless signed-webhook smoke; no GitHub API call uses these values.
+      GITHUB_APP_ID: shapi-ci
+      GITHUB_APP_PRIVATE_KEY: shapi-ci-private-key
       GITHUB_WEBHOOK_SECRET_APP: shapi_ci_github_webhook_secret_20261002
-      # GitHub-hosted runners expose GITHUB_APP_SLUG in the runner environment.
-      # Keep the CI stack in tokenless mode unless App credentials are supplied.
+      # Keep the CI stack in tokenless mode: no installation or GitHub token is supplied.
       GITHUB_APP_SLUG: ''
     steps:
       - uses: actions/checkout@v7
