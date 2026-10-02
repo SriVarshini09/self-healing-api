@@ -12,14 +12,14 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   `/api/v1/alerts/status` endpoint returned 200. The live alert status response
   included pending, processing, retrying, delivered, and failed counts, and the
   dashboard smoke verified all five labels in the live alert-delivery panel.
-- The latest application change `d658201` passed GitHub Actions CI, including the
+- The latest application change `e3f279f` passed GitHub Actions CI, including the
   business-outcome regression, production builds, unit tests, and Prisma
   validation:
-  [run 36956386992](https://github.com/SriVarshini09/self-healing-api/actions/runs/36956386992).
-  The latest production-code head `d658201` also passed the production Docker
+  [run 36957625164](https://github.com/SriVarshini09/self-healing-api/actions/runs/36957625164).
+  The latest production-code head `e3f279f` also passed the production Docker
   workflow, including Compose validation, image builds, stack readiness,
   authenticated security/load checks, and the non-root backend assertion:
-  [run 36956386990](https://github.com/SriVarshini09/self-healing-api/actions/runs/36956386990).
+  [run 36957625173](https://github.com/SriVarshini09/self-healing-api/actions/runs/36957625173).
   Subsequent documentation-only commits were also verified by full CI; the
   latest ledger update passed in
   [run 36957005423](https://github.com/SriVarshini09/self-healing-api/actions/runs/36957005423).
@@ -386,12 +386,12 @@ Verified locally on 2026-10-01 against the live Docker stack rebuilt from
 - Workspace tests passed: 16 backend test files and 89 backend tests; the
   repair-generation package suite includes the structured business-outcome
   proof and real demo adapter proof.
-- GitHub Actions CI run `36957005423` and Docker production run
-  `36956386990` both passed; Render Blueprint validation run
+- GitHub Actions CI run `36957625164` and Docker production run
+  `36957625173` both passed; Render Blueprint validation run
   `36954469954` also passed.
 - The latest business-outcome HTTP E2E and full CI verification passed in run
-  `36957005423`; the Docker workflow rebuilt the images and passed production
-  readiness in run `36956386990`.
+  `36957625164`; the Docker workflow rebuilt the images and passed production
+  readiness in run `36957625173`.
 
 ```sh
 pnpm typecheck
