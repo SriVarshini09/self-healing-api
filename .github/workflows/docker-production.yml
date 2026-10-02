@@ -58,6 +58,13 @@ jobs:
       GITHUB_WEBHOOK_SECRET_APP: shapi_ci_github_webhook_secret_20261002
       # Keep the CI stack in tokenless mode: no installation or GitHub token is supplied.
       GITHUB_APP_SLUG: ''
+      # Synthetic but complete OIDC values verify that Compose passes the hosted
+      # session configuration into the backend. No provider is called.
+      OIDC_ISSUER_URL: http://127.0.0.1:3999
+      OIDC_CLIENT_ID: shapi-ci
+      OIDC_CLIENT_SECRET: shapi_ci_oidc_secret
+      OIDC_REDIRECT_URI: http://localhost:3001/api/v1/auth/callback
+      OIDC_DEFAULT_TENANT_SLUG: local-dev
     steps:
       - uses: actions/checkout@v7
 
@@ -114,6 +121,10 @@ jobs:
           test "$unauthenticated_status" = '401'
           test "$invalid_status" = '401'
           test "$metrics_status" = '404'
+          oidc_enabled=$(curl -fsS http://127.0.0.1:3001/api/v1/auth/config | \
+            node -e "let body=''; process.stdin.on('data', chunk => body += chunk); process.stdin.on('end', () => process.stdout.write(String(JSON.parse(body).oidcEnabled)));")
+          test "$oidc_enabled" = 'true'
+          echo "OIDC backend configuration is enabled through the production Compose wiring"
 
           trap 'rm -f .ci-api.env' EXIT
           printf 'SHAPI_API_KEY=%s\n' "$SHAPI_CI_API_KEY" > .ci-api.env
