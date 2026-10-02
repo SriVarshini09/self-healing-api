@@ -18,12 +18,13 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   including authenticated security/load behavior, backup/restore, dashboard
   browser behavior, signed webhook replay protection, and repair-readiness.
 - The hosted dashboard is no longer at its authentication gate: it reports
-  `Live SHAPI API`, `SHAPI systems online`, and live incident telemetry. It
-  currently has zero configured integrations and zero active incidents, which
-  is an accurate empty-tenant state rather than simulated data.
+  `Live SHAPI API`, `SHAPI systems online`, and live incident telemetry. The
+  hosted tenant now has one GitHub integration record and zero active
+  incidents; it still has no synced GitHub installation or repair invariants.
 - Hosted GitHub App onboarding is the remaining production configuration gap.
   The live API reports `mode=unconfigured`, zero real installations, and zero
-  repositories. The live diagnostic reports `appIdConfigured=true` but
+  repositories. The tenant-scoped GitHub integration record exists, but the
+  live diagnostic reports `appIdConfigured=true` and
   `appPrivateKeyConfigured=false`; the Render value for
   `GITHUB_APP_PRIVATE_KEY_B64` must be corrected before installation
   `166689576` can be synced to the hosted tenant.
