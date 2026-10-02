@@ -112,6 +112,11 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   including the demo business-outcome adapter. A fresh Docker seed and audit
   report 6/6 ready, 0 manual-review targets, and 0 blocked targets, so clean
   CI/deployment environments no longer depend on a local operator script.
+- Docker production CI now installs the pinned Playwright browser on the
+  runner and executes the production dashboard smoke against the real Docker
+  dashboard and same-origin API proxy. This makes the command center, live
+  telemetry, repair review, readiness states, alert delivery, and diagnosis
+  flow part of the production gate instead of a local-only check.
 - Docker production CI now verifies the signed GitHub webhook path and replay
   deduplication inside the backend container, then runs the authenticated
   repair-readiness audit. The webhook smoke uses Node byte-exact UTF-8

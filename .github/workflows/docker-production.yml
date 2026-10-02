@@ -122,6 +122,33 @@ jobs:
             --requests 20 \
             --concurrency 5
 
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9.0.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Install dashboard smoke dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify production dashboard browser behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          trap 'rm -f .ci-dashboard.env' EXIT
+          printf 'SHAPI_API_KEY=%s\n' "$SHAPI_CI_API_KEY" > .ci-dashboard.env
+
+          # The smoke uses the same dashboard image and same-origin proxy that
+          # operators use in production; install only the browser test tools
+          # on the runner, not into the production images.
+          pnpm --dir apps/backend exec playwright install --with-deps chromium
+          pnpm --dir apps/backend exec tsx scripts/production-dashboard-test.ts \
+            --api-url http://localhost:3001 \
+            --dashboard-url http://localhost:8080 \
+            --env-file .ci-dashboard.env
+
       - name: Verify signed webhook replay protection and repair readiness
         shell: bash
         run: |
