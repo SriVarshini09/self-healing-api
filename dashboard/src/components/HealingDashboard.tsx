@@ -75,6 +75,7 @@ type LiveDiagnosis = {
     reviewStatus: 'PR_READY_AFTER_REVIEW' | 'MANUAL_REVIEW';
     automationEligible: boolean;
     reviewReason: string;
+    requiredChecks: string[];
   }>;
 };
 
@@ -1512,6 +1513,12 @@ export function HealingDashboard() {
                               {isActionableRepair ? 'PR-READY AFTER REVIEW' : 'MANUAL REVIEW'}
                             </span>
                           </div>
+                          <p className="mt-1 font-mono text-[10px] text-muted-foreground">
+                            Required checks:{' '}
+                            {candidate.requiredChecks.length
+                              ? candidate.requiredChecks.join(', ')
+                              : 'none configured'}
+                          </p>
                           {!isActionableRepair && (
                             <p className="mt-2 rounded border border-critical/20 bg-critical/5 p-2 text-[10px] leading-relaxed text-critical">
                               {candidate.reviewReason}. SHAPI will not preview or create a GitHub PR

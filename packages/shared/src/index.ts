@@ -235,6 +235,7 @@ export const RepairCandidateSchema = z.object({
   reviewStatus: z.enum(['PR_READY_AFTER_REVIEW', 'MANUAL_REVIEW']).optional(),
   automationEligible: z.boolean().optional(),
   reviewReason: z.string().optional(),
+  requiredChecks: z.array(z.string()).optional(),
   createdAt: z.date()
 });
 export type RepairCandidate = z.infer<typeof RepairCandidateSchema>;

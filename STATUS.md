@@ -24,6 +24,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - CI, Docker production, and Render Blueprint workflows now declare
   read-only repository permissions and cancel obsolete same-branch runs, so
   superseded commits do not continue consuming runners.
+- Repair-candidate readiness responses now include the exact required GitHub
+  check names, and the production dashboard displays them beside each
+  candidate. Operators can see the verification gate before previewing or
+  creating a repair PR.
 - The separate `business-outcome` check includes the real demo HTTP
   checkout/webhook flow; CI passes both the failure-that-still-returns-200
   assertion and the recovered provisioning assertion. CI also checks workspace
@@ -347,6 +351,10 @@ Verified locally on 2026-10-01 against the live Docker stack rebuilt from
 - Production readiness passed: API, database, dashboard, GitHub App mode,
   security, 100 authenticated requests with 0 errors, dashboard browser smoke,
   and repair-readiness audit.
+- After the readiness metadata change, the live Docker stack passed the same
+  gate with 20/20 authenticated requests, dashboard browser smoke, and the
+  audit reporting 4/6 ready, 2 explicit `MANUAL_REVIEW`, and 0 blocked for
+  missing checks.
 - Production dashboard smoke passed for the direct API, same-origin proxy,
   command center, live telemetry, all five alert-delivery states, repair targets,
   and diagnosis modal.

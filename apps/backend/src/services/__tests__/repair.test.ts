@@ -38,6 +38,7 @@ describe('repair candidate repository mapping', () => {
       reviewStatus: 'MANUAL_REVIEW',
       automationEligible: false,
       reviewReason: 'No repository mapping is configured',
+      requiredChecks: ['verify'],
     });
   });
 
@@ -54,6 +55,7 @@ describe('repair candidate repository mapping', () => {
       reviewStatus: 'MANUAL_REVIEW',
       automationEligible: false,
       reviewReason: 'No required GitHub checks are configured',
+      requiredChecks: [],
     });
   });
 
@@ -62,6 +64,7 @@ describe('repair candidate repository mapping', () => {
       reviewStatus: 'PR_READY_AFTER_REVIEW',
       automationEligible: true,
       reviewReason: 'Structured patch, repository mapping, and required checks are configured',
+      requiredChecks: ['verify'],
     });
   });
 

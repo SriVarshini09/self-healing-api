@@ -25,6 +25,7 @@ export interface RepairCandidateReadiness {
   reviewStatus: RepairReviewStatus;
   automationEligible: boolean;
   reviewReason: string;
+  requiredChecks: string[];
 }
 
 /**
@@ -34,13 +35,16 @@ export interface RepairCandidateReadiness {
  */
 export function repairCandidateReadiness(
   candidate: Pick<RepairCandidate, 'repository' | 'changes'>,
-  requiredChecks: readonly string[] = [],
+  requiredChecksInput: readonly string[] = [],
 ): RepairCandidateReadiness {
+  const requiredChecks = [...new Set(requiredChecksInput.map(check => check.trim()).filter(Boolean))];
+
   if (!candidate.repository) {
     return {
       reviewStatus: 'MANUAL_REVIEW',
       automationEligible: false,
       reviewReason: 'No repository mapping is configured',
+      requiredChecks,
     };
   }
 
@@ -49,6 +53,7 @@ export function repairCandidateReadiness(
       reviewStatus: 'MANUAL_REVIEW',
       automationEligible: false,
       reviewReason: 'No structured file changes are available',
+      requiredChecks,
     };
   }
 
@@ -57,6 +62,7 @@ export function repairCandidateReadiness(
       reviewStatus: 'MANUAL_REVIEW',
       automationEligible: false,
       reviewReason: 'No required GitHub checks are configured',
+      requiredChecks,
     };
   }
 
@@ -64,6 +70,7 @@ export function repairCandidateReadiness(
     reviewStatus: 'PR_READY_AFTER_REVIEW',
     automationEligible: true,
     reviewReason: 'Structured patch, repository mapping, and required checks are configured',
+    requiredChecks,
   };
 }
 
