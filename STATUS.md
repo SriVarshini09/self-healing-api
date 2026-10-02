@@ -5,6 +5,15 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Verified in this repository
 
+- GitHub repair preview, PR creation, manual PR verification, and workflow-run
+  verification now all consume the same backend repair-readiness decision used
+  by the dashboard and release audit. A mapped target that loses a required
+  check or its reviewed `business-outcome` proof fails closed before GitHub
+  mutation and cannot remain verified. Commit `340448c` passed 30 GitHub-route
+  tests, 120 backend tests, full CI
+  [36985801019](https://github.com/SriVarshini09/self-healing-api/actions/runs/36985801019),
+  and Docker production/browser validation
+  [36985801032](https://github.com/SriVarshini09/self-healing-api/actions/runs/36985801032).
 - The dashboard invariant editor and list now expose the backend's authoritative
   repair-readiness state, blocking reason, and reviewed adapter ID. Operators
   can see whether a target is ready, manual-review-only, or blocked before
