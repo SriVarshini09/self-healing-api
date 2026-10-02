@@ -9,8 +9,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   dashboard. On 2026-10-01, the backend was rebuilt from `master`; `/health`,
   `/ready`, and the dashboard returned 200.
 - GitHub Actions CI on `master` passed for the current verified product code
-  head `f1200f1`, including the repair-readiness release-gate integration:
-  [run 36945793643](https://github.com/SriVarshini09/self-healing-api/actions/runs/36945793643).
+  head `4dd2568`, including the repair-readiness release-gate integration:
+  [run 36946499064](https://github.com/SriVarshini09/self-healing-api/actions/runs/36946499064).
   CI checks workspace types, backend lint, package/backend unit tests, backend
   and dashboard builds, and Prisma schema validation.
 - Webhook and SDK events feed behavioral invariants; drift detection and
@@ -48,6 +48,11 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   and the shared repair-candidate schema documents them for clients. The
   rebuilt Docker stack passed dashboard browser smoke after this alignment:
   [Docker run 36945793708](https://github.com/SriVarshini09/self-healing-api/actions/runs/36945793708).
+- GitHub pull-request webhook handling now ignores non-lifecycle actions such
+  as `synchronize` instead of falling through to `OPEN` and potentially
+  reopening a closed repair PR. A regression test covers the closed-PR case;
+  the rebuilt Docker production workflow passed after the fix:
+  [Docker run 36946499075](https://github.com/SriVarshini09/self-healing-api/actions/runs/36946499075).
 - The legacy workspace dashboard now applies the same manual-review guard and
   no longer offers a preview action for empty or unmapped repair changes.
 - Invariant settings now let operators create or edit the repository/file
