@@ -150,6 +150,13 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   [36977612531](https://github.com/SriVarshini09/self-healing-api/actions/runs/36977612531),
   and Docker production validation
   [36977612442](https://github.com/SriVarshini09/self-healing-api/actions/runs/36977612442).
+- Production startup now rejects partial OIDC configuration instead of silently
+  disabling SSO when a hosted deployment supplies only some identity settings.
+  Commit `03bfbe2` passed the complete and partial OIDC configuration tests,
+  local Docker rebuild/dashboard smoke, CI
+  [36978759311](https://github.com/SriVarshini09/self-healing-api/actions/runs/36978759311),
+  and Docker production validation
+  [36978759400](https://github.com/SriVarshini09/self-healing-api/actions/runs/36978759400).
 - Docker production CI now verifies the signed GitHub webhook path and replay
   deduplication inside the backend container, then runs the authenticated
   repair-readiness audit. The webhook smoke uses Node byte-exact UTF-8
