@@ -102,8 +102,11 @@ services:
         sync: false
       - key: PORT
         value: '10000'
-      - key: BACKEND_HOSTPORT
+      # Free Render web services cannot receive private-network traffic. Proxy
+      # through the API's public TLS endpoint instead; Nginx preserves the API
+      # request path and sends the upstream hostname for Render routing.
+      - key: BACKEND_URL
         fromService:
           type: web
           name: shapi-api
-          property: hostport
+          envVarKey: RENDER_EXTERNAL_URL

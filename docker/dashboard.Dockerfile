@@ -11,8 +11,8 @@ RUN pnpm build
 FROM nginx:1.27-alpine AS runtime
 
 ENV PORT=80
-ENV BACKEND_HOSTPORT=backend:3001
-ENV NGINX_ENVSUBST_FILTER=^(PORT|BACKEND_HOSTPORT)$
+ENV BACKEND_URL=http://backend:3001
+ENV NGINX_ENVSUBST_FILTER=^(PORT|BACKEND_URL)$
 COPY --from=build /app/dashboard/dist /usr/share/nginx/html
 COPY deploy/nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY deploy/dashboard-entrypoint.sh /docker-entrypoint.d/40-shapi-config.sh

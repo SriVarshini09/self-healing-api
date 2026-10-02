@@ -75,7 +75,7 @@ services:
       dockerfile: docker/dashboard.Dockerfile
     environment:
       PORT: 80
-      BACKEND_HOSTPORT: backend:3001
+      BACKEND_URL: http://backend:3001
       VITE_API_URL: ${VITE_API_URL:?set VITE_API_URL}
       VITE_SHAPI_API_KEY: ${VITE_SHAPI_API_KEY-}
     depends_on:
