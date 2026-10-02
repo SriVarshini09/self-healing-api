@@ -1,5 +1,8 @@
 import { PrismaClient, IntegrationType, InvariantStatus, TenantRole } from '@prisma/client';
 import {
+  GITHUB_INVARIANT_REPAIR_FILE_PATH,
+  GITHUB_INVARIANT_REPAIR_REPOSITORY,
+  GITHUB_INVARIANT_REPAIR_REQUIRED_CHECKS,
   GITHUB_PR_MERGED_PREDICATE,
   GITHUB_WORKFLOW_SUCCESS_PREDICATE,
 } from '../src/services/github-invariants.js';
@@ -133,6 +136,9 @@ async function main() {
       predicateExpression: GITHUB_PR_MERGED_PREDICATE,
       predicateDescription: 'Merged PRs should be closed with merged=true targeting main',
       predicateExample: "event.type === 'pull_request' && event.payload.action === 'closed' && event.payload.pull_request.merged === true",
+      repairRepository: GITHUB_INVARIANT_REPAIR_REPOSITORY,
+      repairFilePath: GITHUB_INVARIANT_REPAIR_FILE_PATH,
+      repairRequiredChecks: [...GITHUB_INVARIANT_REPAIR_REQUIRED_CHECKS],
       evaluationWindowSec: 300,
       minSamples: 5,
       expectedSuccessRate: 0.99,
@@ -146,6 +152,9 @@ async function main() {
       predicateExpression: GITHUB_WORKFLOW_SUCCESS_PREDICATE,
       predicateDescription: 'CI/CD workflows should complete successfully',
       predicateExample: "event.type === 'workflow_run' && event.payload.workflow_run.conclusion === 'success'",
+      repairRepository: GITHUB_INVARIANT_REPAIR_REPOSITORY,
+      repairFilePath: GITHUB_INVARIANT_REPAIR_FILE_PATH,
+      repairRequiredChecks: [...GITHUB_INVARIANT_REPAIR_REQUIRED_CHECKS],
       evaluationWindowSec: 600,
       minSamples: 10,
       expectedSuccessRate: 0.9,
@@ -156,7 +165,11 @@ async function main() {
   for (const inv of githubInvariants) {
     await prisma.invariant.upsert({
       where: { id: inv.id },
-      update: {},
+      update: {
+        repairRepository: inv.repairRepository,
+        repairFilePath: inv.repairFilePath,
+        repairRequiredChecks: inv.repairRequiredChecks,
+      },
       create: inv
     });
     console.log('✅ Created invariant:', inv.name);

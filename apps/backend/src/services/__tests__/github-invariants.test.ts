@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { evaluatePredicate } from '@shapi/invariant-engine';
 import {
+  GITHUB_INVARIANT_REPAIR_FILE_PATH,
+  GITHUB_INVARIANT_REPAIR_REPOSITORY,
+  GITHUB_INVARIANT_REPAIR_REQUIRED_CHECKS,
   GITHUB_PR_MERGED_PREDICATE,
   GITHUB_WORKFLOW_SUCCESS_PREDICATE,
 } from '../github-invariants.js';
@@ -12,6 +15,18 @@ const event = (type: string, payload: Record<string, unknown>) => ({
 });
 
 describe('reviewed GitHub invariants', () => {
+  it('declares the reviewed repository target and verify gate', () => {
+    expect({
+      repository: GITHUB_INVARIANT_REPAIR_REPOSITORY,
+      filePath: GITHUB_INVARIANT_REPAIR_FILE_PATH,
+      requiredChecks: [...GITHUB_INVARIANT_REPAIR_REQUIRED_CHECKS],
+    }).toEqual({
+      repository: 'SriVarshini09/self-healing-api',
+      filePath: 'apps/backend/src/services/github-invariants.ts',
+      requiredChecks: ['verify'],
+    });
+  });
+
   it('accepts a merged pull request targeting main', () => {
     const result = evaluatePredicate(GITHUB_PR_MERGED_PREDICATE, event('pull_request', {
       action: 'closed',

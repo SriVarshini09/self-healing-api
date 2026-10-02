@@ -102,12 +102,18 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   live readiness gate, full CI, and Docker validation:
   [CI run 36968884407](https://github.com/SriVarshini09/self-healing-api/actions/runs/36968884407),
   [Docker run 36968884448](https://github.com/SriVarshini09/self-healing-api/actions/runs/36968884448).
+- The two GitHub invariants now declare the reviewed predicate source target
+  `apps/backend/src/services/github-invariants.ts` and require the exact
+  `verify` check before target review. The local tenant was updated through the
+  controlled mapping script and the live audit now reports 6/6 targets ready,
+  0 manual-review targets, and 0 blocked targets. This remains target review,
+  not automatic merging or a business-outcome adapter.
 - Docker production CI now verifies the signed GitHub webhook path and replay
   deduplication inside the backend container, then runs the authenticated
   repair-readiness audit. The webhook smoke uses Node byte-exact UTF-8
   requests so the signature check is deterministic across CI and local Docker
-  environments. The local Docker gate passed with 4/6 targets ready, 2 GitHub
-  invariants in explicit manual review, and 0 blocked targets.
+  environments. The latest Docker workflow also passes the signed smoke and
+  repair audit.
 - CI now runs the same complete workspace build and test coverage instead of
   a hand-picked package list. The workflow change passed all workspace
   builds, tests, typechecks, backend lint, production dashboard build, Prisma
@@ -482,19 +488,18 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Next engineering priority
 
-Review target behavior for the remaining GitHub invariants, then extend the
-target-app business-outcome harness beyond its current demo adapter before
-claiming arbitrary repository repairs are verified. The next release blocker is
-still applying the hosted Blueprint with secure secrets and tenant-isolated
-onboarding; local deployment and readiness gates are now repeatable. Do not
-claim a replay-verified fix prematurely.
+Extend the target-app business-outcome harness beyond its current demo adapter
+before claiming arbitrary repository repairs are verified. The next release
+blocker is still applying the hosted Blueprint with secure secrets and
+tenant-isolated onboarding; local deployment and readiness gates are now
+repeatable. Do not claim a replay-verified fix prematurely.
 
 ## Local checks
 
 ### Latest verification snapshot
 
-Verified locally on 2026-10-02 against the live Docker stack rebuilt from
-`d1127e0`:
+Verified locally on 2026-10-02 against the live Docker stack rebuilt from the
+current working tree after `2f78020`:
 
 - The dashboard image rebuilt from `d1127e0` passed direct-API and same-origin
   browser smoke, including the corrected incident headings, live telemetry,
@@ -504,10 +509,10 @@ Verified locally on 2026-10-02 against the live Docker stack rebuilt from
   backend runtime: API, database, dashboard, GitHub App mode, security, 20
   authenticated requests with 0 errors, signed webhook replay, dashboard
   browser smoke, and repair-readiness audit.
-- After the readiness metadata change, the live Docker stack passed the same
-  gate with 20/20 authenticated requests, dashboard browser smoke, and the
-  audit reporting 4/6 ready, 2 explicit `MANUAL_REVIEW`, and 0 blocked for
-  missing checks.
+- The live Docker stack passed the readiness gate after the reviewed GitHub
+  target mappings with 20/20 authenticated requests, dashboard browser smoke,
+  and the audit reporting 6/6 ready, 0 explicit `MANUAL_REVIEW`, and 0 blocked
+  for missing checks.
 - The live incidents API returned `requiredChecks: ["verify"]` for persisted
   repair candidates, including both manual-review and PR-ready candidates.
 - Production dashboard smoke passed for the direct API, same-origin proxy,
@@ -520,11 +525,10 @@ Verified locally on 2026-10-02 against the live Docker stack rebuilt from
 - The signed GitHub webhook smoke passed against the live Docker API: the first
   `ping` delivery returned 200 and replaying the same delivery id returned a
   duplicate acknowledgment.
-- Repair readiness audit reported 4/6 ready for target review, 2 explicit
-  `MANUAL_REVIEW` GitHub invariants, and 0 blocked for missing checks.
-- The authenticated invariants API now reports the same readiness states and
-  reasons: four `READY_FOR_TARGET_REVIEW`, two GitHub `MANUAL_REVIEW`, and no
-  blocked invariants.
+- Repair readiness audit reported 6/6 ready for target review, 0 manual-review
+  targets, and 0 blocked for missing checks.
+- The authenticated invariants API now reports six `READY_FOR_TARGET_REVIEW`
+  states with the exact `verify` check configured for the two GitHub targets.
 - The guarded backup/restore drill passed against the live Docker PostgreSQL
   instance: it created a temporary database, restored the SQL backup, matched
   the key table row counts to the live database, and removed the temporary

@@ -11,6 +11,7 @@ param(
     'inv-stripe-refund-succeeded'
   ),
   [switch]$IncludeProvisioningAdapter,
+  [switch]$IncludeGitHubTargets,
   [switch]$Apply
 )
 
@@ -70,6 +71,24 @@ if ($IncludeProvisioningAdapter) {
 }
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
+if ($IncludeGitHubTargets) {
+  $githubPredicateFile = 'apps/backend/src/services/github-invariants.ts'
+  $mappingSpecs += @(
+    [pscustomobject]@{
+      InvariantIds = @('inv-github-pr-merged')
+      FilePath = $githubPredicateFile
+      RequiredChecks = @('verify')
+      ExpectedText = "event.type === 'pull_request' && event.payload?.action === 'closed' && event.payload?.pull_request?.merged === true && event.payload?.pull_request?.base?.ref === 'main'"
+    },
+    [pscustomobject]@{
+      InvariantIds = @('inv-github-workflow-success')
+      FilePath = $githubPredicateFile
+      RequiredChecks = @('verify')
+      ExpectedText = "event.type === 'workflow_run' && event.payload?.action === 'completed' && event.payload?.workflow_run?.conclusion === 'success'"
+    }
+  )
+}
+
 foreach ($spec in $mappingSpecs) {
   $targetFile = Join-Path $repoRoot $spec.FilePath
   if (-not (Test-Path -LiteralPath $targetFile)) { throw "Target file was not found locally: $targetFile" }
