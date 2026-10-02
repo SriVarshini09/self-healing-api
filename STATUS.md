@@ -129,6 +129,13 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   permissions, expiry cleanup, logout deletion, and the `/auth/*` route
   contracts. Commits `d7536fe`, `59d1551`, and `7076c65` passed local checks;
   the latest CI run `36975964752` and Docker run `36975964816` both passed.
+- The Render Blueprint now declares the complete OIDC configuration surface as
+  explicit secret-backed inputs, including the provider callback URI and
+  default tenant slug. Hosted setup documentation points the identity provider
+  to `/api/v1/auth/callback`; commit `db1557c` passed the Render Blueprint
+  schema workflow [36976870634](https://github.com/SriVarshini09/self-healing-api/actions/runs/36976870634),
+  CI [36976870795](https://github.com/SriVarshini09/self-healing-api/actions/runs/36976870795),
+  and Docker production [36976870670](https://github.com/SriVarshini09/self-healing-api/actions/runs/36976870670).
 - Docker production CI now verifies the signed GitHub webhook path and replay
   deduplication inside the backend container, then runs the authenticated
   repair-readiness audit. The webhook smoke uses Node byte-exact UTF-8
