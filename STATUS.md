@@ -165,6 +165,15 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   [36979436149](https://github.com/SriVarshini09/self-healing-api/actions/runs/36979436149),
   and Docker production validation
   [36979436198](https://github.com/SriVarshini09/self-healing-api/actions/runs/36979436198).
+- The OIDC provider timeout is now explicitly wired through production Compose,
+  the Render Blueprint, and the deployment README (default `10000` ms), so a
+  hosted operator can tune the bounded provider-call window without changing
+  application code. Commit `3645bc9` passed CI
+  [36979970190](https://github.com/SriVarshini09/self-healing-api/actions/runs/36979970190),
+  Docker production validation
+  [36979970294](https://github.com/SriVarshini09/self-healing-api/actions/runs/36979970294),
+  and Render Blueprint schema validation
+  [36979970208](https://github.com/SriVarshini09/self-healing-api/actions/runs/36979970208).
 - Docker production CI now verifies the signed GitHub webhook path and replay
   deduplication inside the backend container, then runs the authenticated
   repair-readiness audit. The webhook smoke uses Node byte-exact UTF-8
