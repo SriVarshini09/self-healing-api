@@ -17,6 +17,13 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   incident signals, repair review, and SHAPI outcome verification instead of
   implying geographic traffic telemetry. Dashboard typecheck, production build,
   Docker rebuild, and live browser smoke passed locally from `fc1ef08`.
+- GitHub webhook routing now uses the signed payload's installation ID to resolve
+  the mapped tenant integration. Known installations are processed normally;
+  unknown installations are rejected instead of falling back to another
+  tenant's configured integration. Commit `64768a3` passed 94 backend tests,
+  the live readiness gate, CI, and production Docker validation:
+  [CI run 36961198358](https://github.com/SriVarshini09/self-healing-api/actions/runs/36961198358),
+  [Docker run 36961198357](https://github.com/SriVarshini09/self-healing-api/actions/runs/36961198357).
 - The latest production-code head `fc1ef08` passed GitHub Actions CI, including
   the business-outcome regression, production builds, unit tests, and Prisma
   validation:
@@ -388,7 +395,7 @@ claim a replay-verified fix prematurely.
 ### Latest verification snapshot
 
 Verified locally on 2026-10-01 against the live Docker stack rebuilt from
-`296a7b0`:
+`64768a3`:
 
 - The dashboard image rebuilt from `296a7b0` passed direct-API and same-origin
   browser smoke, including the corrected incident headings, live telemetry,
@@ -420,12 +427,12 @@ Verified locally on 2026-10-01 against the live Docker stack rebuilt from
 - Workspace tests passed: 17 backend test files and 92 backend tests; the
   repair-generation package suite includes the structured business-outcome
   proof and real demo adapter proof.
-- GitHub Actions CI run `36959831171` and Docker production run
-  `36959831249` both passed; Render Blueprint validation run
+- GitHub Actions CI run `36961198358` and Docker production run
+  `36961198357` both passed; Render Blueprint validation run
   `36954469954` also passed.
 - The latest business-outcome HTTP E2E and full CI verification passed in run
-  `36959831171`; the Docker workflow rebuilt the images and passed production
-  readiness in run `36959831249`.
+  `36961198358`; the Docker workflow rebuilt the images and passed production
+  readiness in run `36961198357`.
 
 ```sh
 pnpm typecheck
