@@ -5,6 +5,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Verified in this repository
 
+- Render Blueprint validation can now be run on demand with the repository's
+  `workflow_dispatch` trigger. The current Blueprint passed the official Render
+  schema check in [36986736231](https://github.com/SriVarshini09/self-healing-api/actions/runs/36986736231);
+  no Render credentials were present, so no hosted resources were changed.
 - GitHub repair preview, PR creation, manual PR verification, and workflow-run
   verification now all consume the same backend repair-readiness decision used
   by the dashboard and release audit. A mapped target that loses a required
