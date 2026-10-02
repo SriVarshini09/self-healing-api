@@ -19,10 +19,14 @@ function incident(repairRepository: string | null, repairFilePath: string | null
   } as unknown as Parameters<typeof generateRepairCandidates>[0];
 }
 
-function provisioningIncident(repairRepository: string | null, repairFilePath: string | null): Parameters<typeof generateRepairCandidates>[0] {
+function provisioningIncident(
+  repairRepository: string | null,
+  repairFilePath: string | null,
+  id = 'inv-stripe-provisioning',
+): Parameters<typeof generateRepairCandidates>[0] {
   return {
     invariant: {
-      id: 'inv-stripe-provisioning',
+      id,
       name: 'No Failed Provisioning Invariant',
       predicateExpression: "event.type !== 'provisioning.failed'",
       repairRepository,
@@ -158,7 +162,7 @@ describe('repair candidate repository mapping', () => {
     });
   });
 
-  it('only generates the reviewed demo business-outcome patch for its exact target', async () => {
+  it('only generates the reviewed business-outcome patch for its exact target', async () => {
     const unmapped = await generateRepairCandidates(provisioningIncident(null, null), diagnosis);
     expect(unmapped.find(candidate => candidate.description.includes('silent provisioning'))).toBeUndefined();
 
@@ -171,6 +175,15 @@ describe('repair candidate repository mapping', () => {
       files: [DEMO_SAAS_PROVISIONING_PATH],
       confidence: 0.95,
       changes: [{ kind: 'replace', path: DEMO_SAAS_PROVISIONING_PATH }],
+    });
+
+    const renamed = await generateRepairCandidates(
+      provisioningIncident(DEMO_SAAS_REPOSITORY, DEMO_SAAS_PROVISIONING_PATH, 'customer-renamed-invariant'),
+      diagnosis,
+    );
+    expect(renamed.find(candidate => candidate.description.includes('silent provisioning'))).toMatchObject({
+      repository: DEMO_SAAS_REPOSITORY,
+      files: [DEMO_SAAS_PROVISIONING_PATH],
     });
   });
 });

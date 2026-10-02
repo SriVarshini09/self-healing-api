@@ -110,7 +110,7 @@ export async function generateRepairCandidates(
     ];
   }
 
-  const businessOutcomeFix = generateDemoSaasBusinessOutcomeFix(invariant);
+  const businessOutcomeFix = generateReviewedBusinessOutcomeFix(invariant);
   if (businessOutcomeFix) candidates.push(businessOutcomeFix);
 
   const predicateFix = generatePredicateFix(invariant, diagnosis);
@@ -128,8 +128,7 @@ export async function generateRepairCandidates(
   return candidates.sort((a, b) => b.confidence - a.confidence);
 }
 
-function generateDemoSaasBusinessOutcomeFix(invariant: Invariant): RepairCandidate | null {
-  if (invariant.id !== 'inv-stripe-provisioning') return null;
+function generateReviewedBusinessOutcomeFix(invariant: Invariant): RepairCandidate | null {
   if (!isDemoSaasProvisioningTarget(invariant.repairRepository, invariant.repairFilePath)) {
     return null;
   }
