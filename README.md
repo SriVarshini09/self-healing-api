@@ -363,7 +363,10 @@ first OIDC user for a tenant becomes Owner; subsequent users start as Operators.
 OIDC users use seven-day hashed server sessions in HttpOnly cookies.
 For an OIDC-only dashboard deployment, leave `VITE_SHAPI_API_KEY` empty; the
 production compose file supports this mode and the dashboard will use the
-browser session instead.
+browser session instead. The dashboard checks `/auth/me` before loading live
+data, shows an explicit SSO sign-in action when the session is missing, and
+fails with a configuration message when OIDC is not enabled. API-key-backed
+dashboards keep their existing direct access path.
 
 ## API surface (all under `/api/v1`)
 

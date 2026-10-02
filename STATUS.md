@@ -117,6 +117,12 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   dashboard and same-origin API proxy. This makes the command center, live
   telemetry, repair review, readiness states, alert delivery, and diagnosis
   flow part of the production gate instead of a local-only check.
+- The production dashboard now supports the documented OIDC-only deployment
+  path: it checks the browser session before loading tenant data, offers an
+  explicit SSO sign-in action when needed, and explains when neither OIDC nor
+  a runtime API key is configured. API-key-backed deployments remain
+  unchanged. Commit `da9cc5e` passed dashboard typecheck/build, live Docker
+  browser smoke, CI, and Docker production validation.
 - Docker production CI now verifies the signed GitHub webhook path and replay
   deduplication inside the backend container, then runs the authenticated
   repair-readiness audit. The webhook smoke uses Node byte-exact UTF-8
