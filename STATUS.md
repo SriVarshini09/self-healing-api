@@ -11,8 +11,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   requests, dashboard browser smoke, signed GitHub webhook replay
   deduplication, the 7/7 repair-readiness audit, and a guarded PostgreSQL
   backup/restore drill with restored row-count verification. The latest pushed
-  commit `a0b9a34` also passed CI in
-  [36993664251](https://github.com/SriVarshini09/self-healing-api/actions/runs/36993664251).
+  commit `7c9b0a1` also passed CI in
+  [36994445901](https://github.com/SriVarshini09/self-healing-api/actions/runs/36994445901).
   The same release was rebuilt and verified in the clean remote Docker
   workflow [36993912453](https://github.com/SriVarshini09/self-healing-api/actions/runs/36993912453),
   including production startup, authenticated load, dashboard browser behavior,
