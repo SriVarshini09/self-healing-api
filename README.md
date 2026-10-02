@@ -107,6 +107,33 @@ without credentials. Apply it from the Render Dashboard, then set the
    provider as `https://<api-host>/api/v1/auth/callback`. Prefer a
    base64-encoded private key in `GITHUB_APP_PRIVATE_KEY_B64` so the PEM never
    needs to be pasted into a multiline environment value.
+
+   To create the Base64 value from the `.pem` file downloaded from GitHub,
+   use the secret-safe helper from a trusted PowerShell session. It never
+   prints the key:
+
+   ```powershell
+   ./scripts/encode-github-app-private-key.ps1 `
+     -PemFile C:\secure\shapi-self-healing.private-key.pem `
+     -CopyToClipboard
+   ```
+
+   Paste the clipboard contents into the Render API service's
+   `GITHUB_APP_PRIVATE_KEY_B64` variable, save the environment change, and
+   redeploy. Verify the running API—not only the local file—before syncing the
+   GitHub installation:
+
+   ```powershell
+   ./scripts/stack-smoke.ps1 `
+     -ApiUrl https://<api-host> `
+     -DashboardUrl https://<dashboard-host> `
+     -EnvFile C:\secure\shapi-owner.env `
+     -RequireGitHubApp
+   ```
+
+   The smoke check reports whether the operator key was rejected or whether
+   the running API still cannot parse the App private key, without printing
+   either secret.
 3. Deploy the services, call `POST /api/v1/bootstrap/tenant` once with the
    bootstrap token, and store the returned owner API key. Prefer:
 
