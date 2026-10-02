@@ -45,6 +45,10 @@ type LiveSnapshot = {
     severity: string;
     integrationId: string;
     detectedAt: string;
+    repairCandidates?: Array<{
+      reviewStatus?: 'PR_READY_AFTER_REVIEW' | 'MANUAL_REVIEW';
+      automationEligible?: boolean;
+    }>;
     replayJobs?: Array<{ id: string; status: string; result?: string | null }>;
   }>;
 };
@@ -714,6 +718,14 @@ export function HealingDashboard() {
     ) ?? [];
   const activeIncidentCount = activeIncidents.length;
   const healingActionCount = activeIncidents.length;
+  const activeRepairCandidates = activeIncidents.flatMap(incident => incident.repairCandidates ?? []);
+  const manualReviewCount = activeRepairCandidates.filter(
+    candidate => candidate.reviewStatus === 'MANUAL_REVIEW'
+  ).length;
+  const prReadyCandidateCount = activeRepairCandidates.filter(
+    candidate =>
+      candidate.reviewStatus === 'PR_READY_AFTER_REVIEW' && candidate.automationEligible === true
+  ).length;
   const visibleReports = activeIncidents.length
     ? activeIncidents.map(incident => ({
         service: incident.integrationId,
@@ -820,6 +832,9 @@ export function HealingDashboard() {
           <a className="nav-item" href="#repair-targets">
             <Settings2 />
             Repair targets
+            <span className="ml-auto rounded bg-critical/15 px-1.5 text-[10px] text-critical">
+              {manualReviewCount}
+            </span>
           </a>
           <a className="nav-item" href="#incidents">
             <Network />
@@ -1123,7 +1138,7 @@ export function HealingDashboard() {
                     : 'Waiting for SHAPI telemetry'}
                 </p>
               </div>
-              <div className="grid grid-cols-3 divide-x divide-border py-5 text-center">
+              <div className="grid grid-cols-4 divide-x divide-border py-5 text-center">
                 <div>
                   <p className="text-xl font-semibold text-success">
                     {liveSnapshot ? liveSnapshot.summary.monitoredIntegrations : '—'}
@@ -1141,6 +1156,17 @@ export function HealingDashboard() {
                     {liveSnapshot ? liveSnapshot.summary.totalInvariants : '—'}
                   </p>
                   <p className="text-[10px] text-muted-foreground">Invariants</p>
+                </div>
+                <div>
+                  <p className="text-xl font-semibold text-critical">
+                    {liveSnapshot ? manualReviewCount : '—'}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">Repair review</p>
+                  {liveSnapshot && (
+                    <p className="mt-1 text-[9px] text-success">
+                      {prReadyCandidateCount} PR-ready
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="border-t border-border px-4 py-3">
