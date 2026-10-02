@@ -8,6 +8,7 @@ Core abstraction: **behavioral invariants** — executable predicates over webho
 events, evaluated over time windows, with statistical **drift detection**,
 **incidents**, **diagnosis**, **replay testing**, and a GitHub repair-PR workflow.
 See [current product status](STATUS.md) for verified capabilities and remaining work.
+The hosted launch sequence is documented in [OPERATIONS.md](OPERATIONS.md).
 
 ## Monorepo layout
 
