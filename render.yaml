@@ -48,6 +48,20 @@ services:
           type: web
           name: shapi-dashboard
           envVarKey: RENDER_EXTERNAL_URL
+      # Configure these for an OIDC-only hosted dashboard. Keep provider
+      # credentials and tenant selection out of the repository.
+      - key: OIDC_ISSUER_URL
+        sync: false
+      - key: OIDC_CLIENT_ID
+        sync: false
+      - key: OIDC_CLIENT_SECRET
+        sync: false
+      - key: OIDC_REDIRECT_URI
+        sync: false
+      - key: OIDC_SCOPES
+        value: 'openid profile email'
+      - key: OIDC_DEFAULT_TENANT_SLUG
+        sync: false
       - key: DEMO_SAAS_URL
         sync: false
       - key: GITHUB_APP_ID

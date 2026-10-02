@@ -99,7 +99,11 @@ without credentials. Apply it from the Render Dashboard, then set the
    `/api/v1` proxy and the API automatically receives the dashboard's public
    Render URL, so no service URL copying is required.
 2. Set a real `DEMO_SAAS_URL` (or an allowed placeholder if the demo is not
-   hosted), `SHAPI_BOOTSTRAP_TOKEN`, and the GitHub App values. Prefer a
+   hosted), `SHAPI_BOOTSTRAP_TOKEN`, and the GitHub App values. For an
+   OIDC-only dashboard, also set `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`,
+   `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URI`, and
+   `OIDC_DEFAULT_TENANT_SLUG`; register the redirect URI with the identity
+   provider as `https://<api-host>/api/v1/auth/callback`. Prefer a
    base64-encoded private key in `GITHUB_APP_PRIVATE_KEY_B64` so the PEM never
    needs to be pasted into a multiline environment value.
 3. Deploy the services, call `POST /api/v1/bootstrap/tenant` once with the
