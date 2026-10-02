@@ -6,11 +6,17 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 ## Verified in this repository
 
 - The local production Docker stack runs PostgreSQL, the backend, and the
-  dashboard. On 2026-10-01, the backend was rebuilt from `master`; `/health`,
-  `/ready`, and the dashboard returned 200.
+  dashboard. On 2026-10-01, the backend was rebuilt from `master` at
+  `a362fa8`; `/health`, `/ready`, the dashboard, and the authenticated
+  `/api/v1/alerts/status` endpoint returned 200. The live alert status response
+  included the new `processing` count.
 - GitHub Actions CI on `master` passed for the current verified product code
-  head `d3fe6a1`, including the repair-readiness release-gate integration:
-  [run 36947091796](https://github.com/SriVarshini09/self-healing-api/actions/runs/36947091796).
+  head `a362fa8`, including the business-outcome regression and repair-readiness
+  release-gate integration:
+  [run 36951095630](https://github.com/SriVarshini09/self-healing-api/actions/runs/36951095630).
+  The production Docker workflow also passed its readiness, security, and load
+  checks:
+  [run 36951095598](https://github.com/SriVarshini09/self-healing-api/actions/runs/36951095598).
   CI checks workspace types, backend lint, package/backend unit tests, backend
   and dashboard builds, and Prisma schema validation.
 - Webhook and SDK events feed behavioral invariants; drift detection and
