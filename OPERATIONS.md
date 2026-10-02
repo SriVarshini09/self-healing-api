@@ -18,6 +18,19 @@ workspace, the identity provider, and the SHAPI GitHub App.
 5. Deploy both web services and wait for `/ready` on the API and `/health` on
    the dashboard.
 
+Before creating a tenant or handling any tenant credential, verify the public
+infrastructure, TLS-facing security headers, CORS policy, unauthenticated
+rejection, dashboard proxy, and non-cacheable runtime configuration:
+
+```powershell
+./scripts/hosted-infrastructure-smoke.ps1 `
+  -ApiUrl https://<api-host> `
+  -DashboardUrl https://<dashboard-host>
+```
+
+This first-stage smoke is intentionally secret-free. It does not replace the
+authenticated hosted release gate in section 4.
+
 The private-key source must be exactly one of `GITHUB_APP_PRIVATE_KEY_B64`,
 `GITHUB_APP_PRIVATE_KEY_FILE`, or `GITHUB_APP_PRIVATE_KEY`. Base64 is the
 recommended hosted form because it is one line and avoids PEM newline damage.

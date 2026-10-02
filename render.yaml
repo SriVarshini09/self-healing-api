@@ -91,9 +91,9 @@ services:
     healthCheckPath: /health
     autoDeployTrigger: checksPass
     envVars:
-      # An empty value intentionally uses the same-origin /api/v1 proxy. The
-      # Nginx template forwards it to the API service over Render's private
-      # network, so no API hostname needs to be copied between services.
+      # An empty value intentionally uses the same-origin /api/v1 proxy. Nginx
+      # forwards that path to BACKEND_URL, so no API hostname is compiled into
+      # the browser bundle.
       - key: VITE_API_URL
         value: ''
       # Leave empty when using OIDC; otherwise set the raw tenant API key

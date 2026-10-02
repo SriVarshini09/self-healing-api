@@ -42,7 +42,31 @@ function Check-Http([string]$Name, [string]$Uri, [hashtable]$Headers = @{}) {
 
 Check-Http 'API liveness' "$($ApiUrl.TrimEnd('/'))/health" | Out-Null
 Check-Http 'Database readiness' "$($ApiUrl.TrimEnd('/'))/ready" | Out-Null
-Check-Http 'Dashboard' "$($DashboardUrl.TrimEnd('/'))/" | Out-Null
+$dashboard = Check-Http 'Dashboard' "$($DashboardUrl.TrimEnd('/'))/"
+
+$dashboardHeaders = @{
+  'Strict-Transport-Security' = '(?i)max-age='
+  'X-Content-Type-Options' = '(?i)\bnosniff\b'
+  'X-Frame-Options' = '(?i)\bDENY\b'
+  'Referrer-Policy' = '(?i)\bno-referrer\b'
+}
+foreach ($entry in $dashboardHeaders.GetEnumerator()) {
+  $value = [string]($dashboard.Headers[$entry.Key] -join ', ')
+  if ($value -notmatch $entry.Value) {
+    throw "FAIL Dashboard security headers: $($entry.Key) is missing or invalid"
+  }
+}
+Write-Host 'PASS Dashboard security headers'
+
+$runtimeConfig = Check-Http 'Dashboard runtime configuration' "$($DashboardUrl.TrimEnd('/'))/config.js"
+$cacheControl = [string]($runtimeConfig.Headers['Cache-Control'] -join ', ')
+if ($cacheControl -notmatch '(?i)\bno-store\b') {
+  throw 'FAIL Dashboard runtime configuration: Cache-Control must include no-store'
+}
+if ($runtimeConfig.Headers['ETag']) {
+  throw 'FAIL Dashboard runtime configuration: ETag must be disabled'
+}
+Write-Host 'PASS Dashboard runtime configuration cache protection'
 
 $apiKey = Read-EnvValue -Path $EnvFile -Name 'SHAPI_API_KEY'
 if ($apiKey) {

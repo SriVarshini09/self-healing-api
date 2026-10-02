@@ -123,6 +123,19 @@ The Blueprint is deployment-ready but cannot be considered hosted until a
 Render workspace applies it, secrets are entered, and the public URLs and
 GitHub delivery are verified.
 
+Immediately after the API and dashboard deploy, run the credential-free public
+infrastructure smoke before tenant onboarding:
+
+```powershell
+./scripts/hosted-infrastructure-smoke.ps1 `
+  -ApiUrl https://<api-host> `
+  -DashboardUrl https://<dashboard-host>
+```
+
+It verifies public health/readiness, security headers, dashboard runtime-config
+cache protection, CORS, unauthenticated rejection, and the same-origin API
+proxy. The authenticated hosted gate below remains required for release.
+
 After the hosted services are live, run the public-only gate from a trusted
 operator machine. It refuses localhost or non-HTTPS URLs and does not mutate
 business data. Its signed webhook check records one harmless `ping` delivery

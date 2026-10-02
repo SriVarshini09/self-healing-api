@@ -38,6 +38,11 @@ if (-not (Test-Path -LiteralPath $EnvFile)) { throw "Environment file not found:
 Assert-PublicHttpsUrl 'ApiUrl' $ApiUrl
 Assert-PublicHttpsUrl 'DashboardUrl' $DashboardUrl
 
+Write-Host 'Running credential-free hosted infrastructure checks...'
+& "$PSScriptRoot\hosted-infrastructure-smoke.ps1" `
+  -ApiUrl $ApiUrl `
+  -DashboardUrl $DashboardUrl
+
 $envValidationParams = @{ EnvFile = $EnvFile }
 if ($RequireGitHubApp) { $envValidationParams.RequireGitHubApp = $true }
 if ($RequireOidc) { $envValidationParams.RequireOidc = $true }
