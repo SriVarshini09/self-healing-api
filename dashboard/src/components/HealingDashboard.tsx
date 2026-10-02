@@ -450,6 +450,11 @@ type InvariantMapping = {
   repairFilePath: string | null;
   repairRequiredChecks: string[];
   integration?: { name: string; type: string };
+  repairReadiness?: {
+    state: 'MANUAL_REVIEW' | 'BLOCKED_NO_REQUIRED_CHECKS' | 'BLOCKED_MISSING_BUSINESS_OUTCOME_CHECK' | 'READY_FOR_TARGET_REVIEW';
+    reason: string;
+    requiredChecks: string[];
+  };
 };
 
 function RepairTargetPanel() {
@@ -530,6 +535,12 @@ function RepairTargetPanel() {
         <div className="divide-y divide-border">
           {items.map(item => {
             const draft = drafts[item.id] ?? { repository: '', filePath: '', requiredChecks: '' };
+            const readiness = item.repairReadiness;
+            const readinessTone = readiness?.state === 'READY_FOR_TARGET_REVIEW'
+              ? 'bg-success/15 text-success'
+              : readiness?.state.startsWith('BLOCKED')
+                ? 'bg-critical/15 text-critical'
+                : 'bg-warning/15 text-warning';
             return (
               <div key={item.id} className="space-y-2 px-4 py-3">
                 <div className="flex flex-wrap items-center gap-2">
@@ -537,8 +548,14 @@ function RepairTargetPanel() {
                   <span className="font-mono text-[10px] text-muted-foreground">
                     {item.integration?.name ?? 'integration'} · {item.status}
                   </span>
+                  {readiness && (
+                    <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] ${readinessTone}`}>
+                      {readiness.state.replaceAll('_', ' ')}
+                    </span>
+                  )}
                 </div>
                 <p className="truncate font-mono text-[10px] text-muted-foreground">{item.predicateExpression}</p>
+                {readiness && <p className="text-[10px] text-muted-foreground">{readiness.reason}</p>}
                 <div className="grid gap-2 md:grid-cols-[1fr_1.4fr_1.1fr_auto]">
                   <input
                     value={draft.repository}

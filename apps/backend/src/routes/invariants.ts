@@ -13,6 +13,16 @@ import {
 import { evaluateInvariantWindow } from '../services/invariants.js';
 import { tenantIdFor } from '../utils/auth-context.js';
 import { config } from '../config.js';
+import { repairTargetReadiness } from '../services/repair-target-readiness.js';
+
+function withRepairTargetReadiness<T extends {
+  id: string;
+  repairRepository: string | null;
+  repairFilePath: string | null;
+  repairRequiredChecks: string[];
+}>(invariant: T) {
+  return { ...invariant, repairReadiness: repairTargetReadiness(invariant) };
+}
 
 export async function invariantRoutes(app: FastifyInstance) {
   app.get('/invariants', async (request, reply) => {
@@ -41,7 +51,7 @@ export async function invariantRoutes(app: FastifyInstance) {
     ]);
 
     return reply.send({
-      data: invariants,
+      data: invariants.map(withRepairTargetReadiness),
       pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
     });
   });
@@ -59,7 +69,7 @@ export async function invariantRoutes(app: FastifyInstance) {
       },
     });
     if (!invariant) return reply.code(404).send({ error: 'Invariant not found' });
-    return reply.send(invariant);
+    return reply.send(withRepairTargetReadiness(invariant));
   });
 
   app.post('/invariants', async (request, reply) => {
@@ -135,7 +145,7 @@ export async function invariantRoutes(app: FastifyInstance) {
       error: 'Invariant quota reached for this tenant',
       limit: config.SHAPI_MAX_INVARIANTS_PER_TENANT,
     });
-    return reply.code(201).send(result.invariant);
+    return reply.code(201).send(withRepairTargetReadiness(result.invariant));
   });
 
   app.patch('/invariants/:id', async (request, reply) => {
@@ -223,7 +233,7 @@ export async function invariantRoutes(app: FastifyInstance) {
         data: { verified: false, verifiedAt: null, verificationHeadSha: null, verificationChecks: Prisma.DbNull },
       });
     }
-    return reply.send(invariant);
+    return reply.send(withRepairTargetReadiness(invariant));
   });
 
   app.delete('/invariants/:id', async (request, reply) => {
