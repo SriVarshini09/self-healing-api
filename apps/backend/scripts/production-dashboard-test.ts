@@ -21,10 +21,36 @@ function readEnv(path: string): Record<string, string> {
 }
 
 const dashboardUrl = option('--dashboard-url', 'http://localhost:8080').replace(/\/$/u, '');
-const apiUrl = option('--api-url', 'http://localhost:3001/api/v1').replace(/\/$/u, '');
+const apiInput = option('--api-url', 'http://localhost:3001').replace(/\/$/u, '');
+const apiUrl = apiInput.endsWith('/api/v1') ? apiInput : `${apiInput}/api/v1`;
 const envFile = option('--env-file', '.env');
 const apiKey = readEnv(envFile).SHAPI_API_KEY;
 if (!apiKey) throw new Error(`SHAPI_API_KEY was not found in ${envFile}`);
+
+type RepairCandidateSnapshot = {
+  reviewStatus?: 'PR_READY_AFTER_REVIEW' | 'MANUAL_REVIEW';
+  automationEligible?: boolean;
+};
+type IncidentSnapshot = {
+  status: string;
+  repairCandidates?: RepairCandidateSnapshot[];
+};
+
+const incidentsResponse = await fetch(`${apiUrl}/incidents?pageSize=100`, {
+  headers: { 'x-api-key': apiKey },
+});
+if (!incidentsResponse.ok) {
+  throw new Error(`incident snapshot failed: HTTP ${incidentsResponse.status}`);
+}
+const incidentsPayload = await incidentsResponse.json() as { data?: IncidentSnapshot[] };
+const activeIncidents = (incidentsPayload.data ?? []).filter(
+  incident => incident.status !== 'RESOLVED' && incident.status !== 'DISMISSED',
+);
+const activeRepairCandidates = activeIncidents.flatMap(incident => incident.repairCandidates ?? []);
+const expectedPrReadyCount = activeRepairCandidates.filter(
+  candidate => candidate.reviewStatus === 'PR_READY_AFTER_REVIEW' && candidate.automationEligible === true,
+).length;
+const expectedManualReviewCount = activeRepairCandidates.length - expectedPrReadyCount;
 
 const browser = await chromium.launch({ headless: true });
 
@@ -77,6 +103,9 @@ async function runDashboardSmoke(mode: {
     await page.getByText(/Live SHAPI telemetry/u).first().waitFor({ timeout: 15000 });
     await page.getByRole('heading', { name: 'Repair targets', exact: true }).waitFor({ timeout: 15000 });
     await page.getByText('Repair review', { exact: true }).waitFor({ timeout: 15000 });
+    const repairReviewCell = page.locator('p').filter({ hasText: 'Repair review' }).first().locator('..');
+    await repairReviewCell.getByText(String(expectedManualReviewCount), { exact: true }).waitFor({ timeout: 15000 });
+    await repairReviewCell.getByText(`${expectedPrReadyCount} PR-ready`, { exact: true }).waitFor({ timeout: 15000 });
     await page.getByRole('heading', { name: 'Alert delivery', exact: true }).waitFor({ timeout: 15000 });
     for (const label of ['Pending', 'Processing', 'Retrying', 'Failed', 'Delivered']) {
       await page.getByText(label, { exact: true }).waitFor({ timeout: 15000 });

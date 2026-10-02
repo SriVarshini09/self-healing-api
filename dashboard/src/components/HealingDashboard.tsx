@@ -719,12 +719,14 @@ export function HealingDashboard() {
   const activeIncidentCount = activeIncidents.length;
   const healingActionCount = activeIncidents.length;
   const activeRepairCandidates = activeIncidents.flatMap(incident => incident.repairCandidates ?? []);
-  const manualReviewCount = activeRepairCandidates.filter(
-    candidate => candidate.reviewStatus === 'MANUAL_REVIEW'
-  ).length;
   const prReadyCandidateCount = activeRepairCandidates.filter(
     candidate =>
       candidate.reviewStatus === 'PR_READY_AFTER_REVIEW' && candidate.automationEligible === true
+  ).length;
+  // Missing readiness metadata must remain visible as review work. This keeps
+  // stale/partial API payloads fail-closed instead of presenting a false zero.
+  const manualReviewCount = activeRepairCandidates.filter(
+    candidate => !(candidate.reviewStatus === 'PR_READY_AFTER_REVIEW' && candidate.automationEligible === true)
   ).length;
   const visibleReports = activeIncidents.length
     ? activeIncidents.map(incident => ({

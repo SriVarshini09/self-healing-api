@@ -63,6 +63,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   that are PR-ready after review. Browser smoke covers this queue, so the
   dashboard does not imply that every detected suggestion is automatically
   repairable.
+- Repair-review counts now fail closed when readiness metadata is missing, and
+  dashboard smoke cross-checks the displayed manual-review and PR-ready totals
+  against the live incidents API rather than checking only the section label.
 - Repair candidates without both an explicit repository mapping and structured
   file changes are now labeled `MANUAL REVIEW` in the production dashboard;
   preview and PR actions stay disabled with an explanation, so a suggestion
@@ -373,6 +376,8 @@ Verified locally on 2026-10-01 against the live Docker stack rebuilt from
 - Production dashboard smoke passed for the direct API, same-origin proxy,
   command center, live telemetry, repair-review queue, all five alert-delivery
   states, repair targets, and diagnosis modal.
+- The dashboard smoke also matched the displayed repair-review totals to the
+  live API snapshot after the queue hardening change.
 - The signed GitHub webhook smoke passed against the live Docker API: the first
   `ping` delivery returned 200 and replaying the same delivery id returned a
   duplicate acknowledgment.
