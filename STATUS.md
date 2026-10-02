@@ -10,7 +10,7 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   readiness, security and unauthenticated rejection, 20/20 authenticated
   requests, dashboard browser smoke, signed GitHub webhook replay
   deduplication, the 7/7 repair-readiness audit, and a guarded PostgreSQL
-  backup/restore drill with restored row-count verification. The latest pushed
+  backup/restore drill with restored row-count verification. The release
   commit `e4f7f12` also passed CI in
   [36995191231](https://github.com/SriVarshini09/self-healing-api/actions/runs/36995191231).
   The same release was rebuilt and verified in the clean remote Docker
