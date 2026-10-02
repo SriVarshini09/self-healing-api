@@ -5,6 +5,11 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Verified in this repository
 
+- Docker production validation can now also be run on demand for an exact
+  commit. Run [36987443677](https://github.com/SriVarshini09/self-healing-api/actions/runs/36987443677)
+  passed image build, stack startup, readiness, authenticated/load checks,
+  dashboard browser smoke, signed webhook replay protection, and repair-readiness
+  verification on `master`.
 - Render Blueprint validation can now be run on demand with the repository's
   `workflow_dispatch` trigger. The current Blueprint passed the official Render
   schema check in [36986736231](https://github.com/SriVarshini09/self-healing-api/actions/runs/36986736231);
