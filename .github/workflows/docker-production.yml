@@ -47,6 +47,7 @@ jobs:
   validate-and-build:
     runs-on: ubuntu-24.04
     env:
+      COMPOSE_PROJECT_NAME: shapi-ci
       POSTGRES_USER: shapi_ci
       POSTGRES_PASSWORD: shapi_ci_password
       POSTGRES_DB: shapi_ci
@@ -136,6 +137,19 @@ jobs:
             --env-file .ci-api.env \
             --requests 20 \
             --concurrency 5
+
+      - name: Verify backup and restore drill
+        shell: bash
+        run: |
+          set -euo pipefail
+          trap 'rm -f .ci-compose.env' EXIT
+          printf 'POSTGRES_USER=%s\nPOSTGRES_PASSWORD=%s\nPOSTGRES_DB=%s\n' \
+            "$POSTGRES_USER" "$POSTGRES_PASSWORD" "$POSTGRES_DB" > .ci-compose.env
+          pwsh -NoLogo -NoProfile -File scripts/backup-restore-drill.ps1 \
+            -EnvFile .ci-compose.env \
+            -ComposeFile docker-compose.production.yml \
+            -ProjectName "$COMPOSE_PROJECT_NAME" \
+            -ConfirmDrill
 
       - uses: pnpm/action-setup@v6
         with:
