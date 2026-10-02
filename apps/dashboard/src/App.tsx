@@ -541,6 +541,7 @@ function Incidents({ refreshKey, bump }: { refreshKey: number; bump: () => void 
                 <h4>Repair candidates</h4>
                 {selected.repairCandidates.map((r: any) => {
                   const isActionableRepair = r.automationEligible === true && r.reviewStatus === 'PR_READY_AFTER_REVIEW';
+                  const requiredChecks = Array.isArray(r.requiredChecks) ? r.requiredChecks : [];
                   return (
                     <div key={r.id} className="row">
                       <Badge
@@ -548,6 +549,7 @@ function Incidents({ refreshKey, bump }: { refreshKey: number; bump: () => void 
                         tone={r.verified ? 'green' : isActionableRepair ? 'amber' : 'red'}
                       />
                       <span>{r.description} ({Math.round(r.confidence * 100)}%)</span>
+                      {requiredChecks.length > 0 && <span className="muted">Required checks: {requiredChecks.join(', ')}</span>}
                       {!isActionableRepair && (
                         <span className="muted">
                           {r.reviewReason ?? 'Manual review required'}; SHAPI will not create a PR automatically.
@@ -595,6 +597,8 @@ function Incidents({ refreshKey, bump }: { refreshKey: number; bump: () => void 
               <div className="repair-panel">
                 <div className="card-head"><h4>Repair preview</h4><Badge text="PINNED BASE" tone="gray" /></div>
                 <p className="muted">{preview.repository} · {preview.base} · {preview.baseSha.slice(0, 12)}</p>
+                <p className="muted">Required GitHub checks: {previewCandidate.requiredChecks?.join(', ') || 'none configured'}.</p>
+                {previewCandidate.requiredChecks?.includes('business-outcome') && <p className="muted">This target requires the dedicated business-outcome proof in addition to generic CI.</p>}
                 {preview.changes.map((change: any) => (
                   <div key={change.path} className="diff-block">
                     <div className="mono diff-path">{change.path} · {change.kind}</div>
@@ -606,7 +610,10 @@ function Incidents({ refreshKey, bump }: { refreshKey: number; bump: () => void 
                 ))}
                 <input value={prTitle} onChange={e => setPrTitle(e.target.value)} placeholder="Pull request title" maxLength={256} />
                 <label className="confirm-row"><input type="checkbox" checked={previewApproved} onChange={e => setPreviewApproved(e.target.checked)} /> I reviewed this exact patch and approve opening the PR.</label>
-                <button disabled={busy !== null || !previewApproved || !prTitle.trim()} onClick={() => void createRepairPr()}>{busy === 'create-pr' ? 'Opening PR…' : 'Open repair PR'}</button>
+                <div className="form-row">
+                  <button disabled={busy !== null || !previewApproved || !prTitle.trim()} onClick={() => void createRepairPr()}>{busy === 'create-pr' ? 'Opening PR…' : 'Open repair PR'}</button>
+                  <button className="secondary" disabled={busy !== null} onClick={() => { setPreview(null); setPreviewCandidate(null); setPreviewApproved(false); }}>Cancel preview</button>
+                </div>
               </div>
             )}
             <h4>Timeline</h4>
