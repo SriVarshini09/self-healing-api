@@ -7,6 +7,8 @@ param(
   [string]$ProjectName = 'repo',
   [int]$Requests = 100,
   [int]$Concurrency = 20,
+  [int]$StartupTimeoutSec = 60,
+  [int]$RetryDelaySec = 2,
   [switch]$IncludeCapacitySmoke,
   [int]$DurationSeconds = 30,
   [int]$CapacityConcurrency = 20,
@@ -37,6 +39,8 @@ if ($IncludeCapacitySmoke -and ($CapacityDelayMs -lt 0 -or $CapacityDelayMs -gt 
 if ($IncludeCapacitySmoke -and ($MaxErrorRate -lt 0 -or $MaxErrorRate -gt 1)) {
   throw '-MaxErrorRate must be between 0 and 1 when capacity smoke is enabled'
 }
+if ($StartupTimeoutSec -lt 1) { throw '-StartupTimeoutSec must be positive' }
+if ($RetryDelaySec -lt 1) { throw '-RetryDelaySec must be positive' }
 if ($RequireRepairTargets) { $IncludeRepairAudit = $true }
 
 function Invoke-Check([string]$Name, [scriptblock]$Command) {
@@ -51,11 +55,15 @@ function Invoke-Check([string]$Name, [scriptblock]$Command) {
 }
 
 Invoke-Check 'Stack smoke' {
-  if ($RequireGitHubApp) {
-    & "$PSScriptRoot\stack-smoke.ps1" -ApiUrl $ApiUrl -DashboardUrl $DashboardUrl -EnvFile $EnvFile -RequireGitHubApp
-  } else {
-    & "$PSScriptRoot\stack-smoke.ps1" -ApiUrl $ApiUrl -DashboardUrl $DashboardUrl -EnvFile $EnvFile
+  $stackSmokeParams = @{
+    ApiUrl = $ApiUrl
+    DashboardUrl = $DashboardUrl
+    EnvFile = $EnvFile
+    StartupTimeoutSec = $StartupTimeoutSec
+    RetryDelaySec = $RetryDelaySec
   }
+  if ($RequireGitHubApp) { $stackSmokeParams.RequireGitHubApp = $true }
+  & "$PSScriptRoot\stack-smoke.ps1" @stackSmokeParams
 }
 
 Invoke-Check 'Security smoke' {

@@ -3,10 +3,15 @@ param(
   [string]$ApiUrl = 'http://localhost:3001',
   [string]$DashboardUrl = 'http://localhost:8080',
   [string]$EnvFile = '.env',
+  [int]$StartupTimeoutSec = 60,
+  [int]$RetryDelaySec = 2,
   [switch]$RequireGitHubApp
 )
 
 $ErrorActionPreference = 'Stop'
+
+if ($StartupTimeoutSec -lt 1) { throw 'StartupTimeoutSec must be positive' }
+if ($RetryDelaySec -lt 1) { throw 'RetryDelaySec must be positive' }
 
 function Read-EnvValue([string]$Path, [string]$Name) {
   if (-not (Test-Path -LiteralPath $Path)) { return $null }
@@ -16,15 +21,24 @@ function Read-EnvValue([string]$Path, [string]$Name) {
 }
 
 function Check-Http([string]$Name, [string]$Uri, [hashtable]$Headers = @{}) {
-  try {
-    $response = Invoke-WebRequest -Uri $Uri -Headers $Headers -UseBasicParsing
-    if ($response.StatusCode -ne 200) { throw "HTTP $($response.StatusCode)" }
-    Write-Host "PASS $Name ($($response.StatusCode))"
-    return $response
-  } catch {
-    throw "FAIL $Name ($Uri): $($_.Exception.Message)"
+  $deadline = (Get-Date).AddSeconds($StartupTimeoutSec)
+  $lastError = 'no response'
+  do {
+    try {
+      $response = Invoke-WebRequest -Uri $Uri -Headers $Headers -UseBasicParsing -TimeoutSec 5
+      if ($response.StatusCode -eq 200) {
+        Write-Host "PASS $Name ($($response.StatusCode))"
+        return $response
+      }
+      $lastError = "HTTP $($response.StatusCode)"
+    } catch {
+      $lastError = $_.Exception.Message
+    }
+    if ((Get-Date) -lt $deadline) { Start-Sleep -Seconds $RetryDelaySec }
+  } while ((Get-Date) -lt $deadline)
+
+  throw "FAIL $Name ($Uri) after $StartupTimeoutSec seconds: $lastError"
   }
-}
 
 Check-Http 'API liveness' "$($ApiUrl.TrimEnd('/'))/health" | Out-Null
 Check-Http 'Database readiness' "$($ApiUrl.TrimEnd('/'))/ready" | Out-Null

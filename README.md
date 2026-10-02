@@ -74,6 +74,12 @@ Blueprint sets both web services to port 10000 and wires the dashboard's
 multi-replica deployments, run migrations as a separate release job before
 starting application replicas.
 
+The non-destructive `scripts/stack-smoke.ps1` check retries API, database, and
+dashboard endpoints during bounded startup settling, so a release check does
+not fail on the first connection while a restarted container is becoming
+healthy. Adjust `-StartupTimeoutSec` and `-RetryDelaySec` when a provider has a
+slower startup profile.
+
 ### Render Blueprint
 
 `render.yaml` provides a hosted option with one Docker API service, one Docker

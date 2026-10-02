@@ -239,6 +239,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   deployment supplies the secret `METRICS_TOKEN` and the caller presents it
   through a dedicated header or Bearer token. The security smoke covers the
   unauthenticated case.
+- Release smoke checks now retry API, database, and dashboard endpoints during
+  a bounded startup window. This prevents a transient container restart race
+  from producing a false production-readiness failure; the full local gate
+  passed with the retry parameters enabled.
 
 ## Not complete
 
