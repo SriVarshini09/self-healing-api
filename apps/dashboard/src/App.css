@@ -116,6 +116,8 @@ html[data-shapi-theme='command'] .verification-proof summary { color:#8ff0d8; }
 .section-note { margin:4px 0 18px; }.table-label { color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.1em; font-weight:800; }
 .mapping-fields { margin:16px 0 4px; padding:14px; border:1px solid var(--line); border-radius:9px; background:rgba(38,116,245,.025); }
 .mapping-fields .form-row { margin:10px 0 5px; }
+.repair-readiness { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:8px 10px; border:1px solid var(--line); border-radius:7px; background:rgba(38,116,245,.025); font-size:11px; line-height:1.4; }
+.repair-readiness.compact { padding:0; border:0; background:transparent; }
 /* Command theme: dark SOC operations center */
 html[data-shapi-theme='command'] { --ink:#d7f3ec; --muted:#6f8f88; --line:rgba(94,234,212,.14); --panel:rgba(13,26,28,.92); --canvas:#05090a; }
 html[data-shapi-theme='command'] body { color:var(--ink); }

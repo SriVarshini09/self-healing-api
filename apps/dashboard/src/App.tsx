@@ -64,6 +64,13 @@ export function toneFor(status: string): string {
   return 'gray';
 }
 
+function repairReadinessTone(state: string): string {
+  if (state === 'READY_FOR_TARGET_REVIEW') return 'green';
+  if (state === 'MANUAL_REVIEW') return 'amber';
+  if (state.startsWith('BLOCKED_')) return 'red';
+  return 'gray';
+}
+
 function Overview({ refreshKey, command }: { refreshKey: number; command: boolean }) {
   const [summary, setSummary] = useState<any>(null);
   const [incidents, setIncidents] = useState<any[]>([]);
@@ -303,6 +310,8 @@ function Invariants({ refreshKey, bump }: { refreshKey: number; bump: () => void
     setError(null);
   };
 
+  const editingInvariant = editingId ? items.find(item => item.id === editingId) : null;
+
   const saveMapping = async () => {
     if (!editingId) return;
     try {
@@ -345,6 +354,13 @@ function Invariants({ refreshKey, bump }: { refreshKey: number; bump: () => void
             <input value={form.repairRequiredChecks} onChange={e => setForm({ ...form, repairRequiredChecks: e.target.value })} placeholder="required checks, comma-separated" />
           </div>
           <p className="muted">A mapped target enables safe source previews. Required checks must all pass before a repair is verified.</p>
+          {editingInvariant?.repairReadiness && (
+            <div className="repair-readiness">
+              <Badge text={editingInvariant.repairReadiness.state} tone={repairReadinessTone(editingInvariant.repairReadiness.state)} />
+              <span className="muted">{editingInvariant.repairReadiness.reason}</span>
+              {editingInvariant.repairReadiness.adapterId && <span className="muted mono">Adapter: {editingInvariant.repairReadiness.adapterId}</span>}
+            </div>
+          )}
         </div>
         <div><button onClick={editingId ? () => void saveMapping() : async () => {
           try {
@@ -362,6 +378,12 @@ function Invariants({ refreshKey, bump }: { refreshKey: number; bump: () => void
           <strong>{i.name}</strong>
           <span className="muted mono">{i.predicateExpression.slice(0, 80)}</span>
           <span className="muted">{i.repairRepository ? `${i.repairRepository}/${i.repairFilePath}` : 'manual repair'}</span>
+          {i.repairReadiness && (
+            <span className="repair-readiness compact">
+              <Badge text={i.repairReadiness.state} tone={repairReadinessTone(i.repairReadiness.state)} />
+              {i.repairReadiness.adapterId && <span className="muted mono">{i.repairReadiness.adapterId}</span>}
+            </span>
+          )}
           <button className="secondary" onClick={() => editMapping(i)}>Edit target</button>
           <button className="secondary" onClick={async () => {
             try {
