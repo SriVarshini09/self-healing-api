@@ -35,7 +35,7 @@ export interface RepairCandidateReadiness {
  * changes, or required target checks must remain manual-review work.
  */
 export function repairCandidateReadiness(
-  candidate: Pick<RepairCandidate, 'repository' | 'changes'>,
+  candidate: Pick<RepairCandidate, 'repository' | 'changes'> & { files?: readonly string[] },
   requiredChecksInput: readonly string[] = [],
 ): RepairCandidateReadiness {
   const requiredChecks = [...new Set(requiredChecksInput.map(check => check.trim()).filter(Boolean))];
@@ -63,6 +63,18 @@ export function repairCandidateReadiness(
       reviewStatus: 'MANUAL_REVIEW',
       automationEligible: false,
       reviewReason: 'No required GitHub checks are configured',
+      requiredChecks,
+    };
+  }
+
+  const isReviewedDemoBusinessOutcome =
+    candidate.repository === DEMO_SAAS_REPOSITORY &&
+    candidate.files?.includes(DEMO_SAAS_PROVISIONING_PATH);
+  if (isReviewedDemoBusinessOutcome && !requiredChecks.includes('business-outcome')) {
+    return {
+      reviewStatus: 'MANUAL_REVIEW',
+      automationEligible: false,
+      reviewReason: 'The reviewed demo business-outcome adapter requires the business-outcome check',
       requiredChecks,
     };
   }

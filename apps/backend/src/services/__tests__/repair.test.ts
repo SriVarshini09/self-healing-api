@@ -68,6 +68,25 @@ describe('repair candidate repository mapping', () => {
     });
   });
 
+  it('keeps the reviewed demo business-outcome candidate manual without its dedicated check', () => {
+    const candidate = {
+      repository: DEMO_SAAS_REPOSITORY,
+      files: [DEMO_SAAS_PROVISIONING_PATH],
+      changes: [{ kind: 'replace' }],
+    };
+
+    expect(repairCandidateReadiness(candidate, ['verify'])).toMatchObject({
+      reviewStatus: 'MANUAL_REVIEW',
+      automationEligible: false,
+      reviewReason: 'The reviewed demo business-outcome adapter requires the business-outcome check',
+      requiredChecks: ['verify'],
+    });
+    expect(repairCandidateReadiness(candidate, ['verify', 'business-outcome'])).toMatchObject({
+      reviewStatus: 'PR_READY_AFTER_REVIEW',
+      automationEligible: true,
+    });
+  });
+
   it('keeps unmapped predicate suggestions manual', async () => {
     const candidates = await generateRepairCandidates(incident(null, null), diagnosis);
     const predicate = candidates.find(candidate => candidate.description.includes('optional chaining'));
