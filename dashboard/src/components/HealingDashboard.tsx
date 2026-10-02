@@ -821,7 +821,7 @@ export function HealingDashboard() {
           </a>
           <a className="nav-item" href="#traffic">
             <Globe2 />
-            Global traffic
+            Incident signals
           </a>
           <a className="nav-item" href="#healing">
             <GitBranch />

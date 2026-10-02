@@ -101,6 +101,7 @@ async function runDashboardSmoke(mode: {
     await page.goto(`${dashboardUrl}/`, { waitUntil: 'domcontentloaded' });
     await page.getByRole('heading', { name: 'Command center' }).waitFor({ timeout: 15000 });
     await page.getByText(/Live SHAPI telemetry/u).first().waitFor({ timeout: 15000 });
+    await page.getByText('Incident signals', { exact: true }).waitFor({ timeout: 15000 });
     await page.getByRole('heading', { name: 'Incident activity', exact: true }).waitFor({ timeout: 15000 });
     await page.getByRole('heading', { name: 'Recent incidents', exact: true }).waitFor({ timeout: 15000 });
     await page.getByRole('heading', { name: 'Repair targets', exact: true }).waitFor({ timeout: 15000 });

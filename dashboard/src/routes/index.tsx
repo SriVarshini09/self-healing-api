@@ -6,7 +6,7 @@ export const Route = createFileRoute("/")({
     { title: "Pulseguard — Self-Healing API Control Plane" },
     { name: "description", content: "An animated operational dashboard preview for monitoring and healing API services." },
     { property: "og:title", content: "Pulseguard — Self-Healing API Control Plane" },
-    { property: "og:description", content: "Explore an animated preview of API health, interventions, and global traffic." },
+    { property: "og:description", content: "Monitor live incidents, review repair targets, and verify SHAPI outcomes." },
     { property: "og:type", content: "website" },
     { name: "twitter:card", content: "summary_large_image" },
   ] }),
