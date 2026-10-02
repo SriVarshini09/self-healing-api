@@ -540,7 +540,7 @@ function Incidents({ refreshKey, bump }: { refreshKey: number; bump: () => void 
               <>
                 <h4>Repair candidates</h4>
                 {selected.repairCandidates.map((r: any) => {
-                  const isActionableRepair = Boolean(r.repository && Array.isArray(r.changes) && r.changes.length > 0);
+                  const isActionableRepair = r.automationEligible === true && r.reviewStatus === 'PR_READY_AFTER_REVIEW';
                   return (
                     <div key={r.id} className="row">
                       <Badge
@@ -550,7 +550,7 @@ function Incidents({ refreshKey, bump }: { refreshKey: number; bump: () => void 
                       <span>{r.description} ({Math.round(r.confidence * 100)}%)</span>
                       {!isActionableRepair && (
                         <span className="muted">
-                          No mapped repository patch; SHAPI will not create a PR automatically.
+                          {r.reviewReason ?? 'Manual review required'}; SHAPI will not create a PR automatically.
                         </span>
                       )}
                       {isActionableRepair && (

@@ -63,6 +63,9 @@ type LiveDiagnosis = {
     diff: string | null;
     repository: string | null;
     changes: unknown[] | null;
+    reviewStatus: 'PR_READY_AFTER_REVIEW' | 'MANUAL_REVIEW';
+    automationEligible: boolean;
+    reviewReason: string;
   }>;
 };
 
@@ -1428,7 +1431,7 @@ export function HealingDashboard() {
                   </p>
                   <div className="mt-2 space-y-2">
                     {diagnosisResult.candidates.map(candidate => {
-                      const isActionableRepair = Boolean(candidate.repository && candidate.changes?.length);
+                      const isActionableRepair = candidate.automationEligible && candidate.reviewStatus === 'PR_READY_AFTER_REVIEW';
                       return (
                         <div
                           key={`${candidate.type}-${candidate.description}`}
@@ -1456,8 +1459,8 @@ export function HealingDashboard() {
                           </div>
                           {!isActionableRepair && (
                             <p className="mt-2 rounded border border-critical/20 bg-critical/5 p-2 text-[10px] leading-relaxed text-critical">
-                              No mapped repository patch is available. SHAPI will not preview or
-                              create a GitHub PR for this candidate automatically.
+                              {candidate.reviewReason}. SHAPI will not preview or create a GitHub PR
+                              for this candidate automatically.
                             </p>
                           )}
                         {repairPreview?.candidateId === candidate.id && (

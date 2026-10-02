@@ -230,6 +230,11 @@ export const RepairCandidateSchema = z.object({
   confidence: z.number().min(0).max(1),
   // Whether this has been verified via replay
   verified: z.boolean().default(false),
+  repository: z.string().nullable().optional(),
+  changes: z.array(z.unknown()).nullable().optional(),
+  reviewStatus: z.enum(['PR_READY_AFTER_REVIEW', 'MANUAL_REVIEW']).optional(),
+  automationEligible: z.boolean().optional(),
+  reviewReason: z.string().optional(),
   createdAt: z.date()
 });
 export type RepairCandidate = z.infer<typeof RepairCandidateSchema>;
