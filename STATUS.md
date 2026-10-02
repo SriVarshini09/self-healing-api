@@ -87,6 +87,14 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   production Docker workflows:
   [CI run 36967773717](https://github.com/SriVarshini09/self-healing-api/actions/runs/36967773717),
   [Docker run 36967773694](https://github.com/SriVarshini09/self-healing-api/actions/runs/36967773694).
+- Candidate readiness now independently enforces the reviewed demo
+  business-outcome check, even if stale persisted data bypasses the invariant
+  mapping endpoint. The new regression keeps that candidate in manual review
+  with only `verify`, and permits PR review only when `business-outcome` is
+  also present. Commit `3923261` passed 102 backend tests, the full workspace
+  checks, live production readiness, CI, and Docker validation:
+  [CI run 36968322179](https://github.com/SriVarshini09/self-healing-api/actions/runs/36968322179),
+  [Docker run 36968322137](https://github.com/SriVarshini09/self-healing-api/actions/runs/36968322137).
 - CI now runs the same complete workspace build and test coverage instead of
   a hand-picked package list. The workflow change passed all workspace
   builds, tests, typechecks, backend lint, production dashboard build, Prisma
