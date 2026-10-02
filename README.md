@@ -513,6 +513,11 @@ next to each candidate.
   in the webhook-event audit trail. Push events are recorded but do not mutate
   repair state because only workflow-run and pull-request events identify the
   authoritative repair lifecycle.
+- GitHub App webhook events are routed by the signed payload's `installation.id`
+  after that installation is synced to a tenant. Unknown installation IDs are
+  rejected instead of falling back to another tenant's integration; the global
+  `GITHUB_APP_INTEGRATION_ID` is retained only for initial installation and
+  ping/bootstrap events that arrive before an installation row exists.
 - The backend runs a scheduled invariant-window evaluator (default every 60 seconds;
   configure with `INVARIANT_EVALUATION_INTERVAL_SEC`) and uses weighted baseline/current
   trial counts for drift calculations.
