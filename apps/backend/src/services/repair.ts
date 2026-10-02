@@ -19,6 +19,54 @@ export interface RepairCandidate {
   changes?: Prisma.JsonValue | null;
 }
 
+export type RepairReviewStatus = 'PR_READY_AFTER_REVIEW' | 'MANUAL_REVIEW';
+
+export interface RepairCandidateReadiness {
+  reviewStatus: RepairReviewStatus;
+  automationEligible: boolean;
+  reviewReason: string;
+}
+
+/**
+ * Describes whether a candidate has enough explicit information to enter the
+ * reviewed PR workflow. Suggestions without a mapped repository, structured
+ * changes, or required target checks must remain manual-review work.
+ */
+export function repairCandidateReadiness(
+  candidate: Pick<RepairCandidate, 'repository' | 'changes'>,
+  requiredChecks: readonly string[] = [],
+): RepairCandidateReadiness {
+  if (!candidate.repository) {
+    return {
+      reviewStatus: 'MANUAL_REVIEW',
+      automationEligible: false,
+      reviewReason: 'No repository mapping is configured',
+    };
+  }
+
+  if (!Array.isArray(candidate.changes) || candidate.changes.length === 0) {
+    return {
+      reviewStatus: 'MANUAL_REVIEW',
+      automationEligible: false,
+      reviewReason: 'No structured file changes are available',
+    };
+  }
+
+  if (!requiredChecks.some(check => check.trim().length > 0)) {
+    return {
+      reviewStatus: 'MANUAL_REVIEW',
+      automationEligible: false,
+      reviewReason: 'No required GitHub checks are configured',
+    };
+  }
+
+  return {
+    reviewStatus: 'PR_READY_AFTER_REVIEW',
+    automationEligible: true,
+    reviewReason: 'Structured patch, repository mapping, and required checks are configured',
+  };
+}
+
 type RepairIntegration = Pick<Integration, 'name' | 'type' | 'config'>;
 type IncidentWithRelations = Incident & { invariant: Invariant | null; integration: RepairIntegration };
 

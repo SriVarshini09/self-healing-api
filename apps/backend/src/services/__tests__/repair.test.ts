@@ -3,7 +3,7 @@ import {
   DEMO_SAAS_PROVISIONING_PATH,
   DEMO_SAAS_REPOSITORY,
 } from '@shapi/repair-generation';
-import { generateRepairCandidates } from '../repair.js';
+import { generateRepairCandidates, repairCandidateReadiness } from '../repair.js';
 
 const diagnosis = { rootCause: 'Changed payload', suggestedFix: 'Review predicate', confidence: 0.8, evidence: [] };
 
@@ -33,6 +33,38 @@ function provisioningIncident(repairRepository: string | null, repairFilePath: s
 }
 
 describe('repair candidate repository mapping', () => {
+  it('marks an unmapped candidate for manual review', () => {
+    expect(repairCandidateReadiness({ repository: null, changes: [{ kind: 'replace' }] }, ['verify'])).toEqual({
+      reviewStatus: 'MANUAL_REVIEW',
+      automationEligible: false,
+      reviewReason: 'No repository mapping is configured',
+    });
+  });
+
+  it('marks a mapped candidate without structured changes for manual review', () => {
+    expect(repairCandidateReadiness({ repository: 'acme/demo', changes: null }, ['verify'])).toMatchObject({
+      reviewStatus: 'MANUAL_REVIEW',
+      automationEligible: false,
+      reviewReason: 'No structured file changes are available',
+    });
+  });
+
+  it('requires an exact target check before a candidate is automation eligible', () => {
+    expect(repairCandidateReadiness({ repository: 'acme/demo', changes: [{ kind: 'replace' }] }, [])).toMatchObject({
+      reviewStatus: 'MANUAL_REVIEW',
+      automationEligible: false,
+      reviewReason: 'No required GitHub checks are configured',
+    });
+  });
+
+  it('marks a fully configured candidate PR-ready after operator review', () => {
+    expect(repairCandidateReadiness({ repository: 'acme/demo', changes: [{ kind: 'replace' }] }, ['verify'])).toEqual({
+      reviewStatus: 'PR_READY_AFTER_REVIEW',
+      automationEligible: true,
+      reviewReason: 'Structured patch, repository mapping, and required checks are configured',
+    });
+  });
+
   it('keeps unmapped predicate suggestions manual', async () => {
     const candidates = await generateRepairCandidates(incident(null, null), diagnosis);
     const predicate = candidates.find(candidate => candidate.description.includes('optional chaining'));

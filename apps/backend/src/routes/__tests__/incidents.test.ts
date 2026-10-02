@@ -64,6 +64,11 @@ vi.mock('../../services/diagnosis.js', () => ({
 
 vi.mock('../../services/repair.js', () => ({
   generateRepairCandidates: async () => [{ type: 'MANUAL', description: 'Review handler', diff: null, files: [], confidence: 0.8 }],
+  repairCandidateReadiness: () => ({
+    reviewStatus: 'MANUAL_REVIEW',
+    automationEligible: false,
+    reviewReason: 'No repository mapping is configured',
+  }),
 }));
 
 let app: FastifyInstance;
@@ -101,6 +106,10 @@ describe('incident lifecycle actions', () => {
     const first = await app.inject({ method: 'POST', url: '/incidents/inc-1/diagnose' });
     expect(first.statusCode).toBe(200);
     expect(first.json().candidates[0].id).toBe('candidate-1');
+    expect(first.json().candidates[0]).toMatchObject({
+      reviewStatus: 'MANUAL_REVIEW',
+      automationEligible: false,
+    });
     const second = await app.inject({ method: 'POST', url: '/incidents/inc-1/diagnose' });
     expect(second.statusCode).toBe(409);
     expect(fake.diagnosisCalls).toBe(1);

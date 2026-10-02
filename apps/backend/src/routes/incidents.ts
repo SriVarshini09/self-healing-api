@@ -11,6 +11,7 @@ import {
 } from '@prisma/client';
 import { z } from 'zod';
 import { tenantIdFor } from '../utils/auth-context.js';
+import { generateRepairCandidates, repairCandidateReadiness } from '../services/repair.js';
 
 const replaySchema = z.object({
   webhookEventId: z.string().min(1),
@@ -49,7 +50,7 @@ export async function incidentRoutes(app: FastifyInstance) {
         take: pageSize,
         include: {
           integration: { select: { id: true, name: true, type: true } },
-          invariant: { select: { id: true, name: true } },
+          invariant: { select: { id: true, name: true, repairRequiredChecks: true } },
           replayJobs: true,
           repairCandidates: true,
           githubPRs: true,
@@ -59,7 +60,10 @@ export async function incidentRoutes(app: FastifyInstance) {
     ]);
 
     return reply.send({
-      data: incidents,
+      data: incidents.map(incident => ({
+        ...incident,
+        repairCandidates: withRepairReadiness(incident.repairCandidates, incident.invariant?.repairRequiredChecks ?? []),
+      })),
       pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
     });
   });
@@ -78,7 +82,10 @@ export async function incidentRoutes(app: FastifyInstance) {
       },
     });
     if (!incident) return reply.code(404).send({ error: 'Incident not found' });
-    return reply.send(incident);
+    return reply.send({
+      ...incident,
+      repairCandidates: withRepairReadiness(incident.repairCandidates, incident.invariant?.repairRequiredChecks ?? []),
+    });
   });
 
   app.patch('/incidents/:id', async (request, reply) => {
@@ -105,7 +112,10 @@ export async function incidentRoutes(app: FastifyInstance) {
         githubPRs: true,
       },
     });
-    return reply.send(incident);
+    return reply.send({
+      ...incident,
+      repairCandidates: withRepairReadiness(incident.repairCandidates, incident.invariant?.repairRequiredChecks ?? []),
+    });
   });
 
   app.get('/incidents/:id/timeline', async (request, reply) => {
@@ -114,6 +124,7 @@ export async function incidentRoutes(app: FastifyInstance) {
     const incident = await prisma.incident.findUnique({
       where: { id, integration: { tenantId } },
       include: {
+        invariant: { select: { repairRequiredChecks: true } },
         replayJobs: { orderBy: { createdAt: 'asc' } },
         repairCandidates: { orderBy: { createdAt: 'asc' } },
         githubPRs: { orderBy: { createdAt: 'asc' } },
@@ -148,7 +159,12 @@ export async function incidentRoutes(app: FastifyInstance) {
         type: 'repair_candidate',
         timestamp: rc.createdAt,
         message: `Repair candidate: ${String(rc.type).toLowerCase().replace('_', ' ')}`,
-        data: { description: rc.description, confidence: rc.confidence, verified: rc.verified },
+        data: {
+          description: rc.description,
+          confidence: rc.confidence,
+          verified: rc.verified,
+          ...repairCandidateReadiness(rc, incident.invariant?.repairRequiredChecks ?? []),
+        },
       })),
       ...incident.githubPRs.map(pr => ({
         type: 'github_pr',
@@ -181,7 +197,6 @@ export async function incidentRoutes(app: FastifyInstance) {
 
     const { diagnoseIncident } = await import('../services/diagnosis.js');
     const diagnosis = await diagnoseIncident(incident);
-    const { generateRepairCandidates } = await import('../services/repair.js');
     const candidates = await generateRepairCandidates(incident, diagnosis);
     const saved = await prisma.$transaction(async tx => {
       const claimed = await tx.incident.updateMany({
@@ -213,7 +228,11 @@ export async function incidentRoutes(app: FastifyInstance) {
       return { incident: updated, candidates: persistedCandidates };
     });
     if (!saved) return reply.code(409).send({ error: 'Incident state changed during diagnosis; no candidates were saved' });
-    return reply.send({ ...saved, diagnosis });
+    return reply.send({
+      ...saved,
+      candidates: withRepairReadiness(saved.candidates, incident.invariant?.repairRequiredChecks ?? []),
+      diagnosis,
+    });
   });
 
   app.post('/incidents/:id/replay', async (request, reply) => {
@@ -254,6 +273,18 @@ export async function incidentRoutes(app: FastifyInstance) {
     return reply.code(201).send(replayJob);
   });
 }
+
+function withRepairReadiness<T extends Pick<RepairCandidateForReadiness, 'repository' | 'changes'>>(
+  candidates: T[],
+  requiredChecks: readonly string[],
+) {
+  return candidates.map(candidate => ({
+    ...candidate,
+    ...repairCandidateReadiness(candidate, requiredChecks),
+  }));
+}
+
+type RepairCandidateForReadiness = Parameters<typeof repairCandidateReadiness>[0];
 
 async function processReplayJob(replayJobId: string) {
   const job = await prisma.replayJob.findUnique({
