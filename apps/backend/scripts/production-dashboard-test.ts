@@ -76,6 +76,7 @@ async function runDashboardSmoke(mode: {
     await page.getByRole('heading', { name: 'Command center' }).waitFor({ timeout: 15000 });
     await page.getByText(/Live SHAPI telemetry/u).first().waitFor({ timeout: 15000 });
     await page.getByRole('heading', { name: 'Repair targets', exact: true }).waitFor({ timeout: 15000 });
+    await page.getByRole('heading', { name: 'Alert delivery', exact: true }).waitFor({ timeout: 15000 });
 
     await page.getByRole('button', { name: 'Run diagnosis', exact: true }).click();
     await page.getByRole('heading', { name: /No live incident selected|Live incident diagnosis|Live diagnosis complete/u }).waitFor({ timeout: 10000 });
@@ -104,7 +105,7 @@ try {
     apiRequestPrefix: `${dashboardUrl}/api/v1`,
     requireSameOrigin: true,
   });
-  console.log('Production dashboard smoke passed: direct API, same-origin proxy, command center, live telemetry, repair targets, and diagnosis modal.');
+  console.log('Production dashboard smoke passed: direct API, same-origin proxy, command center, live telemetry, alert delivery, repair targets, and diagnosis modal.');
 } finally {
   await browser.close();
 }

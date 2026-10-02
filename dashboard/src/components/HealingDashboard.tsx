@@ -49,6 +49,15 @@ type LiveSnapshot = {
   }>;
 };
 
+type AlertStatus = {
+  webhookConfigured: boolean;
+  pending: number;
+  processing: number;
+  retrying: number;
+  delivered: number;
+  failed: number;
+};
+
 type LiveDiagnosis = {
   rootCause: string;
   suggestedFix: string;
@@ -364,6 +373,7 @@ export function HealingDashboard() {
   const [githubLoading, setGithubLoading] = useState(false);
   const [githubLoadError, setGithubLoadError] = useState<string | null>(null);
   const [liveSnapshot, setLiveSnapshot] = useState<LiveSnapshot | null>(null);
+  const [alertStatus, setAlertStatus] = useState<AlertStatus | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
 
   const openDiagnosis = () => {
@@ -660,6 +670,12 @@ export function HealingDashboard() {
         }
       } catch (error) {
         if (active) setApiError(error instanceof Error ? error.message : 'SHAPI API unavailable');
+      }
+      try {
+        const status = await fetchShapi<AlertStatus>('alerts/status');
+        if (active) setAlertStatus(status);
+      } catch {
+        if (active) setAlertStatus(null);
       }
     };
     if (paused) {
@@ -1124,6 +1140,44 @@ export function HealingDashboard() {
                     {liveSnapshot ? liveSnapshot.summary.totalInvariants : '—'}
                   </p>
                   <p className="text-[10px] text-muted-foreground">Invariants</p>
+                </div>
+              </div>
+              <div className="border-t border-border px-4 py-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <h3 className="text-xs font-semibold">Alert delivery</h3>
+                    <p className="text-[10px] text-muted-foreground">
+                      {alertStatus
+                        ? alertStatus.webhookConfigured
+                          ? 'Durable webhook outbox · live'
+                          : 'Webhook delivery disabled'
+                        : 'Alert status unavailable'}
+                    </p>
+                  </div>
+                  <span
+                    className={`rounded px-1.5 py-0.5 text-[10px] ${
+                      alertStatus?.failed
+                        ? 'bg-critical/15 text-critical'
+                        : alertStatus?.processing || alertStatus?.retrying
+                          ? 'bg-warning/15 text-warning'
+                          : 'bg-success/15 text-success'
+                    }`}
+                  >
+                    {alertStatus ? `${alertStatus.failed} failed` : '—'}
+                  </span>
+                </div>
+                <div className="mt-3 grid grid-cols-4 divide-x divide-border text-center">
+                  {[
+                    ['Pending', alertStatus?.pending],
+                    ['Processing', alertStatus?.processing],
+                    ['Retrying', alertStatus?.retrying],
+                    ['Failed', alertStatus?.failed],
+                  ].map(([label, value]) => (
+                    <div key={label}>
+                      <p className="font-mono text-sm font-semibold">{value ?? '—'}</p>
+                      <p className="text-[9px] text-muted-foreground">{label}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

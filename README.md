@@ -252,9 +252,9 @@ without changing state:
 ./scripts/production-readiness.ps1 -EnvFile ./path/to/.env -RequireGitHubApp -IncludeDashboardSmoke
 ```
 
-This browser smoke verifies the live command center, telemetry connection,
-repair-target panel, and diagnosis modal. It does not create incidents, replay
-jobs, or pull requests.
+This browser smoke verifies the live command center, telemetry connection, alert
+delivery status, repair-target panel, and diagnosis modal. It does not create
+incidents, replay jobs, or pull requests.
 
 Include the read-only repair target audit in the same gate when reviewing a
 release or hosted tenant:
