@@ -245,8 +245,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   local readiness suite.
 - A separate `scripts/hosted-readiness.ps1` gate now runs the same checks
   against public HTTPS API/dashboard URLs without starting or mutating a local
-  Compose stack. It rejects localhost endpoints and keeps the hosted operator
-  key in an external env file.
+  Compose stack. It rejects localhost endpoints, keeps the hosted operator
+  key in an external env file, and always prints the read-only repair readiness
+  audit. The audit remains informational unless the operator opts into
+  `-RequireRepairTargets`.
 - A `scripts/bootstrap-hosted-tenant.ps1` helper now creates the first hosted
   tenant from an external bootstrap-token env file, prints the one-time owner
   key without persisting it, and supports a no-request dry run.

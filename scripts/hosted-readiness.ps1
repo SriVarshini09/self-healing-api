@@ -15,6 +15,7 @@ param(
   [double]$MaxErrorRate = 0,
   [switch]$RequireGitHubApp = $true,
   [switch]$IncludeDashboardSmoke = $true,
+  # Retained for command-line compatibility; the audit is now always included.
   [switch]$IncludeRepairAudit,
   [switch]$RequireRepairTargets
 )
@@ -45,7 +46,9 @@ $readinessParams = @{
 }
 if ($RequireGitHubApp) { $readinessParams.RequireGitHubApp = $true }
 if ($IncludeDashboardSmoke) { $readinessParams.IncludeDashboardSmoke = $true }
-if ($IncludeRepairAudit) { $readinessParams.IncludeRepairAudit = $true }
+# Hosted readiness always reports repair coverage. The audit is read-only and
+# remains informational unless -RequireRepairTargets is explicitly supplied.
+$readinessParams.IncludeRepairAudit = $true
 if ($RequireRepairTargets) { $readinessParams.RequireRepairTargets = $true }
 if ($IncludeCapacitySmoke) {
   $readinessParams.IncludeCapacitySmoke = $true
