@@ -5,6 +5,15 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Verified in this repository
 
+- Reviewed business-outcome adapters now carry their own exact repair
+  description, diff, confidence, and structured changes. Backend repair
+  generation consumes that adapter metadata, so adding a separately reviewed
+  customer adapter does not require another backend invariant-ID branch; an
+  adapter is still opt-in and target-coordinate matched. Commit `1e24f3b`
+  passed 24 repair-generation tests, 119 backend tests, full CI
+  [36984264608](https://github.com/SriVarshini09/self-healing-api/actions/runs/36984264608),
+  and Docker production validation
+  [36984264642](https://github.com/SriVarshini09/self-healing-api/actions/runs/36984264642).
 - The release repair-readiness audit now consumes the backend's authoritative
   `repairReadiness` decision instead of duplicating a demo-only invariant ID
   and business-outcome rule in PowerShell. It fails closed when an API row is
