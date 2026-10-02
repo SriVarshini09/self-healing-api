@@ -7,36 +7,35 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 - The Render Blueprint has now been applied in the intended workspace. The
   hosted API is live at `https://shapi-api.onrender.com` and the hosted
-  dashboard is live at `https://shapi-dashboard.onrender.com`; both public
-  services pass the health, readiness, HTTPS, security-header, same-origin
-  proxy, and unauthenticated-rejection checks.
+  dashboard is live at `https://shapi-dashboard.onrender.com`. The API
+  `/health` and `/ready` endpoints and the dashboard root all return 200.
+  The dashboard operator key is configured, the command center authenticates,
+  and live telemetry refreshes successfully.
 - The secret-free hosted infrastructure workflow passed on commit `61d8b10`
   in [run 37056500056](https://github.com/SriVarshini09/self-healing-api/actions/runs/37056500056).
   The exact commit also passed the complete Docker production workflow in
   [run 37056715418](https://github.com/SriVarshini09/self-healing-api/actions/runs/37056715418),
   including authenticated security/load behavior, backup/restore, dashboard
   browser behavior, signed webhook replay protection, and repair-readiness.
-- The hosted dashboard is intentionally still at its authentication gate:
-  Render currently serves an empty runtime API-key configuration and the API
-  reports OIDC disabled. This is a safe fail-closed state, not a dashboard
-  rendering failure. Hosted tenant bootstrap and either OIDC or a separately
-  scoped dashboard operator key are still required before operators can use
-  the command center.
-- The hosted release gate now checks that runtime authentication state before
-  using any operator credentials. Running it against the current Render URLs
-  passes the public infrastructure smoke and then stops with the explicit
-  missing-dashboard-authentication error, rather than falsely reporting a
-  usable command center.
+- The hosted dashboard is no longer at its authentication gate: it reports
+  `Live SHAPI API`, `SHAPI systems online`, and live incident telemetry. It
+  currently has zero configured integrations and zero active incidents, which
+  is an accurate empty-tenant state rather than simulated data.
+- Hosted GitHub App onboarding is the remaining production configuration gap.
+  The live API reports `mode=unconfigured`, zero real installations, and zero
+  repositories. Render has the GitHub variable names, but the running API is
+  not accepting the configured App ID/private-key combination yet; after that
+  secret is corrected, installation `166689576` still needs to be synced to
+  the hosted tenant.
 - Dashboard data fidelity is complete for the current product scope: the
   command center uses live SHAPI incidents and exact incident, severity,
   integration, invariant, repair-review, and alert-delivery values. It does
   not invent geographic telemetry, availability percentages, request rates,
   correlation confidence, or sample incidents; geographic telemetry is
   intentionally outside the current SHAPI data model.
-- The remaining hosted onboarding input is the bootstrap token in the local
-  operator env file. It is not present in the checked external env file, so no
-  hosted tenant or API key was created by automation and no secret is recorded
-  in this repository.
+- The hosted tenant and operator/dashboard keys have been created outside the
+  repository. No secret values are recorded in this repository. The temporary
+  dashboard-key helper file should be deleted after use.
 
 ## Verified in this repository
 
@@ -671,9 +670,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 1. **Hosted GitHub App onboarding.** The local stack has a real App
    installation, repository permissions, a public webhook URL, and a verified
    `200` delivery. The Render API, dashboard, and PostgreSQL services are now
-   live and pass the secret-free public infrastructure smoke. The hosted
-   tenant still needs secure bootstrap, a tenant-scoped GitHub integration,
-   the hosted webhook URL/secret, and the authenticated signed-webhook smoke.
+   live, and the dashboard is authenticated. The hosted API still needs a
+   usable App ID/private-key configuration, a tenant-scoped installation sync,
+   and the authenticated signed-webhook smoke.
 2. **Repository-aware repair workflow.** Invariants can now store an explicit
    `repairRepository` and `repairFilePath`, and a structured predicate edit
    is generated only for a mapped target. Three reviewed Stripe predicate
@@ -694,20 +693,21 @@ product is production-ready. See [README.md](README.md) for setup and API detail
    still tests a user-entered event transformation, and PR #4 remains open for
    human review; CI evidence is not the same as proving the business outcome
    in production.
-4. **Production operations.** Secure hosted secret storage, tenant onboarding,
-   authenticated hosted readiness, and hosted sustained capacity/load testing
-   remain before a production launch. Backup/restore, security, and bounded
-   local load drills are repeatable; the local sustained profile passed and the
-   rate-limit boundary has been observed under stress. The hosted readiness
-   command now includes the signed webhook and retry-deduplication check.
+4. **Production operations.** Hosted GitHub secret verification, authenticated
+   GitHub readiness, and hosted sustained capacity/load testing remain before
+   a production launch. Backup/restore, security, and bounded local load
+   drills are repeatable; the local sustained profile passed and the rate-limit
+   boundary has been observed under stress. The hosted readiness command now
+   includes the signed webhook and retry-deduplication check.
 ## Next engineering priority
 
-Complete hosted tenant bootstrap with secure secrets, configure OIDC or the
-separately scoped dashboard key, connect the GitHub App integration, and run
-the authenticated public HTTPS readiness gate. Local deployment and readiness
-gates are repeatable, and two distinct demo business outcomes now have reviewed
-proofs. Do not claim a replay-verified fix for an arbitrary customer repository
-without that repository's own adapter and test command.
+Correct the hosted GitHub App secret configuration, sync the installed App to
+the hosted tenant, and run the authenticated public HTTPS readiness gate.
+Then validate the dashboard's real integration state before attempting any
+repair PR. Local deployment and readiness gates are repeatable, and two
+distinct demo business outcomes now have reviewed proofs. Do not claim a
+replay-verified fix for an arbitrary customer repository without that
+repository's own adapter and test command.
 
 ## Local checks
 
