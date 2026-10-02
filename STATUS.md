@@ -5,6 +5,14 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Verified in this repository
 
+- The dashboard invariant editor and list now expose the backend's authoritative
+  repair-readiness state, blocking reason, and reviewed adapter ID. Operators
+  can see whether a target is ready, manual-review-only, or blocked before
+  attempting a repair preview. Commit `673453f` passed local dashboard
+  typecheck, tests, production build, live Docker HTTP/readiness audit, full CI
+  [36985024326](https://github.com/SriVarshini09/self-healing-api/actions/runs/36985024326),
+  and Docker production/browser validation
+  [36985024434](https://github.com/SriVarshini09/self-healing-api/actions/runs/36985024434).
 - Reviewed business-outcome adapters now carry their own exact repair
   description, diff, confidence, and structured changes. Backend repair
   generation consumes that adapter metadata, so adding a separately reviewed
