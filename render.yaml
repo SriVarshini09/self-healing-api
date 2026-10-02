@@ -62,6 +62,8 @@ services:
         value: 'openid profile email'
       - key: OIDC_DEFAULT_TENANT_SLUG
         sync: false
+      - key: OIDC_PROVIDER_TIMEOUT_MS
+        value: '10000'
       - key: DEMO_SAAS_URL
         sync: false
       - key: GITHUB_APP_ID

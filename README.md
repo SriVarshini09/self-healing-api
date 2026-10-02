@@ -365,6 +365,10 @@ The dashboard also supports provider-neutral OIDC login. Configure
 Google Workspace, Auth0, Okta, and other standards-compliant providers. The
 first OIDC user for a tenant becomes Owner; subsequent users start as Operators.
 OIDC users use seven-day hashed server sessions in HttpOnly cookies.
+Provider calls use a 10-second timeout by default; set
+`OIDC_PROVIDER_TIMEOUT_MS` when the deployment needs a different bounded
+timeout. Provider outages return a controlled gateway error instead of hanging
+the login flow.
 For an OIDC-only dashboard deployment, leave `VITE_SHAPI_API_KEY` empty; the
 production compose file supports this mode and the dashboard will use the
 browser session instead. The dashboard checks `/auth/me` before loading live
