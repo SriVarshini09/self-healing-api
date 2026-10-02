@@ -619,7 +619,7 @@ function RepairTargetPanel() {
   );
 }
 
-export function HealingDashboard() {
+function HealingDashboardContent() {
   const [paused, setPaused] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -1957,4 +1957,95 @@ export function HealingDashboard() {
       )}
     </main>
   );
+}
+
+type DashboardAuthState = 'checking' | 'ready' | 'login' | 'unconfigured';
+
+function DashboardAccessScreen({
+  state,
+  message,
+}: {
+  state: Exclude<DashboardAuthState, 'ready'>;
+  message: string | null;
+}) {
+  const loginUrl = `${SHAPI_API}/auth/login`;
+  const isLogin = state === 'login';
+  return (
+    <main className="grid min-h-screen place-items-center bg-background px-4 text-foreground">
+      <section className="w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-sm">
+        <div className="flex items-center gap-3">
+          <span className="grid size-10 place-items-center rounded bg-primary/10 text-primary">
+            <HeartPulse className="size-5" />
+          </span>
+          <div>
+            <h1 className="text-lg font-semibold">Pulseguard</h1>
+            <p className="text-xs text-muted-foreground">SHAPI command center</p>
+          </div>
+        </div>
+        {state === 'checking' ? (
+          <p className="mt-6 text-sm text-muted-foreground">Checking dashboard access…</p>
+        ) : isLogin ? (
+          <>
+            <h2 className="mt-6 text-base font-semibold">Sign in to continue</h2>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              This dashboard uses your organization&apos;s single sign-on session. No API key is
+              embedded in the browser.
+            </p>
+            <a
+              className="mt-5 inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              href={loginUrl}
+            >
+              Sign in with SSO
+            </a>
+          </>
+        ) : (
+          <>
+            <h2 className="mt-6 text-base font-semibold">Dashboard authentication is not configured</h2>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Configure OIDC for browser sign-in or provide a tenant API key through the
+              dashboard runtime configuration before exposing this dashboard.
+            </p>
+            {message && <p className="mt-3 text-xs text-critical">{message}</p>}
+          </>
+        )}
+      </section>
+    </main>
+  );
+}
+
+export function HealingDashboard() {
+  const [authState, setAuthState] = useState<DashboardAuthState>(SHAPI_KEY ? 'ready' : 'checking');
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (SHAPI_KEY) return;
+    let active = true;
+    const checkAccess = async () => {
+      try {
+        const sessionResponse = await fetch(`${SHAPI_API}/auth/me`, { credentials: 'include' });
+        if (sessionResponse.ok) {
+          if (active) setAuthState('ready');
+          return;
+        }
+        const configResponse = await fetch(`${SHAPI_API}/auth/config`, { credentials: 'include' });
+        if (!configResponse.ok) throw new Error(`Authentication configuration unavailable (${configResponse.status})`);
+        const authConfig = await configResponse.json() as { oidcEnabled?: boolean };
+        if (active) setAuthState(authConfig.oidcEnabled ? 'login' : 'unconfigured');
+      } catch (error) {
+        if (active) {
+          setAuthState('unconfigured');
+          setAuthMessage(error instanceof Error ? error.message : 'Could not check dashboard access');
+        }
+      }
+    };
+    void checkAccess();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (authState !== 'ready') {
+    return <DashboardAccessScreen state={authState} message={authMessage} />;
+  }
+  return <HealingDashboardContent />;
 }
