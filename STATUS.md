@@ -61,7 +61,7 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   [Docker run 36965055657](https://github.com/SriVarshini09/self-healing-api/actions/runs/36965055657).
 - The complete workspace verification passed locally on 2026-10-02: all
   workspace typechecks, all workspace tests, and all workspace builds passed.
-  The backend suite passed 19 test files and 98 tests, including the
+  The backend suite passed 21 test files and 112 tests, including the
   structured business-outcome proof and the real demo-SaaS adapter proof.
   The demo HTTP E2E also passed its intended failure-to-recovery flow: a
   business failure returned HTTP 200 without provisioning, followed by a
@@ -123,6 +123,12 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   a runtime API key is configured. API-key-backed deployments remain
   unchanged. Commit `da9cc5e` passed dashboard typecheck/build, live Docker
   browser smoke, CI, and Docker production validation.
+- The production OIDC dashboard now exposes a sign-out action, and the Docker
+  browser smoke verifies that an authenticated session calls `/auth/logout`.
+  Backend unit coverage now protects hashed session creation, role-derived
+  permissions, expiry cleanup, logout deletion, and the `/auth/*` route
+  contracts. Commits `d7536fe`, `59d1551`, and `7076c65` passed local checks;
+  the latest CI run `36975964752` and Docker run `36975964816` both passed.
 - Docker production CI now verifies the signed GitHub webhook path and replay
   deduplication inside the backend container, then runs the authenticated
   repair-readiness audit. The webhook smoke uses Node byte-exact UTF-8
@@ -515,7 +521,7 @@ repeatable. Do not claim a replay-verified fix prematurely.
 ### Latest verification snapshot
 
 Verified locally on 2026-10-02 against the live Docker stack rebuilt from the
-current working tree after `2f78020`:
+current working tree after `7076c65`:
 
 - The dashboard image rebuilt from `d1127e0` passed direct-API and same-origin
   browser smoke, including the corrected incident headings, live telemetry,
@@ -549,7 +555,7 @@ current working tree after `2f78020`:
   instance: it created a temporary database, restored the SQL backup, matched
   the key table row counts to the live database, and removed the temporary
   database and backup artifacts.
-- Workspace tests passed: 19 backend test files and 98 backend tests; the
+- Workspace tests passed: 21 backend test files and 112 backend tests; the
   repair-generation package suite includes the structured business-outcome
   proof and real demo adapter proof.
 - The full workspace verification passed locally on 2026-10-02: all workspace
