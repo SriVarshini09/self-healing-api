@@ -215,6 +215,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - The rebuilt local Docker API rejected a live attempt to downgrade that adapter
   to `verify`-only with HTTP 400 and preserved the stored `verify` plus
   `business-outcome` checks.
+- The repair-readiness release audit now independently blocks the reviewed
+  provisioning adapter when its exact `business-outcome` check is missing,
+  including a distinct machine-readable state.
 - A read-only repair-readiness audit now reports every tenant invariant as
   manual review, blocked for missing required checks, or ready for target
   review. It supports human-readable and JSON output plus a fail-on-unready

@@ -32,21 +32,29 @@ if ($rows.Count -eq 0) {
 }
 
 $audit = @($rows | ForEach-Object {
+  $id = [string]$_.id
   $repository = [string]$_.repairRepository
   $filePath = [string]$_.repairFilePath
   $checks = @($_.repairRequiredChecks | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
   $mapped = -not [string]::IsNullOrWhiteSpace($repository) -and -not [string]::IsNullOrWhiteSpace($filePath)
   $hasRequiredChecks = $checks.Count -gt 0
+  $isReviewedBusinessOutcomeTarget =
+    $id -eq 'inv-stripe-provisioning' -and
+    $repository -eq 'SriVarshini09/self-healing-api' -and
+    $filePath -eq 'apps/demo-saas/src/business-outcome.ts'
+  $hasBusinessOutcomeCheck = $checks -contains 'business-outcome'
   $state = if (-not $mapped) {
     'MANUAL_REVIEW'
   } elseif (-not $hasRequiredChecks) {
     'BLOCKED_NO_REQUIRED_CHECKS'
+  } elseif ($isReviewedBusinessOutcomeTarget -and -not $hasBusinessOutcomeCheck) {
+    'BLOCKED_MISSING_BUSINESS_OUTCOME_CHECK'
   } else {
     'READY_FOR_TARGET_REVIEW'
   }
 
   [pscustomobject]@{
-    id = [string]$_.id
+    id = $id
     name = [string]$_.name
     integrationId = [string]$_.integrationId
     state = $state
@@ -62,6 +70,7 @@ $summary = [pscustomobject]@{
   readyForTargetReview = @($audit | Where-Object state -eq 'READY_FOR_TARGET_REVIEW').Count
   manualReview = @($audit | Where-Object state -eq 'MANUAL_REVIEW').Count
   blockedNoRequiredChecks = @($audit | Where-Object state -eq 'BLOCKED_NO_REQUIRED_CHECKS').Count
+  blockedMissingBusinessOutcomeCheck = @($audit | Where-Object state -eq 'BLOCKED_MISSING_BUSINESS_OUTCOME_CHECK').Count
   unready = $unready.Count
   invariants = $audit
 }
@@ -70,7 +79,7 @@ if ($Json) {
   $summary | ConvertTo-Json -Depth 8
 } else {
   Write-Output "Repair readiness: $($summary.readyForTargetReview)/$($summary.total) ready for target review"
-  Write-Output "Manual review: $($summary.manualReview); blocked without required checks: $($summary.blockedNoRequiredChecks)"
+  Write-Output "Manual review: $($summary.manualReview); blocked without required checks: $($summary.blockedNoRequiredChecks); blocked without business-outcome: $($summary.blockedMissingBusinessOutcomeCheck)"
   $audit |
     Select-Object id, state, repository, filePath, @{Name = 'requiredChecks'; Expression = { $_.requiredChecks -join ', ' }} |
     Format-Table -AutoSize |

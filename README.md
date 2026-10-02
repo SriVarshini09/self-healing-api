@@ -416,8 +416,10 @@ invariant configuration:
 The audit marks unmapped invariants as `MANUAL_REVIEW`, mapped invariants with
 no exact required GitHub check as `BLOCKED_NO_REQUIRED_CHECKS`, and only marks
 targets with both an explicit repository/file mapping and at least one required
-check as `READY_FOR_TARGET_REVIEW`. Add `-FailOnUnready` in a release checklist
-when every invariant in a tenant must be mapped before automatic repair review.
+check as `READY_FOR_TARGET_REVIEW`. The reviewed demo provisioning adapter is
+additionally blocked unless it includes the exact `business-outcome` check. Add
+`-FailOnUnready` in a release checklist when every invariant in a tenant must be
+mapped before automatic repair review.
 Use `-Json` for CI or onboarding tooling.
 
 The incident endpoints expose the same decision directly on each persisted
