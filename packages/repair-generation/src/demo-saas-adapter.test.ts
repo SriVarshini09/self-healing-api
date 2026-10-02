@@ -59,6 +59,10 @@ describe('real demo-saas business-outcome adapter', () => {
     expect(reviewedBusinessOutcomeAdapter('SriVarshini09/self-healing-api', targetPath)).toMatchObject({
       adapterId: DEMO_SAAS_PROVISIONING_ADAPTER_ID,
       requiredCheck: 'business-outcome',
+      repair: {
+        confidence: 0.95,
+        changes: [{ kind: 'replace', path: targetPath }],
+      },
     });
     expect(reviewedBusinessOutcomeAdapter('acme/customer-app', targetPath)).toBeNull();
   });

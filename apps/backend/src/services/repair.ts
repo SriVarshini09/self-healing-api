@@ -1,10 +1,5 @@
 import type { Incident, Integration, Invariant, Prisma } from '@prisma/client';
 import {
-  DEMO_SAAS_PROVISIONING_AFTER,
-  DEMO_SAAS_PROVISIONING_BEFORE,
-  DEMO_SAAS_PROVISIONING_PATH,
-  DEMO_SAAS_REPOSITORY,
-  isDemoSaasProvisioningTarget,
   optionalChainPayloadAccess,
   reviewedBusinessOutcomeAdapter,
 } from '@shapi/repair-generation';
@@ -129,23 +124,19 @@ export async function generateRepairCandidates(
 }
 
 function generateReviewedBusinessOutcomeFix(invariant: Invariant): RepairCandidate | null {
-  if (!isDemoSaasProvisioningTarget(invariant.repairRepository, invariant.repairFilePath)) {
+  const adapter = reviewedBusinessOutcomeAdapter(invariant.repairRepository, invariant.repairFilePath);
+  if (!adapter?.repair) {
     return null;
   }
 
   return {
     type: 'CODE_CHANGE',
-    description: 'Remove the reviewed silent provisioning failure branch',
-    diff: `- ${DEMO_SAAS_PROVISIONING_BEFORE.trimEnd().replace(/\n/gu, '\n- ')}\n+ ${DEMO_SAAS_PROVISIONING_AFTER.trimEnd().replace(/\n/gu, '\n+ ')}`,
-    files: [DEMO_SAAS_PROVISIONING_PATH],
-    repository: DEMO_SAAS_REPOSITORY,
-    confidence: 0.95,
-    changes: [{
-      kind: 'replace',
-      path: DEMO_SAAS_PROVISIONING_PATH,
-      before: DEMO_SAAS_PROVISIONING_BEFORE,
-      after: DEMO_SAAS_PROVISIONING_AFTER,
-    }],
+    description: adapter.repair.description,
+    diff: adapter.repair.diff,
+    files: [adapter.targetPath],
+    repository: adapter.repository,
+    confidence: adapter.repair.confidence,
+    changes: [...adapter.repair.changes] as unknown as Prisma.JsonValue,
   };
 }
 
