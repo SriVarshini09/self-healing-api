@@ -444,7 +444,10 @@ least one configured required GitHub check. `automationEligible` is false for
 `MANUAL_REVIEW` candidates, and `reviewReason` explains which prerequisite is
 missing. These fields are included in incident list/detail/update responses,
 diagnosis responses, and repair-candidate timeline events so clients cannot
-mistake a suggestion-only diff for an automatable repair.
+mistake a suggestion-only diff for an automatable repair. The same readiness
+payload includes `requiredChecks`, the exact check names that must pass before
+PR verification can succeed; the production dashboard displays those names
+next to each candidate.
 - `POST /github/incidents/:id/pr/preview` performs no writes. It returns the
   repository base SHA, bounded source/result excerpts, and a short-lived
   signed approval token only after the candidate applies cleanly at that
