@@ -12,14 +12,14 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   `/api/v1/alerts/status` endpoint returned 200. The live alert status response
   included pending, processing, retrying, delivered, and failed counts, and the
   dashboard smoke verified all five labels in the live alert-delivery panel.
-- The latest application change `c781914` passed GitHub Actions CI, including the
+- The latest application change `e42b32d` passed GitHub Actions CI, including the
   business-outcome regression, production builds, unit tests, and Prisma
   validation:
-  [run 36958277897](https://github.com/SriVarshini09/self-healing-api/actions/runs/36958277897).
-  The latest production-code head `c781914` also passed the production Docker
+  [run 36958730447](https://github.com/SriVarshini09/self-healing-api/actions/runs/36958730447).
+  The latest production-code head `e42b32d` also passed the production Docker
   workflow, including Compose validation, image builds, stack readiness,
   authenticated security/load checks, and the non-root backend assertion:
-  [run 36958277884](https://github.com/SriVarshini09/self-healing-api/actions/runs/36958277884).
+  [run 36958730375](https://github.com/SriVarshini09/self-healing-api/actions/runs/36958730375).
   Subsequent documentation-only commits were also verified by full CI; the
   latest ledger update passed in
   [run 36957005423](https://github.com/SriVarshini09/self-healing-api/actions/runs/36957005423).
@@ -34,6 +34,12 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   The production Docker workflow also passed Compose validation, image builds,
   stack startup, readiness, authenticated security/load checks, and teardown
   in [run 36958277884](https://github.com/SriVarshini09/self-healing-api/actions/runs/36958277884).
+- Alert outbox delivery transitions are now covered without a real network
+  receiver: a successful 2xx response must mark a claimed delivery `DELIVERED`,
+  while a receiver failure must return it to `RETRYING` with the exact bounded
+  backoff and persisted error. The focused alert suite now has 8 tests, and the
+  full backend suite has 92 tests. Commit `e42b32d` passed CI and production
+  Docker validation in the runs recorded above.
 - CI, Docker production, and Render Blueprint workflows now declare
   read-only repository permissions and cancel obsolete same-branch runs, so
   superseded commits do not continue consuming runners.
