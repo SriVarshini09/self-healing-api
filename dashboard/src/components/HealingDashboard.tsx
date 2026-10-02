@@ -515,6 +515,17 @@ function RepairTargetPanel() {
     }
   };
 
+  const readinessSummary = items.reduce(
+    (summary, item) => {
+      const state = item.repairReadiness?.state;
+      if (state === 'READY_FOR_TARGET_REVIEW') summary.ready += 1;
+      else if (state === 'MANUAL_REVIEW') summary.manual += 1;
+      else if (state?.startsWith('BLOCKED')) summary.blocked += 1;
+      return summary;
+    },
+    { ready: 0, manual: 0, blocked: 0 },
+  );
+
   return (
     <section id="repair-targets" className="mt-4 rounded-md border border-border bg-card">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
@@ -528,6 +539,15 @@ function RepairTargetPanel() {
           {loading ? 'Loading…' : 'Refresh'}
         </Button>
       </div>
+      {!loading && items.length > 0 && (
+        <div aria-label="Repair readiness summary" className="flex flex-wrap gap-2 border-b border-border px-4 py-2 font-mono text-[10px] text-muted-foreground">
+          <span className="text-success">{readinessSummary.ready} ready for target review</span>
+          <span className="text-warning">{readinessSummary.manual} manual review</span>
+          <span className={readinessSummary.blocked ? 'text-critical' : 'text-muted-foreground'}>
+            {readinessSummary.blocked} blocked
+          </span>
+        </div>
+      )}
       {message && <p className="border-b border-border px-4 py-2 text-xs text-muted-foreground">{message}</p>}
       {loading && <p className="px-4 py-5 text-xs text-muted-foreground">Loading invariants…</p>}
       {!loading && items.length === 0 && <p className="px-4 py-5 text-xs text-muted-foreground">No invariants configured yet.</p>}

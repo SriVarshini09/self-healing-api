@@ -120,6 +120,9 @@ async function runDashboardSmoke(mode: {
       await page.getByText('Recent deliveries', { exact: true }).waitFor({ timeout: 15000 });
     }
     await page.getByRole('heading', { name: 'Repair targets', exact: true }).waitFor({ timeout: 15000 });
+    await page.getByLabel('Repair readiness summary').getByText(/ready for target review/u).waitFor({ timeout: 15000 });
+    await page.getByText('MANUAL REVIEW', { exact: true }).first().waitFor({ timeout: 15000 });
+    await page.getByText('READY FOR TARGET REVIEW', { exact: true }).first().waitFor({ timeout: 15000 });
     await page.getByText('Repair review', { exact: true }).waitFor({ timeout: 15000 });
     const repairReviewCell = page.locator('p').filter({ hasText: 'Repair review' }).first().locator('..');
     await repairReviewCell.getByText(String(expectedManualReviewCount), { exact: true }).waitFor({ timeout: 15000 });
