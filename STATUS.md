@@ -7,24 +7,23 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 - The local production Docker stack runs PostgreSQL, the backend, and the
   dashboard. On 2026-10-01, the backend was rebuilt from `master` at
-  `80abf3d`; `/health`, `/ready`, the dashboard, and the authenticated
+  `2373b8a`; `/health`, `/ready`, the dashboard, and the authenticated
   `/api/v1/alerts/status` endpoint returned 200. The live alert status response
   included pending, processing, retrying, delivered, and failed counts, and the
   dashboard smoke verified all five labels in the live alert-delivery panel.
-- The production-stack verification baseline on `master` at `80abf3d` passed
-  GitHub Actions CI, including the business-outcome regression and
-  repair-readiness release-gate integration:
-  [run 36952538925](https://github.com/SriVarshini09/self-healing-api/actions/runs/36952538925).
-  The production Docker workflow also passed its readiness, security, and load
-  checks:
-  [run 36952538802](https://github.com/SriVarshini09/self-healing-api/actions/runs/36952538802).
-- The latest `master` head `0aa8f0b` extends the separate `business-outcome`
-  check with the real demo HTTP checkout/webhook flow; CI passed both the
-  failure-that-still-returns-200 assertion and the recovered provisioning
-  assertion:
-  [run 36953459205](https://github.com/SriVarshini09/self-healing-api/actions/runs/36953459205).
-  CI checks workspace types, backend lint, package/backend unit tests, backend
-  and dashboard builds, and Prisma schema validation.
+- The latest `master` head `2373b8a` passed GitHub Actions CI, including the
+  business-outcome regression, production builds, unit tests, and Prisma
+  validation:
+  [run 36954043948](https://github.com/SriVarshini09/self-healing-api/actions/runs/36954043948).
+  The matching production Docker workflow passed Compose validation, image
+  builds, stack readiness, authenticated security/load checks, and the
+  non-root backend assertion:
+  [run 36954043839](https://github.com/SriVarshini09/self-healing-api/actions/runs/36954043839).
+- The separate `business-outcome` check includes the real demo HTTP
+  checkout/webhook flow; CI passes both the failure-that-still-returns-200
+  assertion and the recovered provisioning assertion. CI also checks workspace
+  types, backend lint, package/backend unit tests, backend and dashboard
+  builds, and Prisma schema validation.
 - Webhook and SDK events feed behavioral invariants; drift detection and
   incident creation are implemented. Tenant-scoped API keys and invariant
   quotas are enforced.
@@ -147,9 +146,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   passed locally on 2026-10-01.
 - The hardened business-outcome proof passed the live Docker readiness gate on
   2026-10-01, including GitHub App readiness, security checks, 20/20
-  authenticated requests, and dashboard browser smoke. The corresponding
-  Docker production workflow passed:
-  [run 36941056940](https://github.com/SriVarshini09/self-healing-api/actions/runs/36941056940).
+  authenticated requests, and dashboard browser smoke. Earlier successful
+  Docker workflow runs are retained below as historical evidence; the latest
+  matching run is recorded near the top of this file.
 - The production dashboard smoke now verifies both direct API wiring and the
   hosted-style same-origin `/api/v1` Nginx proxy, including runtime `config.js`
   injection. The Docker production workflow passed this proxy check:
@@ -261,7 +260,7 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - A `scripts/bootstrap-hosted-tenant.ps1` helper now creates the first hosted
   tenant from an external bootstrap-token env file, prints the one-time owner
   key without persisting it, and supports a no-request dry run.
-- On 2026-10-01, the rebuilt Docker stack at `148d80b` passed the complete
+- On 2026-10-01, the rebuilt Docker stack at `2373b8a` passed the complete
   readiness suite:
   GitHub App readiness, security smoke, authenticated load (20/20 HTTP 200),
   dashboard browser smoke, and paced sustained capacity (39/39 HTTP 200 with
@@ -338,7 +337,7 @@ claim a replay-verified fix prematurely.
 ### Latest verification snapshot
 
 Verified locally on 2026-10-01 against the live Docker stack rebuilt from
-`80abf3d`:
+`2373b8a`:
 
 - Production readiness passed: API, database, dashboard, GitHub App mode,
   security, 100 authenticated requests with 0 errors, dashboard browser smoke,
@@ -351,11 +350,11 @@ Verified locally on 2026-10-01 against the live Docker stack rebuilt from
 - Workspace tests passed: 16 backend test files and 89 backend tests; the
   repair-generation package suite includes the structured business-outcome
   proof and real demo adapter proof.
-- GitHub Actions CI run `36952538925` and Docker production run
-  `36952538802` both passed.
+- GitHub Actions CI run `36954043948` and Docker production run
+  `36954043839` both passed.
 - The latest business-outcome HTTP E2E and full CI verification passed in run
-  `36953459205`; the Docker workflow was intentionally not triggered because
-  the change is isolated to the demo application and its CI workflow.
+  `36954043948`; the Docker workflow also ran because the backend image and
+  production workflow changed.
 
 ```sh
 pnpm typecheck
