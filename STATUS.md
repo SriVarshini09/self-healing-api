@@ -23,10 +23,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   is an accurate empty-tenant state rather than simulated data.
 - Hosted GitHub App onboarding is the remaining production configuration gap.
   The live API reports `mode=unconfigured`, zero real installations, and zero
-  repositories. Render has the GitHub variable names, but the running API is
-  not accepting the configured App ID/private-key combination yet; after that
-  secret is corrected, installation `166689576` still needs to be synced to
-  the hosted tenant.
+  repositories. The live diagnostic reports `appIdConfigured=true` but
+  `appPrivateKeyConfigured=false`; the Render value for
+  `GITHUB_APP_PRIVATE_KEY_B64` must be corrected before installation
+  `166689576` can be synced to the hosted tenant.
 - Dashboard data fidelity is complete for the current product scope: the
   command center uses live SHAPI incidents and exact incident, severity,
   integration, invariant, repair-review, and alert-delivery values. It does
