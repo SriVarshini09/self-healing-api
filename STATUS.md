@@ -368,11 +368,13 @@ product is production-ready. See [README.md](README.md) for setup and API detail
    human review; CI evidence is not the same as proving the business outcome
    in production.
 4. **Production operations.** Public deployment, secure secret storage,
-   hosted tenant onboarding, and sustained capacity/load testing remain to be
-   completed before a production launch. Backup/restore, security, and bounded
-   load drills are now repeatable; secure secret storage and public deployment
-   still require a real hosting environment; the hosted readiness command now
-   includes the signed webhook and retry-deduplication check.
+   hosted tenant onboarding, and hosted sustained capacity/load testing remain
+   to be completed before a production launch. Backup/restore, security, and
+   bounded local load drills are now repeatable; the local sustained profile
+   passed and the rate-limit boundary has been observed under stress. Secure
+   secret storage, public deployment, and hosted capacity still require a real
+   hosting environment; the hosted readiness command now includes the signed
+   webhook and retry-deduplication check.
 5. **Dashboard data fidelity.** The production command view now uses only live
    SHAPI incidents, shows exact active/severity/integration/invariant counts,
    and avoids presenting invented regions, map coordinates, correlation
@@ -395,7 +397,7 @@ claim a replay-verified fix prematurely.
 ### Latest verification snapshot
 
 Verified locally on 2026-10-01 against the live Docker stack rebuilt from
-`64768a3`:
+`64768a3` with the current documentation at `bbbe7a2`:
 
 - The dashboard image rebuilt from `296a7b0` passed direct-API and same-origin
   browser smoke, including the corrected incident headings, live telemetry,
@@ -433,6 +435,14 @@ Verified locally on 2026-10-01 against the live Docker stack rebuilt from
 - The latest business-outcome HTTP E2E and full CI verification passed in run
   `36961198358`; the Docker workflow rebuilt the images and passed production
   readiness in run `36961198357`.
+- The bounded sustained-capacity profile passed with 275 authenticated
+  requests over 30 seconds at concurrency 1 plus a 100 ms delay: 0.000% error
+  rate, 9.2 requests/second, p50 3.7 ms, p95 5.4 ms, and maximum 33.9 ms.
+- A deliberate high-concurrency stress profile produced `429` responses rather
+  than server errors (978 successful responses and 215,911 rate-limited
+  responses), confirming that the configured API rate limiter is enforcing a
+  protection boundary. That profile is not a sustainable-capacity pass and
+  was not counted as one.
 
 ```sh
 pnpm typecheck
