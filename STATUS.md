@@ -136,6 +136,13 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   schema workflow [36976870634](https://github.com/SriVarshini09/self-healing-api/actions/runs/36976870634),
   CI [36976870795](https://github.com/SriVarshini09/self-healing-api/actions/runs/36976870795),
   and Docker production [36976870670](https://github.com/SriVarshini09/self-healing-api/actions/runs/36976870670).
+- Production Compose now explicitly passes the full OIDC configuration surface
+  into the backend, and Docker CI asserts the enabled `/api/v1/auth/config`
+  response with synthetic non-provider values. Commit `710f906` passed local
+  Compose validation, a rebuilt Docker dashboard smoke, full CI
+  [36977612531](https://github.com/SriVarshini09/self-healing-api/actions/runs/36977612531),
+  and Docker production validation
+  [36977612442](https://github.com/SriVarshini09/self-healing-api/actions/runs/36977612442).
 - Docker production CI now verifies the signed GitHub webhook path and replay
   deduplication inside the backend container, then runs the authenticated
   repair-readiness audit. The webhook smoke uses Node byte-exact UTF-8
