@@ -108,6 +108,7 @@ describe('authentication routes', () => {
 
   it('exchanges a valid OIDC callback, creates a tenant user session, and redirects safely', async () => {
     fake.oidcEnabled.mockReturnValue(true);
+    fake.createSession.mockResolvedValue('shapi_session=session-token; Path=/; Max-Age=604800; HttpOnly; SameSite=Lax');
     fake.prisma.tenant.findUnique.mockResolvedValue({ id: 'tenant-1' });
     const createdUser = { id: 'user-1' };
     const tx = {
@@ -149,8 +150,12 @@ describe('authentication routes', () => {
         role: 'OWNER',
       },
     });
-    expect(fake.createSession).toHaveBeenCalledWith('user-1', expect.anything());
+    expect(fake.createSession).toHaveBeenCalledWith('user-1');
     expect(providerRequest).toHaveBeenCalledTimes(3);
+    expect(response.headers['set-cookie']).toEqual([
+      'shapi_oidc_state=; Path=/api/v1/auth; Max-Age=0; HttpOnly; SameSite=Lax',
+      'shapi_session=session-token; Path=/; Max-Age=604800; HttpOnly; SameSite=Lax',
+    ]);
     expect(JSON.stringify(response.headers)).not.toContain('provider-access-token');
   });
 

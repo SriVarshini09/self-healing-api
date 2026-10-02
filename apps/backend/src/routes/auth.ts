@@ -8,6 +8,7 @@ import {
   destroySession,
   getCookie,
   oidcEnabled,
+  sessionCookie,
   SESSION_COOKIE,
 } from '../utils/auth-sessions.js';
 
@@ -56,6 +57,11 @@ function stateCookie(state: string): string {
   return `shapi_oidc_state=${state}.${signature}; Path=/api/v1/auth; Max-Age=600; HttpOnly; SameSite=Lax${secure}`;
 }
 
+function clearStateCookie(): string {
+  const secure = config.NODE_ENV === 'production' ? '; Secure' : '';
+  return `shapi_oidc_state=; Path=/api/v1/auth; Max-Age=0; HttpOnly; SameSite=Lax${secure}`;
+}
+
 export async function authRoutes(app: FastifyInstance) {
   app.get('/auth/config', async (_request, reply) => reply.send({ oidcEnabled: oidcEnabled() }));
 
@@ -85,7 +91,7 @@ export async function authRoutes(app: FastifyInstance) {
     const [state, signature] = stateValue?.split('.') ?? [];
     const expected = crypto.createHmac('sha256', config.JWT_SECRET).update(state ?? '').digest('base64url');
     if (!query.code || !query.state || !sameSecret(query.state, state) || !sameSecret(signature, expected)) {
-      return reply.code(400).send({ error: query.error ?? 'Invalid OIDC callback state' });
+      return reply.header('set-cookie', clearStateCookie()).code(400).send({ error: query.error ?? 'Invalid OIDC callback state' });
     }
 
     let metadata: OidcMetadata;
@@ -143,8 +149,8 @@ export async function authRoutes(app: FastifyInstance) {
       const userCount = await tx.user.count({ where: { tenantId: tenant.id } });
       return tx.user.create({ data: { tenantId: tenant.id, issuer, subject: profile.sub!, email: profile.email!, name: profile.name ?? profile.preferred_username, role: userCount === 0 ? 'OWNER' : 'OPERATOR' } });
     });
-    await createSession(user.id, reply);
-    return reply.redirect(config.DASHBOARD_URL);
+    const session = await createSession(user.id);
+    return reply.header('set-cookie', [clearStateCookie(), session]).redirect(config.DASHBOARD_URL);
   });
 
   app.get('/auth/me', async (request, reply) => {

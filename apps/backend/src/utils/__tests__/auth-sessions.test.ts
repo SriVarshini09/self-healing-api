@@ -67,6 +67,16 @@ describe('auth sessions', () => {
     expect(response.header).toHaveBeenCalledWith('set-cookie', expect.stringMatching(/^shapi_session=[A-Za-z0-9_-]{43}; Path=\/; Max-Age=604800; HttpOnly; SameSite=Lax$/u));
   });
 
+  it('returns the session cookie when the caller needs to combine it with another cookie', async () => {
+    const response = reply();
+    fake.create.mockResolvedValue({ id: 'session-1' });
+
+    const cookie = await createSession('user-1');
+
+    expect(cookie).toMatch(/^shapi_session=[A-Za-z0-9_-]{43}; Path=\/; Max-Age=604800; HttpOnly; SameSite=Lax$/u);
+    expect(response.header).not.toHaveBeenCalled();
+  });
+
   it('maps active sessions to the user permissions implied by role', async () => {
     const token = 'viewer-session-token';
     fake.findUnique.mockResolvedValue({

@@ -28,7 +28,12 @@ export function sessionCookieOptions(): string {
   return `${SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${secure}`;
 }
 
-export async function createSession(userId: string, reply: FastifyReply): Promise<void> {
+export function sessionCookie(token: string): string {
+  const secure = config.NODE_ENV === 'production' ? '; Secure' : '';
+  return `${SESSION_COOKIE}=${token}; Path=/; Max-Age=${SESSION_TTL_MS / 1000}; HttpOnly; SameSite=Lax${secure}`;
+}
+
+export async function createSession(userId: string, reply?: FastifyReply): Promise<string> {
   const token = crypto.randomBytes(32).toString('base64url');
   await prisma.authSession.create({
     data: {
@@ -37,8 +42,9 @@ export async function createSession(userId: string, reply: FastifyReply): Promis
       expiresAt: new Date(Date.now() + SESSION_TTL_MS),
     },
   });
-  const secure = config.NODE_ENV === 'production' ? '; Secure' : '';
-  void reply.header('set-cookie', `${SESSION_COOKIE}=${token}; Path=/; Max-Age=${SESSION_TTL_MS / 1000}; HttpOnly; SameSite=Lax${secure}`);
+  const cookie = sessionCookie(token);
+  if (reply) void reply.header('set-cookie', cookie);
+  return cookie;
 }
 
 export async function destroySession(token: string | undefined, reply: FastifyReply): Promise<void> {
