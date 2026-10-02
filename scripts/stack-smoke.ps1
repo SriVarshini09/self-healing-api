@@ -56,6 +56,32 @@ foreach ($entry in $dashboardHeaders.GetEnumerator()) {
     throw "FAIL Dashboard security headers: $($entry.Key) is missing or invalid"
   }
 }
+
+function Get-GitHubStatus([string]$Uri, [hashtable]$Headers) {
+  try {
+    $response = Invoke-WebRequest `
+      -Uri $Uri `
+      -Headers $Headers `
+      -UseBasicParsing `
+      -SkipHttpErrorCheck `
+      -TimeoutSec 15
+  } catch {
+    throw "FAIL GitHub readiness request: could not reach the API. Check the hosted API URL and network connectivity."
+  }
+
+  if ([int]$response.StatusCode -eq 401 -or [int]$response.StatusCode -eq 403) {
+    throw "FAIL GitHub readiness request: the API rejected SHAPI_API_KEY (HTTP $($response.StatusCode)). Refresh the operator key in $EnvFile; the key value was not printed."
+  }
+  if ([int]$response.StatusCode -ne 200) {
+    throw "FAIL GitHub readiness request: the API returned HTTP $($response.StatusCode)."
+  }
+
+  try {
+    return $response.Content | ConvertFrom-Json
+  } catch {
+    throw 'FAIL GitHub readiness request: the API returned invalid JSON.'
+  }
+}
 Write-Host 'PASS Dashboard security headers'
 
 $runtimeConfig = Check-Http 'Dashboard runtime configuration' "$($DashboardUrl.TrimEnd('/'))/config.js"
@@ -70,7 +96,9 @@ Write-Host 'PASS Dashboard runtime configuration cache protection'
 
 $apiKey = Read-EnvValue -Path $EnvFile -Name 'SHAPI_API_KEY'
 if ($apiKey) {
-  $status = Invoke-RestMethod -Uri "$($ApiUrl.TrimEnd('/'))/api/v1/github/status" -Headers @{ 'x-api-key' = $apiKey }
+  $status = Get-GitHubStatus `
+    -Uri "$($ApiUrl.TrimEnd('/'))/api/v1/github/status" `
+    -Headers @{ 'x-api-key' = $apiKey }
   if ($RequireGitHubApp -and -not $status.appIdConfigured) {
     throw 'FAIL GitHub App readiness: GITHUB_APP_ID is not configured in the running API'
   }
