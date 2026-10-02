@@ -15,6 +15,7 @@ param(
   [double]$MaxErrorRate = 0,
   [switch]$RequireGitHubApp = $true,
   [switch]$IncludeDashboardSmoke = $true,
+  [switch]$IncludeGitHubWebhookSmoke = $true,
   # Retained for command-line compatibility; the audit is now always included.
   [switch]$IncludeRepairAudit,
   [switch]$RequireRepairTargets
@@ -46,6 +47,10 @@ $readinessParams = @{
 }
 if ($RequireGitHubApp) { $readinessParams.RequireGitHubApp = $true }
 if ($IncludeDashboardSmoke) { $readinessParams.IncludeDashboardSmoke = $true }
+# Hosted readiness must prove the public signed webhook path, not only API and
+# dashboard reachability. The smoke uses a harmless ping and verifies replay
+# deduplication with the same delivery id.
+if ($IncludeGitHubWebhookSmoke) { $readinessParams.IncludeGitHubWebhookSmoke = $true }
 # Hosted readiness always reports repair coverage. The audit is read-only and
 # remains informational unless -RequireRepairTargets is explicitly supplied.
 $readinessParams.IncludeRepairAudit = $true

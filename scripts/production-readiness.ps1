@@ -15,6 +15,7 @@ param(
   [int]$CapacityDelayMs = 0,
   [double]$MaxErrorRate = 0,
   [switch]$IncludeDashboardSmoke,
+  [switch]$IncludeGitHubWebhookSmoke,
   [switch]$IncludeRepairAudit,
   [switch]$RequireRepairTargets,
   [switch]$RequireGitHubApp,
@@ -85,6 +86,12 @@ if ($IncludeCapacitySmoke) {
 if ($IncludeDashboardSmoke) {
   Invoke-Check 'Production dashboard smoke' {
     & pnpm --filter @shapi/backend exec tsx "$PSScriptRoot/../apps/backend/scripts/production-dashboard-test.ts" --dashboard-url $DashboardUrl --api-url $ApiUrl --env-file $EnvFile
+  }
+}
+
+if ($IncludeGitHubWebhookSmoke) {
+  Invoke-Check 'GitHub webhook smoke' {
+    & "$PSScriptRoot\github-webhook-smoke.ps1" -ApiUrl $ApiUrl -EnvFile $EnvFile
   }
 }
 

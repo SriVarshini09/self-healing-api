@@ -129,14 +129,17 @@ the hosted database:
   -CapacityDelayMs 250 -MaxErrorRate 0
 ```
 
-The operator env file must contain only the hosted `SHAPI_API_KEY`; keep it
-outside the repository. The gate checks API/database readiness, security
-headers and 401 behavior, authenticated load, GitHub App mode, the dashboard's
-live command center, and optional paced capacity. It also prints the
-read-only repair-readiness audit by default, including manual-review and
-missing-check states. Add `-RequireRepairTargets` when a hosted release must
-fail unless every invariant has a reviewed repository target and exact
-required checks.
+The operator env file must contain the hosted readiness credentials, including
+`SHAPI_API_KEY` and `GITHUB_WEBHOOK_SECRET_APP`; keep it outside the repository.
+The gate checks API/database readiness, security headers and 401 behavior,
+authenticated load, GitHub App mode, the dashboard's live command center, and
+optional paced capacity. It also sends a harmless signed GitHub `ping` twice
+and requires the second delivery to be acknowledged as a duplicate. This
+proves the public webhook accepts the configured secret and handles retries.
+The gate also prints the read-only repair-readiness audit by default, including
+manual-review and missing-check states. Add `-RequireRepairTargets` when a
+hosted release must fail unless every invariant has a reviewed repository target
+and exact required checks.
 
 To create the first hosted tenant without putting the bootstrap token in shell
 history, store `SHAPI_BOOTSTRAP_TOKEN` in a separate operator env file and run:
@@ -164,7 +167,7 @@ validates the rendered Compose configuration, starts the services, waits for
 Use `-NoBuild` when the image has already been built. Add
 `-IncludeBackupRestoreDrill -ConfirmDrill` only when the temporary-database
 restore verification is intentionally part of the release check. The command
-accepts `-IncludeDashboardSmoke` and the opt-in capacity parameters
+accepts `-IncludeDashboardSmoke`, `-IncludeGitHubWebhookSmoke`, and the opt-in capacity parameters
 (`-IncludeCapacitySmoke -DurationSeconds 60 -CapacityConcurrency 1
 -CapacityDelayMs 100 -MaxErrorRate 0`) so the complete local release gate can
 run from one command. It does not roll back automatically; if readiness fails
@@ -275,6 +278,15 @@ release or hosted tenant:
 Add `-RequireRepairTargets` when every invariant must have a reviewed target
 and at least one exact required GitHub check. Existing unmapped invariants are
 expected to fail that stricter mode until their target behavior is reviewed.
+
+For a local signed webhook check, run:
+
+```powershell
+./scripts/production-readiness.ps1 -EnvFile ./path/to/.env -IncludeGitHubWebhookSmoke
+```
+
+The check creates only a harmless `ping` webhook event and replays the same
+delivery id to verify deduplication.
 
 Open:
 

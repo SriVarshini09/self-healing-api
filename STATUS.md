@@ -297,6 +297,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - Production readiness and deploy commands now preflight dotenv syntax and
   duplicate variable names without printing secret values, so malformed
   pasted private-key/base64 lines fail with a safe line-number diagnostic.
+- Hosted readiness now sends a harmless signed GitHub `ping` twice and requires
+  the second delivery to be acknowledged as a duplicate, making public webhook
+  signature and retry-deduplication verification repeatable.
 
 ## Not complete
 
@@ -305,7 +308,7 @@ product is production-ready. See [README.md](README.md) for setup and API detail
    `200` delivery. A provider-specific Render Blueprint is now committed for
    the API, dashboard, and PostgreSQL. Production rollout still needs a Render
    workspace to apply it, secure secret entry, hosted tenant-isolated
-   onboarding, and public webhook verification.
+   onboarding, and running the hosted signed-webhook smoke against that URL.
 2. **Repository-aware repair workflow.** Invariants can now store an explicit
    `repairRepository` and `repairFilePath`, and a structured predicate edit
    is generated only for a mapped target. Three reviewed Stripe predicate
@@ -329,7 +332,8 @@ product is production-ready. See [README.md](README.md) for setup and API detail
    hosted tenant onboarding, and sustained capacity/load testing remain to be
    completed before a production launch. Backup/restore, security, and bounded
    load drills are now repeatable; secure secret storage and public deployment
-   still require a real hosting environment.
+   still require a real hosting environment; the hosted readiness command now
+   includes the signed webhook and retry-deduplication check.
 5. **Dashboard data fidelity.** The production command view now uses only live
    SHAPI incidents, shows exact active/severity/integration/invariant counts,
    and avoids presenting invented regions, map coordinates, correlation
@@ -366,6 +370,9 @@ Verified locally on 2026-10-01 against the live Docker stack rebuilt from
 - Production dashboard smoke passed for the direct API, same-origin proxy,
   command center, live telemetry, repair-review queue, all five alert-delivery
   states, repair targets, and diagnosis modal.
+- The signed GitHub webhook smoke passed against the live Docker API: the first
+  `ping` delivery returned 200 and replaying the same delivery id returned a
+  duplicate acknowledgment.
 - Repair readiness audit reported 4/6 ready for target review, 2 explicit
   `MANUAL_REVIEW` GitHub invariants, and 0 blocked for missing checks.
 - Workspace tests passed: 16 backend test files and 89 backend tests; the
