@@ -1,7 +1,7 @@
 FROM node:20-bookworm-slim AS build
 
 WORKDIR /app/dashboard
-RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
+RUN corepack enable && for attempt in 1 2 3 4 5; do corepack prepare pnpm@9.0.0 --activate && exit 0; echo "pnpm bootstrap attempt $attempt failed; retrying"; sleep $((attempt * 5)); done; exit 1
 
 COPY dashboard/package.json dashboard/pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile --ignore-workspace
