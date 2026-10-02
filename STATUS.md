@@ -157,6 +157,14 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   [36978759311](https://github.com/SriVarshini09/self-healing-api/actions/runs/36978759311),
   and Docker production validation
   [36978759400](https://github.com/SriVarshini09/self-healing-api/actions/runs/36978759400).
+- OIDC provider discovery, token exchange, and profile lookup now use a bounded
+  timeout and return controlled `502` responses for provider outages or
+  malformed responses; discovery failures also reset the metadata cache so a
+  later login can recover. Commit `4ce4487` passed the full workspace test,
+  typecheck, and build suites, CI
+  [36979436149](https://github.com/SriVarshini09/self-healing-api/actions/runs/36979436149),
+  and Docker production validation
+  [36979436198](https://github.com/SriVarshini09/self-healing-api/actions/runs/36979436198).
 - Docker production CI now verifies the signed GitHub webhook path and replay
   deduplication inside the backend container, then runs the authenticated
   repair-readiness audit. The webhook smoke uses Node byte-exact UTF-8
