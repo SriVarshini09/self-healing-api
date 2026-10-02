@@ -54,7 +54,7 @@ export function suggestRepairs(opts: {
       confidence: 0.8,
     });
   }
-  if (rootCause.includes('webhook') || suggestedFix.includes('predicate')) {
+  if ((rootCause.includes('webhook') || suggestedFix.includes('predicate')) && !predicateExpression.includes('event.type')) {
     const predicateFile = mappedPath ? [mappedPath] : [`src/invariants/${invariantName}.ts`];
     const guarded = `event.type !== undefined && (${predicateExpression})`;
     const changes: RepairChange[] | null = mappedPath

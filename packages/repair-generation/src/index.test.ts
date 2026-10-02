@@ -53,4 +53,17 @@ describe('repair-generation', () => {
       }],
     });
   });
+
+  it('does not wrap an already event-guarded predicate', () => {
+    const repairs = suggestRepairs({
+      predicateExpression: "event.type === 'workflow_run'",
+      invariantName: 'workflow',
+      rootCause: 'webhook failures',
+      suggestedFix: 'review predicate',
+      hasRetryConfig: true,
+      repairRepository: 'acme/demo',
+      repairFilePath: 'src/invariants/workflow.ts',
+    });
+    expect(repairs.find(candidate => candidate.description.includes('event format'))).toBeUndefined();
+  });
 });
