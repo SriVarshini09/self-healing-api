@@ -27,6 +27,46 @@ function missingRequiredChecks(
 
 const TOKEN_INSTALLATION_GITHUB_ID = BigInt(-1);
 
+function githubInstallationIdFromPayload(payload: JsonRecord): bigint | null {
+  const raw = obj(payload.installation).id;
+  if (typeof raw === 'number' && Number.isSafeInteger(raw) && raw > 0) return BigInt(raw);
+  if (typeof raw === 'string' && /^\d+$/.test(raw)) {
+    try {
+      const parsed = BigInt(raw);
+      return parsed > 0 ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+async function resolveGitHubWebhookIntegration(payload: JsonRecord, event: string | undefined) {
+  const candidates = await prisma.integration.findMany({
+    where: { type: IntegrationType.GITHUB, webhookEnabled: true },
+  });
+  const installationId = githubInstallationIdFromPayload(payload);
+  if (installationId) {
+    const installation = await prisma.gitHubInstallation.findUnique({
+      where: { githubInstallationId: installationId },
+      include: { integration: true },
+    });
+    if (installation) {
+      const mapped = candidates.find(candidate => candidate.id === installation.integration.id);
+      if (mapped) return mapped;
+    }
+    // A new installation event arrives before the installation row exists. It
+    // may use the configured bootstrap integration; every other event must be
+    // rejected rather than risk assigning another tenant's webhook.
+    if (event !== 'installation') return undefined;
+  }
+
+  const configuredIntegrationId = process.env.GITHUB_APP_INTEGRATION_ID;
+  return configuredIntegrationId
+    ? candidates.find(candidate => candidate.id === configuredIntegrationId)
+    : candidates.length === 1 ? candidates[0] : undefined;
+}
+
 async function ensureTokenInstallation(tenantId: string, integrationId: string) {
   const repositories = (process.env.GITHUB_REPOSITORIES ?? '')
     .split(',')
@@ -127,13 +167,7 @@ export async function githubRoutes(app: FastifyInstance) {
     const event = headers['x-github-event'];
     const delivery = headers['x-github-delivery'];
 
-    const configuredIntegrationId = process.env.GITHUB_APP_INTEGRATION_ID;
-    const candidates = await prisma.integration.findMany({
-      where: { type: IntegrationType.GITHUB, webhookEnabled: true },
-    });
-    const integration = configuredIntegrationId
-      ? candidates.find(candidate => candidate.id === configuredIntegrationId)
-      : candidates.length === 1 ? candidates[0] : undefined;
+    const integration = await resolveGitHubWebhookIntegration(payload, event);
     if (!integration) {
       return reply.code(503).send({ error: 'GitHub App integration is not configured unambiguously' });
     }

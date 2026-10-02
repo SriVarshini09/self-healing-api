@@ -88,6 +88,12 @@ vi.mock('../../utils/prisma.js', () => ({
         id: 'install-1', githubInstallationId: BigInt(166689576),
         accountLogin: 'SriVarshini09', repositories: ['SriVarshini09/self-healing-api'],
       }]),
+      findUnique: vi.fn(async ({ where }: { where: { githubInstallationId: bigint } }) =>
+        where.githubInstallationId === BigInt(166689576) ? {
+          id: 'install-1', githubInstallationId: BigInt(166689576),
+          accountLogin: 'SriVarshini09', repositories: ['SriVarshini09/self-healing-api'],
+          integration: { id: 'github-demo' },
+        } : null),
       findFirst: vi.fn(async ({ where }: { where: { id: string } }) =>
         where.id === 'install-1' ? {
           id: 'install-1', githubInstallationId: BigInt(-1),
@@ -639,6 +645,19 @@ describe('workflow_run webhook scoping', () => {
     expect(res.statusCode).toBe(200);
     expect(verifyRepairPrMock).not.toHaveBeenCalled();
     expect(pr('pr-1').verified).toBe(false);
+  });
+
+  it('routes a known installation by its tenant mapping', async () => {
+    const res = await postWorkflow(workflowPayload({ action: 'requested', installation: { id: 166689576 } }));
+    expect(res.statusCode).toBe(200);
+    expect(db.webhookEvents.at(-1)?.integrationId).toBe('github-demo');
+  });
+
+  it('rejects an unknown installation instead of using another tenant fallback', async () => {
+    const res = await postWorkflow(workflowPayload({ installation: { id: 999999999 } }));
+    expect(res.statusCode).toBe(503);
+    expect(res.json()).toMatchObject({ error: 'GitHub App integration is not configured unambiguously' });
+    expect(db.webhookEvents).toHaveLength(0);
   });
 });
 
