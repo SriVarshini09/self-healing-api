@@ -29,6 +29,22 @@ function Assert-Set([hashtable]$Values, [string]$Name) {
   }
 }
 
+function Assert-PemShape([string]$Name, [string]$Value) {
+  $normalized = $Value -replace '\\n', "`n"
+  if ($normalized -notmatch '(?s)^\s*-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----\s+.+\s+-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----\s*$') {
+    throw "Hosted GitHub private-key source '$Name' is not a complete PEM private key. The secret value was not printed."
+  }
+}
+
+function Assert-Base64Pem([string]$Name, [string]$Value) {
+  try {
+    $decoded = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Value)).Trim()
+  } catch {
+    throw "Hosted GitHub private-key source '$Name' is not valid Base64. The secret value was not printed."
+  }
+  Assert-PemShape $Name $decoded
+}
+
 $values = @{}
 foreach ($line in Get-Content -LiteralPath $EnvFile) {
   $trimmed = $line.Trim()
@@ -51,6 +67,16 @@ if ($RequireGitHubApp) {
   }
 } elseif ($configuredPrivateKeys.Count -gt 1) {
   throw "Hosted GitHub App configuration sets multiple private-key sources. Keep exactly one of: $($privateKeyNames -join ', ')."
+}
+
+if ($configuredPrivateKeys.Count -eq 1) {
+  $privateKeyName = $configuredPrivateKeys[0]
+  $privateKeyValue = Read-EnvValue $values $privateKeyName
+  if ($privateKeyName -eq 'GITHUB_APP_PRIVATE_KEY_B64') {
+    Assert-Base64Pem $privateKeyName $privateKeyValue
+  } elseif ($privateKeyName -eq 'GITHUB_APP_PRIVATE_KEY') {
+    Assert-PemShape $privateKeyName $privateKeyValue
+  }
 }
 
 $oidcNames = @('OIDC_ISSUER_URL', 'OIDC_CLIENT_ID', 'OIDC_CLIENT_SECRET', 'OIDC_REDIRECT_URI', 'OIDC_DEFAULT_TENANT_SLUG')
