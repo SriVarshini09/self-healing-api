@@ -40,7 +40,12 @@ interface FakeIncident {
   rootCause: string;
   suggestedFix: string;
   githubPrUrl?: string;
-  invariant?: { repairRequiredChecks: string[] } | null;
+  invariant?: {
+    id?: string;
+    repairRepository?: string | null;
+    repairFilePath?: string | null;
+    repairRequiredChecks: string[];
+  } | null;
 }
 
 interface FakeCandidate {
@@ -97,7 +102,7 @@ vi.mock('../../utils/prisma.js', () => ({
       findFirst: vi.fn(async ({ where }: { where: { id: string } }) =>
         where.id === 'install-1' ? {
           id: 'install-1', githubInstallationId: BigInt(-1),
-          accountLogin: 'acme', repositories: ['acme/demo'],
+          accountLogin: 'acme', repositories: ['acme/demo', 'SriVarshini09/self-healing-api'],
         } : null),
     },
     gitHubPullRequest: {
@@ -183,8 +188,8 @@ function seedDb() {
     { id: 'pr-2', prNumber: 11, repository: 'acme/demo', status: 'OPEN', verified: false, incidentId: 'inc-2' },
   ];
   db.incidents = [
-    { id: 'inc-1', status: 'REPAIRED', resolvedAt: null, title: 'Incident one', rootCause: 'cause', suggestedFix: 'fix', invariant: { repairRequiredChecks: ['target-tests'] } },
-    { id: 'inc-2', status: 'REPAIRED', resolvedAt: null, title: 'Incident two', rootCause: 'cause', suggestedFix: 'fix', invariant: { repairRequiredChecks: ['target-tests'] } },
+    { id: 'inc-1', status: 'REPAIRED', resolvedAt: null, title: 'Incident one', rootCause: 'cause', suggestedFix: 'fix', invariant: { id: 'inv-test', repairRepository: 'acme/demo', repairFilePath: 'src/selected.ts', repairRequiredChecks: ['target-tests'] } },
+    { id: 'inc-2', status: 'REPAIRED', resolvedAt: null, title: 'Incident two', rootCause: 'cause', suggestedFix: 'fix', invariant: { id: 'inv-test-2', repairRepository: 'acme/demo', repairFilePath: 'src/selected.ts', repairRequiredChecks: ['target-tests'] } },
   ];
   db.candidates = [];
   db.webhookEvents = [];
@@ -332,7 +337,7 @@ async function previewTokenFor(candidateId = candidateB): Promise<string> {
 
 describe('POST /github/incidents/:incidentId/pr/preview', () => {
   it('rejects mapped repairs without a required target check', async () => {
-    db.incidents[0].invariant = { repairRequiredChecks: [] };
+    db.incidents[0].invariant = { ...db.incidents[0].invariant!, repairRequiredChecks: [] };
     db.candidates = [{ id: candidateB, incidentId: 'inc-1', description: 'Selected', diff: null, confidence: 0.7, changes: [{ kind: 'create', path: 'safe.txt', content: 'safe' }], repository: 'acme/demo' }];
     const res = await app.inject({
       method: 'POST', url: '/github/incidents/inc-1/pr/preview',
@@ -340,6 +345,31 @@ describe('POST /github/incidents/:incidentId/pr/preview', () => {
     });
     expect(res.statusCode).toBe(409);
     expect(res.json()).toMatchObject({ error: expect.stringContaining('required GitHub check') });
+    expect(previewRepairPrChangesMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a reviewed business-outcome target without its dedicated check', async () => {
+    db.incidents[0].invariant = {
+      id: 'renamed-invariant',
+      repairRepository: 'SriVarshini09/self-healing-api',
+      repairFilePath: 'apps/demo-saas/src/business-outcome.ts',
+      repairRequiredChecks: ['verify'],
+    };
+    db.candidates = [{
+      id: candidateB,
+      incidentId: 'inc-1',
+      description: 'Selected',
+      diff: null,
+      confidence: 0.95,
+      changes: [{ kind: 'replace', path: 'apps/demo-saas/src/business-outcome.ts', before: 'old', after: 'new' }],
+      repository: 'SriVarshini09/self-healing-api',
+    }];
+    const res = await app.inject({
+      method: 'POST', url: '/github/incidents/inc-1/pr/preview',
+      payload: { installationId: 'install-1', repository: 'SriVarshini09/self-healing-api', candidateId: candidateB },
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toMatchObject({ error: expect.stringContaining('business-outcome') });
     expect(previewRepairPrChangesMock).not.toHaveBeenCalled();
   });
 
@@ -454,7 +484,7 @@ describe('POST /github/prs/:prId/verify', () => {
   });
 
   it('requires configured target checks in addition to generic CI success', async () => {
-    db.incidents[0].invariant = { repairRequiredChecks: ['target-tests', 'business-regression'] };
+    db.incidents[0].invariant = { ...db.incidents[0].invariant!, repairRequiredChecks: ['target-tests', 'business-regression'] };
     verifyRepairPrMock.mockResolvedValue({
       ...passingCi,
       checksTotal: 1,

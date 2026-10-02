@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { z } from 'zod';
 import { tenantIdFor } from '../utils/auth-context.js';
 import { hasGitHubAppConfiguration, hasGitHubAppCredentials, listInstallationRepositories } from '@shapi/github-integration';
+import { repairTargetReadiness } from '../services/repair-target-readiness.js';
 
 type JsonRecord = Record<string, unknown>;
 
@@ -23,6 +24,28 @@ function missingRequiredChecks(
   return requiredChecks.filter(required => !checkRuns.some(run =>
     run.name === required && run.status === 'completed' && run.conclusion === 'success'
   ));
+}
+
+type RepairTargetConfig = {
+  id?: string;
+  repairRepository?: string | null;
+  repairFilePath?: string | null;
+  repairRequiredChecks?: string[];
+} | null;
+
+function mappedRepairTargetError(invariant: RepairTargetConfig, candidateRepository: string | null | undefined): string | null {
+  if (!candidateRepository) return null;
+  const readiness = repairTargetReadiness({
+    id: invariant?.id ?? 'unknown',
+    repairRepository: invariant?.repairRepository ?? null,
+    repairFilePath: invariant?.repairFilePath ?? null,
+    repairRequiredChecks: invariant?.repairRequiredChecks ?? [],
+  });
+  if (readiness.state === 'READY_FOR_TARGET_REVIEW') return null;
+  if (readiness.state === 'BLOCKED_NO_REQUIRED_CHECKS') {
+    return 'Mapped repair targets must configure at least one required GitHub check before the repair can proceed';
+  }
+  return `Mapped repair target is not ready for target review: ${readiness.reason}`;
 }
 
 const TOKEN_INSTALLATION_GITHUB_ID = BigInt(-1);
@@ -426,7 +449,7 @@ export async function githubRoutes(app: FastifyInstance) {
       where: { id: incidentId, integration: { tenantId } },
       include: {
         repairCandidates: { where: { id: candidateId }, take: 1 },
-        invariant: { select: { repairRequiredChecks: true } },
+        invariant: { select: { id: true, repairRepository: true, repairFilePath: true, repairRequiredChecks: true } },
       },
     });
     if (!incident) return reply.code(404).send({ error: 'Incident not found' });
@@ -434,8 +457,9 @@ export async function githubRoutes(app: FastifyInstance) {
     if (!candidate) return reply.code(404).send({ error: 'Repair candidate not found for this incident' });
     const changes = repairChangesSchema.safeParse(candidate.changes);
     if (!changes.success) return reply.code(409).send({ error: 'Selected repair candidate has no applicable file changes' });
-    if (candidate.repository && (incident.invariant?.repairRequiredChecks ?? []).length === 0) {
-      return reply.code(409).send({ error: 'Mapped repair targets must configure at least one required GitHub check before preview' });
+    const targetError = mappedRepairTargetError(incident.invariant, candidate.repository);
+    if (targetError) {
+      return reply.code(409).send({ error: targetError });
     }
 
     const fullRepo = repository.includes('/') ? repository : `${installation.accountLogin}/${repository}`;
@@ -507,7 +531,7 @@ export async function githubRoutes(app: FastifyInstance) {
       where: { id: incidentId, integration: { tenantId } },
       include: {
         repairCandidates: { where: { id: candidateId }, take: 1 },
-        invariant: { select: { repairRequiredChecks: true } },
+        invariant: { select: { id: true, repairRepository: true, repairFilePath: true, repairRequiredChecks: true } },
       },
     });
     if (!incident) return reply.code(404).send({ error: 'Incident not found' });
@@ -543,8 +567,9 @@ export async function githubRoutes(app: FastifyInstance) {
     if (!installation.repositories.includes(fullRepo)) {
       return reply.code(403).send({ error: 'Repository is not included in this GitHub installation' });
     }
-    if (candidate.repository && (incident.invariant?.repairRequiredChecks ?? []).length === 0) {
-      return reply.code(409).send({ error: 'Mapped repair targets must configure at least one required GitHub check before creating a PR' });
+    const targetError = mappedRepairTargetError(incident.invariant, candidate.repository);
+    if (targetError) {
+      return reply.code(409).send({ error: targetError });
     }
     const approval = previewToken ? readRepairPreviewToken(previewToken) : null;
     if (!approval) {
@@ -595,11 +620,14 @@ export async function githubRoutes(app: FastifyInstance) {
     const pr = await prisma.gitHubPullRequest.findFirst({
       where: { id: prId, incident: { integration: { tenantId } } },
       include: {
-        incident: { include: { invariant: { select: { repairRequiredChecks: true } } } },
+        incident: { include: { invariant: { select: { id: true, repairRepository: true, repairFilePath: true, repairRequiredChecks: true } } } },
         installation: true,
       },
     });
     if (!pr) return reply.code(404).send({ error: 'PR not found' });
+
+    const targetError = mappedRepairTargetError(pr.incident.invariant, pr.repository);
+    if (targetError) return reply.code(409).send({ error: targetError });
 
     // Verification reads the actual GitHub state. CI passing marks the PR
     // verified; a real merged/closed state also synchronizes local lifecycle
@@ -758,10 +786,24 @@ async function handleWorkflowRunEvent(payload: Record<string, unknown>, integrat
       where: { prNumber, repository: repoFullName, status: GitHubPRStatus.OPEN, installation: { integrationId } },
       include: {
         installation: true,
-        incident: { include: { invariant: { select: { repairRequiredChecks: true } } } },
+        incident: { include: { invariant: { select: { id: true, repairRepository: true, repairFilePath: true, repairRequiredChecks: true } } } },
       },
     });
     if (!ours) continue;
+
+    const targetError = mappedRepairTargetError(ours.incident.invariant, ours.repository);
+    if (targetError) {
+      await prisma.gitHubPullRequest.update({
+        where: { id: ours.id },
+        data: {
+          verified: false,
+          verifiedAt: null,
+          verificationHeadSha: null,
+          verificationChecks: Prisma.DbNull,
+        },
+      });
+      continue;
+    }
 
     // A prior green result is no longer proof when a new run is in progress
     // or the referenced run completed unsuccessfully. Clear it explicitly so
