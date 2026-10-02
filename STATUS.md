@@ -5,6 +5,19 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Verified in this repository
 
+- The repair review UI now shows each candidate's required checks, explains
+  when a dedicated `business-outcome` proof is required in addition to generic
+  CI, and allows an operator to cancel a preview before review. Commit
+  `aca1676` passed the dashboard typecheck, tests, and production build; the
+  production browser smoke in Docker also passed through commit `fd363f1`.
+- The Docker production workflow now watches the active dashboard source tree
+  at `apps/dashboard/**`, so dashboard changes cannot bypass the production
+  browser gate. Commit `fd363f1` passed CI
+  [36980635184](https://github.com/SriVarshini09/self-healing-api/actions/runs/36980635184)
+  and Docker production validation
+  [36980635117](https://github.com/SriVarshini09/self-healing-api/actions/runs/36980635117),
+  including live dashboard behavior, signed webhook replay protection, and a
+  6/6 repair-readiness audit.
 - The local production Docker stack runs PostgreSQL, the backend, and the
   dashboard. On 2026-10-01, the backend and dashboard were rebuilt from the
   latest dashboard cleanup at `fc1ef08`; `/health`, `/ready`, the dashboard,
