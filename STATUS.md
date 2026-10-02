@@ -79,6 +79,14 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   validation:
   [CI run 36967233865](https://github.com/SriVarshini09/self-healing-api/actions/runs/36967233865),
   [Docker run 36967233874](https://github.com/SriVarshini09/self-healing-api/actions/runs/36967233874).
+- GitHub PR and workflow invariants now use null-safe nested access, so
+  incomplete webhook payloads fail closed as failed samples instead of
+  throwing evaluation errors. The migration also updates existing seeded
+  invariants in place, and five focused GitHub invariant tests cover valid,
+  invalid, and incomplete payloads. Commit `435af8d` passed the full CI and
+  production Docker workflows:
+  [CI run 36967773717](https://github.com/SriVarshini09/self-healing-api/actions/runs/36967773717),
+  [Docker run 36967773694](https://github.com/SriVarshini09/self-healing-api/actions/runs/36967773694).
 - CI now runs the same complete workspace build and test coverage instead of
   a hand-picked package list. The workflow change passed all workspace
   builds, tests, typechecks, backend lint, production dashboard build, Prisma
