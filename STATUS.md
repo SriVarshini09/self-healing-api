@@ -5,6 +5,12 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Verified in this repository
 
+- The reviewed business-outcome adapter catalog now validates at module load and
+  in tests. Duplicate IDs/targets, invalid confidence, malformed structured
+  changes, no-op replacements, and repairs that do not touch the declared target
+  fail closed before the adapter can authorize a repair. Commit `acf7214` passed
+  27 repair-generation tests, 120 backend tests, and the full local production
+  readiness gate.
 - Docker production validation can now also be run on demand for an exact
   commit. Run [36987443677](https://github.com/SriVarshini09/self-healing-api/actions/runs/36987443677)
   passed image build, stack startup, readiness, authenticated/load checks,
