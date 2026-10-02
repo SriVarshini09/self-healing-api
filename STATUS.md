@@ -7,22 +7,20 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 - The local production Docker stack runs PostgreSQL, the backend, and the
   dashboard. On 2026-10-01, the backend and dashboard were rebuilt from the
-  repair-review queue change at `e3f279f`; `/health`, `/ready`, the dashboard,
+  dashboard fidelity change at `296a7b0`; `/health`, `/ready`, the dashboard,
   and the authenticated
   `/api/v1/alerts/status` endpoint returned 200. The live alert status response
   included pending, processing, retrying, delivered, and failed counts, and the
   dashboard smoke verified all five labels in the live alert-delivery panel.
-- The latest application change `e42b32d` passed GitHub Actions CI, including the
+- The latest application change `296a7b0` passed GitHub Actions CI, including the
   business-outcome regression, production builds, unit tests, and Prisma
   validation:
-  [run 36958730447](https://github.com/SriVarshini09/self-healing-api/actions/runs/36958730447).
-  The latest production-code head `e42b32d` also passed the production Docker
+  [run 36959831171](https://github.com/SriVarshini09/self-healing-api/actions/runs/36959831171).
+  The latest production-code head `296a7b0` also passed the production Docker
   workflow, including Compose validation, image builds, stack readiness,
   authenticated security/load checks, and the non-root backend assertion:
-  [run 36958730375](https://github.com/SriVarshini09/self-healing-api/actions/runs/36958730375).
-  Subsequent documentation-only commits were also verified by full CI; the
-  latest ledger update passed in
-  [run 36957005423](https://github.com/SriVarshini09/self-healing-api/actions/runs/36957005423).
+  [run 36959831249](https://github.com/SriVarshini09/self-healing-api/actions/runs/36959831249).
+  Subsequent documentation-only commits were also verified by full CI.
   Render Blueprint schema validation for the workflow-hardening change passed:
   [run 36954469954](https://github.com/SriVarshini09/self-healing-api/actions/runs/36954469954).
 - Alert webhook request construction is now a tested core contract: the exact
@@ -40,6 +38,12 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   backoff and persisted error. The focused alert suite now has 8 tests, and the
   full backend suite has 92 tests. Commit `e42b32d` passed CI and production
   Docker validation in the runs recorded above.
+- The production command center now labels live incident activity as incidents,
+  reports the actual active-incident count, and shows incident severity/state
+  instead of presenting severity as an action or inventing a region value.
+  Browser smoke requires the corrected incident headings in both direct-API and
+  same-origin proxy modes. Commit `296a7b0` passed the production dashboard
+  smoke locally and the CI/Docker runs recorded above.
 - CI, Docker production, and Render Blueprint workflows now declare
   read-only repository permissions and cancel obsolete same-branch runs, so
   superseded commits do not continue consuming runners.
@@ -377,11 +381,15 @@ claim a replay-verified fix prematurely.
 ### Latest verification snapshot
 
 Verified locally on 2026-10-01 against the live Docker stack rebuilt from
-`e3f279f`:
+`296a7b0`:
 
-- Production readiness passed: API, database, dashboard, GitHub App mode,
-  security, 100 authenticated requests with 0 errors, dashboard browser smoke,
-  and repair-readiness audit.
+- The dashboard image rebuilt from `296a7b0` passed direct-API and same-origin
+  browser smoke, including the corrected incident headings, live telemetry,
+  repair-review counts, alert delivery, repair targets, and diagnosis modal.
+- The most recent full production readiness gate passed against the same
+  backend runtime: API, database, dashboard, GitHub App mode, security, 20
+  authenticated requests with 0 errors, signed webhook replay, dashboard
+  browser smoke, and repair-readiness audit.
 - After the readiness metadata change, the live Docker stack passed the same
   gate with 20/20 authenticated requests, dashboard browser smoke, and the
   audit reporting 4/6 ready, 2 explicit `MANUAL_REVIEW`, and 0 blocked for
@@ -405,12 +413,12 @@ Verified locally on 2026-10-01 against the live Docker stack rebuilt from
 - Workspace tests passed: 17 backend test files and 92 backend tests; the
   repair-generation package suite includes the structured business-outcome
   proof and real demo adapter proof.
-- GitHub Actions CI run `36958730447` and Docker production run
-  `36958730375` both passed; Render Blueprint validation run
+- GitHub Actions CI run `36959831171` and Docker production run
+  `36959831249` both passed; Render Blueprint validation run
   `36954469954` also passed.
 - The latest business-outcome HTTP E2E and full CI verification passed in run
-  `36958730447`; the Docker workflow rebuilt the images and passed production
-  readiness in run `36958730375`.
+  `36959831171`; the Docker workflow rebuilt the images and passed production
+  readiness in run `36959831249`.
 
 ```sh
 pnpm typecheck
