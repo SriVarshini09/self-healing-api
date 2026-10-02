@@ -19,12 +19,26 @@ type OidcMetadata = {
 type OidcProfile = { sub?: string; email?: string; name?: string; preferred_username?: string };
 let metadataPromise: Promise<OidcMetadata> | undefined;
 
+async function oidcFetch(input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), config.OIDC_PROVIDER_TIMEOUT_MS ?? 10_000);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function oidcMetadata(): Promise<OidcMetadata> {
   if (!config.OIDC_ISSUER_URL) throw new Error('OIDC is not configured');
-  metadataPromise ??= fetch(`${config.OIDC_ISSUER_URL.replace(/\/$/, '')}/.well-known/openid-configuration`)
+  metadataPromise ??= oidcFetch(`${config.OIDC_ISSUER_URL.replace(/\/$/, '')}/.well-known/openid-configuration`)
     .then(async response => {
       if (!response.ok) throw new Error(`OIDC discovery failed with ${response.status}`);
       return response.json() as Promise<OidcMetadata>;
+    })
+    .catch(error => {
+      metadataPromise = undefined;
+      throw error;
     });
   return metadataPromise;
 }
@@ -48,7 +62,12 @@ export async function authRoutes(app: FastifyInstance) {
   app.get('/auth/login', async (_request, reply) => {
     if (!oidcEnabled()) return reply.code(404).send({ error: 'OIDC login is not configured' });
     const state = crypto.randomBytes(24).toString('base64url');
-    const metadata = await oidcMetadata();
+    let metadata: OidcMetadata;
+    try {
+      metadata = await oidcMetadata();
+    } catch {
+      return reply.code(502).send({ error: 'OIDC provider discovery unavailable' });
+    }
     const params = new URLSearchParams({
       response_type: 'code',
       client_id: config.OIDC_CLIENT_ID!,
@@ -69,24 +88,50 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: query.error ?? 'Invalid OIDC callback state' });
     }
 
-    const metadata = await oidcMetadata();
-    const tokenResponse = await fetch(metadata.token_endpoint, {
-      method: 'POST',
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        code: query.code,
-        client_id: config.OIDC_CLIENT_ID!,
-        client_secret: config.OIDC_CLIENT_SECRET!,
-        redirect_uri: config.OIDC_REDIRECT_URI!,
-      }),
-    });
+    let metadata: OidcMetadata;
+    try {
+      metadata = await oidcMetadata();
+    } catch {
+      return reply.code(502).send({ error: 'OIDC provider discovery unavailable' });
+    }
+
+    let tokenResponse: Response;
+    try {
+      tokenResponse = await oidcFetch(metadata.token_endpoint, {
+        method: 'POST',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          code: query.code,
+          client_id: config.OIDC_CLIENT_ID!,
+          client_secret: config.OIDC_CLIENT_SECRET!,
+          redirect_uri: config.OIDC_REDIRECT_URI!,
+        }),
+      });
+    } catch {
+      return reply.code(502).send({ error: 'OIDC token exchange unavailable' });
+    }
     if (!tokenResponse.ok) return reply.code(502).send({ error: 'OIDC token exchange failed' });
-    const tokens = await tokenResponse.json() as { access_token?: string };
+    let tokens: { access_token?: string };
+    try {
+      tokens = await tokenResponse.json() as { access_token?: string };
+    } catch {
+      return reply.code(502).send({ error: 'OIDC token exchange returned invalid data' });
+    }
     if (!tokens.access_token || !metadata.userinfo_endpoint) return reply.code(502).send({ error: 'OIDC provider did not return a usable user profile endpoint' });
-    const profileResponse = await fetch(metadata.userinfo_endpoint, { headers: { authorization: `Bearer ${tokens.access_token}` } });
+    let profileResponse: Response;
+    try {
+      profileResponse = await oidcFetch(metadata.userinfo_endpoint, { headers: { authorization: `Bearer ${tokens.access_token}` } });
+    } catch {
+      return reply.code(502).send({ error: 'OIDC user profile lookup unavailable' });
+    }
     if (!profileResponse.ok) return reply.code(502).send({ error: 'OIDC user profile lookup failed' });
-    const profile = await profileResponse.json() as OidcProfile;
+    let profile: OidcProfile;
+    try {
+      profile = await profileResponse.json() as OidcProfile;
+    } catch {
+      return reply.code(502).send({ error: 'OIDC user profile returned invalid data' });
+    }
     if (!profile.sub || !profile.email || !config.OIDC_DEFAULT_TENANT_SLUG) return reply.code(403).send({ error: 'OIDC profile is missing sub/email or no default tenant is configured' });
 
     const issuer = config.OIDC_ISSUER_URL!;

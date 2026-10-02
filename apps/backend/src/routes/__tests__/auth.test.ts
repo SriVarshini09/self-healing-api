@@ -96,6 +96,16 @@ describe('authentication routes', () => {
     expect(providerRequest).not.toHaveBeenCalled();
   });
 
+  it('returns a controlled error when OIDC discovery is unavailable', async () => {
+    fake.oidcEnabled.mockReturnValue(true);
+    vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('provider unavailable'));
+
+    const response = await app.inject({ method: 'GET', url: '/auth/login' });
+
+    expect(response.statusCode).toBe(502);
+    expect(response.json()).toEqual({ error: 'OIDC provider discovery unavailable' });
+  });
+
   it('exchanges a valid OIDC callback, creates a tenant user session, and redirects safely', async () => {
     fake.oidcEnabled.mockReturnValue(true);
     fake.prisma.tenant.findUnique.mockResolvedValue({ id: 'tenant-1' });
@@ -142,6 +152,22 @@ describe('authentication routes', () => {
     expect(fake.createSession).toHaveBeenCalledWith('user-1', expect.anything());
     expect(providerRequest).toHaveBeenCalledTimes(3);
     expect(JSON.stringify(response.headers)).not.toContain('provider-access-token');
+  });
+
+  it('returns a controlled error when the OIDC token endpoint is unavailable', async () => {
+    fake.oidcEnabled.mockReturnValue(true);
+    const state = 'state-for-provider-outage';
+    const signature = crypto.createHmac('sha256', 'test-jwt-secret').update(state).digest('base64url');
+    vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('provider unavailable'));
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/auth/callback?code=authorization-code&state=${state}`,
+      headers: { cookie: `shapi_oidc_state=${state}.${signature}` },
+    });
+
+    expect(response.statusCode).toBe(502);
+    expect(response.json()).toEqual({ error: 'OIDC token exchange unavailable' });
   });
 
   it('returns the tenant-scoped session user without exposing session data', async () => {

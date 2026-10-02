@@ -32,6 +32,7 @@ const configSchema = z.object({
   OIDC_REDIRECT_URI: z.preprocess(value => value === '' ? undefined : value, z.string().url().optional()),
   OIDC_SCOPES: z.string().default('openid profile email'),
   OIDC_DEFAULT_TENANT_SLUG: z.preprocess(value => value === '' ? undefined : value, z.string().optional()),
+  OIDC_PROVIDER_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
   // Webhook verification
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   GITHUB_WEBHOOK_SECRET: z.string().optional(),
