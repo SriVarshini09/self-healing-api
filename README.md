@@ -134,7 +134,9 @@ infrastructure smoke before tenant onboarding:
 
 It verifies public health/readiness, security headers, dashboard runtime-config
 cache protection, CORS, unauthenticated rejection, and the same-origin API
-proxy. The authenticated hosted gate below remains required for release.
+proxy. The same check is available as the manual GitHub Actions workflow
+`hosted-infrastructure-smoke`; the authenticated hosted gate below remains
+required for release.
 
 After the hosted services are live, run the public-only gate from a trusted
 operator machine. It refuses localhost or non-HTTPS URLs and does not mutate

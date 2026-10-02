@@ -29,7 +29,9 @@ rejection, dashboard proxy, and non-cacheable runtime configuration:
 ```
 
 This first-stage smoke is intentionally secret-free. It does not replace the
-authenticated hosted release gate in section 4.
+authenticated hosted release gate in section 4. The same check can be run from
+the manual GitHub Actions workflow `hosted-infrastructure-smoke` when the
+operator machine does not have the required PowerShell tooling.
 
 The private-key source must be exactly one of `GITHUB_APP_PRIVATE_KEY_B64`,
 `GITHUB_APP_PRIVATE_KEY_FILE`, or `GITHUB_APP_PRIVATE_KEY`. Base64 is the
