@@ -6,19 +6,20 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 ## Verified in this repository
 
 - The local production Docker stack runs PostgreSQL, the backend, and the
-  dashboard. On 2026-10-01, the backend was rebuilt from `master` at
-  `2373b8a`; `/health`, `/ready`, the dashboard, and the authenticated
+  dashboard. On 2026-10-01, the backend and dashboard were rebuilt from the
+  repair-review queue change at `a8a10cc`; `/health`, `/ready`, the dashboard,
+  and the authenticated
   `/api/v1/alerts/status` endpoint returned 200. The live alert status response
   included pending, processing, retrying, delivered, and failed counts, and the
   dashboard smoke verified all five labels in the live alert-delivery panel.
-- The latest `master` head `829dc6b` passed GitHub Actions CI, including the
+- The latest `master` head `a8a10cc` passed GitHub Actions CI, including the
   business-outcome regression, production builds, unit tests, and Prisma
   validation:
-  [run 36955295393](https://github.com/SriVarshini09/self-healing-api/actions/runs/36955295393).
-  The latest production code head `6ea4736` also passed the production Docker
+  [run 36955856458](https://github.com/SriVarshini09/self-healing-api/actions/runs/36955856458).
+  The same production code head also passed the production Docker
   workflow, including Compose validation, image builds, stack readiness,
   authenticated security/load checks, and the non-root backend assertion:
-  [run 36955088118](https://github.com/SriVarshini09/self-healing-api/actions/runs/36955088118).
+  [run 36955856408](https://github.com/SriVarshini09/self-healing-api/actions/runs/36955856408).
   Render Blueprint schema validation for the workflow-hardening change passed:
   [run 36954469954](https://github.com/SriVarshini09/self-healing-api/actions/runs/36954469954).
 - CI, Docker production, and Render Blueprint workflows now declare
@@ -54,6 +55,11 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - The dashboard now exposes the live GitHub App connection and installation
   state, and the incident view supports a pinned source preview, explicit
   operator approval, real repair-PR creation, and verification from one flow.
+- The live command center now shows the repair-review queue from active API
+  candidates, including the number requiring manual review and the number
+  that are PR-ready after review. Browser smoke covers this queue, so the
+  dashboard does not imply that every detected suggestion is automatically
+  repairable.
 - Repair candidates without both an explicit repository mapping and structured
   file changes are now labeled `MANUAL REVIEW` in the production dashboard;
   preview and PR actions stay disabled with an explanation, so a suggestion
@@ -346,7 +352,7 @@ claim a replay-verified fix prematurely.
 ### Latest verification snapshot
 
 Verified locally on 2026-10-01 against the live Docker stack rebuilt from
-`6ea4736`:
+`a8a10cc`:
 
 - Production readiness passed: API, database, dashboard, GitHub App mode,
   security, 100 authenticated requests with 0 errors, dashboard browser smoke,
@@ -358,20 +364,19 @@ Verified locally on 2026-10-01 against the live Docker stack rebuilt from
 - The live incidents API returned `requiredChecks: ["verify"]` for persisted
   repair candidates, including both manual-review and PR-ready candidates.
 - Production dashboard smoke passed for the direct API, same-origin proxy,
-  command center, live telemetry, all five alert-delivery states, repair targets,
-  and diagnosis modal.
+  command center, live telemetry, repair-review queue, all five alert-delivery
+  states, repair targets, and diagnosis modal.
 - Repair readiness audit reported 4/6 ready for target review, 2 explicit
   `MANUAL_REVIEW` GitHub invariants, and 0 blocked for missing checks.
 - Workspace tests passed: 16 backend test files and 89 backend tests; the
   repair-generation package suite includes the structured business-outcome
   proof and real demo adapter proof.
-- GitHub Actions CI run `36955295393` and Docker production run
-  `36955088118` both passed; Render Blueprint validation run
+- GitHub Actions CI run `36955856458` and Docker production run
+  `36955856408` both passed; Render Blueprint validation run
   `36954469954` also passed.
 - The latest business-outcome HTTP E2E and full CI verification passed in run
-  `36955295393`; the Docker workflow for the preceding production code change
-  passed separately because the documentation-only follow-up did not rebuild
-  images.
+  `36955856458`; the Docker workflow rebuilt the images and passed the live
+  repair-review dashboard smoke in run `36955856408`.
 
 ```sh
 pnpm typecheck
