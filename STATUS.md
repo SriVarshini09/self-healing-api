@@ -11,13 +11,18 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   `/api/v1/alerts/status` endpoint returned 200. The live alert status response
   included pending, processing, retrying, delivered, and failed counts, and the
   dashboard smoke verified all five labels in the live alert-delivery panel.
-- GitHub Actions CI on `master` passed for the current verified product code
-  head `80abf3d`, including the business-outcome regression and repair-readiness
-  release-gate integration:
+- The production-stack verification baseline on `master` at `80abf3d` passed
+  GitHub Actions CI, including the business-outcome regression and
+  repair-readiness release-gate integration:
   [run 36952538925](https://github.com/SriVarshini09/self-healing-api/actions/runs/36952538925).
   The production Docker workflow also passed its readiness, security, and load
   checks:
   [run 36952538802](https://github.com/SriVarshini09/self-healing-api/actions/runs/36952538802).
+- The latest `master` head `0aa8f0b` extends the separate `business-outcome`
+  check with the real demo HTTP checkout/webhook flow; CI passed both the
+  failure-that-still-returns-200 assertion and the recovered provisioning
+  assertion:
+  [run 36953459205](https://github.com/SriVarshini09/self-healing-api/actions/runs/36953459205).
   CI checks workspace types, backend lint, package/backend unit tests, backend
   and dashboard builds, and Prisma schema validation.
 - Webhook and SDK events feed behavioral invariants; drift detection and
@@ -346,6 +351,9 @@ Verified locally on 2026-10-01 against the live Docker stack rebuilt from
   proof and real demo adapter proof.
 - GitHub Actions CI run `36952538925` and Docker production run
   `36952538802` both passed.
+- The latest business-outcome HTTP E2E and full CI verification passed in run
+  `36953459205`; the Docker workflow was intentionally not triggered because
+  the change is isolated to the demo application and its CI workflow.
 
 ```sh
 pnpm typecheck
