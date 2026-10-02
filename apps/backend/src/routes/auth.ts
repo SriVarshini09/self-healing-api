@@ -8,7 +8,6 @@ import {
   destroySession,
   getCookie,
   oidcEnabled,
-  sessionCookie,
   SESSION_COOKIE,
 } from '../utils/auth-sessions.js';
 
