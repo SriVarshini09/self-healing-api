@@ -226,7 +226,7 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 - A `scripts/bootstrap-hosted-tenant.ps1` helper now creates the first hosted
   tenant from an external bootstrap-token env file, prints the one-time owner
   key without persisting it, and supports a no-request dry run.
-- On 2026-10-01, the rebuilt Docker stack at `46e1317` passed the complete
+- On 2026-10-01, the rebuilt Docker stack at `148d80b` passed the complete
   readiness suite:
   GitHub App readiness, security smoke, authenticated load (20/20 HTTP 200),
   dashboard browser smoke, and paced sustained capacity (39/39 HTTP 200 with
@@ -300,7 +300,7 @@ claim a replay-verified fix prematurely.
 ### Latest verification snapshot
 
 Verified locally on 2026-10-01 against the live Docker stack at commit
-`9160e4e`:
+`148d80b`:
 
 - Production readiness passed: API, database, dashboard, GitHub App mode,
   security, and 100 authenticated requests with 0 errors.
@@ -313,10 +313,10 @@ Verified locally on 2026-10-01 against the live Docker stack at commit
   correctly produces HTTP 429 responses instead of service errors.
 - Repair readiness audit reported 4/6 ready for target review, 2 explicit
   `MANUAL_REVIEW` GitHub invariants, and 0 blocked for missing checks.
-- Workspace tests passed: 11 projects, 15 backend test files, and 85 backend
-  tests.
-- GitHub Actions CI run `36947676453` and Docker production run
-  `36947676260` both passed.
+- Workspace tests passed: 11 projects, 15 backend test files, and 86 backend
+  tests; the repair-generation package suite includes 21 tests.
+- GitHub Actions CI run `36949446108` and Docker production run
+  `36949446109` both passed.
 
 ```sh
 pnpm typecheck
