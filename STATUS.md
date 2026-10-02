@@ -294,6 +294,22 @@ claim a replay-verified fix prematurely.
 
 ## Local checks
 
+### Latest verification snapshot
+
+Verified locally on 2026-10-01 against the live Docker stack at commit
+`9160e4e`:
+
+- Production readiness passed: API, database, dashboard, GitHub App mode,
+  security, and 100 authenticated requests with 0 errors.
+- Production dashboard smoke passed for the direct API, same-origin proxy,
+  command center, live telemetry, repair targets, and diagnosis modal.
+- Repair readiness audit reported 4/6 ready for target review, 2 explicit
+  `MANUAL_REVIEW` GitHub invariants, and 0 blocked for missing checks.
+- Workspace tests passed: 11 projects, 15 backend test files, and 85 backend
+  tests.
+- GitHub Actions CI run `36947676453` and Docker production run
+  `36947676260` both passed.
+
 ```sh
 pnpm typecheck
 pnpm --filter @shapi/backend lint
