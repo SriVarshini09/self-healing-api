@@ -216,6 +216,14 @@ type WebhookSetup = {
   instructions: string;
 };
 
+type WebhookEventSummary = {
+  id: string;
+  eventType: string;
+  providerEventId?: string | null;
+  status: string;
+  receivedAt: string;
+};
+
 function ConnectionsPanel() {
   const [githubStatus, setGithubStatus] = useState<GitHubStatus | null>(null);
   const [integrations, setIntegrations] = useState<IntegrationSummary[]>([]);
@@ -224,6 +232,9 @@ function ConnectionsPanel() {
   const [setupId, setSetupId] = useState<string | null>(null);
   const [setup, setSetup] = useState<WebhookSetup | null>(null);
   const [setupLoading, setSetupLoading] = useState(false);
+  const [eventsId, setEventsId] = useState<string | null>(null);
+  const [events, setEvents] = useState<WebhookEventSummary[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -261,6 +272,27 @@ function ConnectionsPanel() {
       setError(loadError instanceof Error ? loadError.message : 'Could not load webhook setup');
     } finally {
       setSetupLoading(false);
+    }
+  };
+
+  const showEvents = async (integration: IntegrationSummary) => {
+    if (eventsId === integration.id) {
+      setEventsId(null);
+      setEvents([]);
+      return;
+    }
+    setEventsId(integration.id);
+    setEvents([]);
+    setEventsLoading(true);
+    try {
+      const response = await fetchShapi<{ data: WebhookEventSummary[] }>(
+        `integrations/${integration.id}/webhook-events?pageSize=5`,
+      );
+      setEvents(response.data ?? []);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Could not load recent deliveries');
+    } finally {
+      setEventsLoading(false);
     }
   };
 
@@ -334,9 +366,14 @@ function ConnectionsPanel() {
                   <span className="font-mono text-[10px] text-muted-foreground">
                     {integration.webhookEnabled && integration.webhookSecretConfigured ? 'ready' : 'setup needed'}
                   </span>
-                  <Button variant="outline" size="sm" onClick={() => void showSetup(integration)} disabled={setupLoading && setupId === integration.id}>
-                    {setupLoading && setupId === integration.id ? 'Loading…' : setupId === integration.id ? 'Hide setup' : 'Setup'}
-                  </Button>
+                  <div className="flex gap-1.5">
+                    <Button variant="outline" size="sm" onClick={() => void showSetup(integration)} disabled={setupLoading && setupId === integration.id}>
+                      {setupLoading && setupId === integration.id ? 'Loading…' : setupId === integration.id ? 'Hide setup' : 'Setup'}
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => void showEvents(integration)} disabled={eventsLoading && eventsId === integration.id}>
+                      {eventsLoading && eventsId === integration.id ? 'Loading…' : eventsId === integration.id ? 'Hide deliveries' : 'Deliveries'}
+                    </Button>
+                  </div>
                 </div>
                 {setupId === integration.id && setup && (
                   <div className="mb-2 rounded border border-border bg-secondary/30 p-2 text-[10px]">
@@ -351,6 +388,31 @@ function ConnectionsPanel() {
                       Secret status: {setup.webhookSecretConfigured ? 'configured (value hidden)' : 'not configured'}.
                       Secrets are never displayed in this panel.
                     </p>
+                  </div>
+                )}
+                {eventsId === integration.id && (
+                  <div className="mb-2 rounded border border-border bg-secondary/30 p-2 text-[10px]">
+                    <p className="font-semibold">Recent deliveries</p>
+                    {events.length ? (
+                      <div className="mt-1 divide-y divide-border">
+                        {events.map(event => (
+                          <div key={event.id} className="flex items-center gap-2 py-1.5 first:pt-1 last:pb-1">
+                            <span className={`rounded px-1.5 py-0.5 font-mono uppercase ${event.status === 'COMPLETED' ? 'bg-success/15 text-success' : event.status === 'FAILED' ? 'bg-critical/15 text-critical' : 'bg-warning/15 text-warning'}`}>
+                              {event.status}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                              {event.eventType}{event.providerEventId ? ` · ${event.providerEventId}` : ''}
+                            </span>
+                            <time className="shrink-0 font-mono text-muted-foreground" dateTime={event.receivedAt}>
+                              {new Date(event.receivedAt).toLocaleString()}
+                            </time>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-1 text-muted-foreground">No webhook deliveries recorded for this integration.</p>
+                    )}
+                    <p className="mt-2 text-muted-foreground">Payloads and signing secrets are not displayed here.</p>
                   </div>
                 )}
               </div>

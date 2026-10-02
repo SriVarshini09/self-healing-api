@@ -108,9 +108,16 @@ async function runDashboardSmoke(mode: {
     await page.getByRole('heading', { name: 'GitHub repair connection', exact: true }).waitFor({ timeout: 15000 });
     await page.getByRole('heading', { name: 'Connected integrations', exact: true }).waitFor({ timeout: 15000 });
     const setupButtons = page.getByRole('button', { name: 'Setup', exact: true });
-    if (await setupButtons.count()) {
+    const hasSetupButton = (await setupButtons.count()) > 0;
+    if (hasSetupButton) {
       await setupButtons.first().click();
       await page.getByText('Webhook endpoint', { exact: true }).waitFor({ timeout: 15000 });
+    }
+    const deliveryButtons = page.getByRole('button', { name: 'Deliveries', exact: true });
+    const hasDeliveryButton = (await deliveryButtons.count()) > 0;
+    if (hasDeliveryButton) {
+      await deliveryButtons.first().click();
+      await page.getByText('Recent deliveries', { exact: true }).waitFor({ timeout: 15000 });
     }
     await page.getByRole('heading', { name: 'Repair targets', exact: true }).waitFor({ timeout: 15000 });
     await page.getByText('Repair review', { exact: true }).waitFor({ timeout: 15000 });
@@ -137,8 +144,11 @@ async function runDashboardSmoke(mode: {
     if (!apiRequests.some(url => url.includes('/integrations?pageSize=100'))) {
       throw new Error(`${mode.label} dashboard smoke observed no integrations request`);
     }
-    if (await setupButtons.count() && !apiRequests.some(url => url.includes('/webhook-url'))) {
+    if (hasSetupButton && !apiRequests.some(url => url.includes('/webhook-url'))) {
       throw new Error(`${mode.label} dashboard smoke observed no webhook setup request`);
+    }
+    if (hasDeliveryButton && !apiRequests.some(url => url.includes('/webhook-events?pageSize=5'))) {
+      throw new Error(`${mode.label} dashboard smoke observed no webhook deliveries request`);
     }
   } finally {
     await context.close();
