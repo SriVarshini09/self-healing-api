@@ -43,6 +43,24 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   repository. No secret values are recorded in this repository. The temporary
   dashboard-key helper file should be deleted after use.
 
+## Latest repository verification
+
+- The current `master` head is `0523c1a`, which corrects the documented hosted
+  onboarding order: bootstrap the owner key before running the authenticated
+  smoke, then install or explicitly sync the GitHub App. CI passed on that head
+  in [run 37078060970](https://github.com/SriVarshini09/self-healing-api/actions/runs/37078060970),
+  including the business-outcome regression and secret-safe key-encoder test.
+- The latest runtime-affecting hardening commit is `f7b3fcf`. Its complete
+  Docker production validation passed in
+  [run 37076537280](https://github.com/SriVarshini09/self-healing-api/actions/runs/37076537280),
+  covering Compose validation, production readiness, authenticated load,
+  backup/restore, dashboard browser behavior, signed webhook replay protection,
+  and repair-readiness.
+- The only unresolved hosted gate remains external to the repository:
+  `GITHUB_APP_PRIVATE_KEY_B64` is not usable in the running Render API, so the
+  hosted GitHub installation and real repair-PR proof are intentionally not
+  marked complete.
+
 ## Verified in this repository
 
 - The complete local release procedure passed on 2026-10-02 against the live
