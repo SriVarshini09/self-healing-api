@@ -29,6 +29,10 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   `appPrivateKeyConfigured=false`; the Render value for
   `GITHUB_APP_PRIVATE_KEY_B64` must be corrected before installation
   `166689576` can be synced to the hosted tenant.
+- Hosted GitHub tenant provisioning is now repeatable with
+  `scripts/provision-hosted-github-demo.ps1`. It is idempotent, secret-safe,
+  and creates only the reviewed integration/invariant records that are missing;
+  it does not install the App or mutate GitHub.
 - Dashboard data fidelity is complete for the current product scope: the
   command center uses live SHAPI incidents and exact incident, severity,
   integration, invariant, repair-review, and alert-delivery values. It does

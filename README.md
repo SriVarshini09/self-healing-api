@@ -120,7 +120,20 @@ without credentials. Apply it from the Render Dashboard, then set the
    dashboard key into `VITE_SHAPI_API_KEY`, or configure OIDC before exposing
    the dashboard; do not put the owner key in browser runtime configuration.
 4. Point the GitHub App webhook at `https://<api-host>/api/v1/github/webhook`,
-   then run the remote readiness checks from a trusted operator environment.
+   then provision the reviewed GitHub monitoring targets with the owner key:
+
+   ```powershell
+   ./scripts/provision-hosted-github-demo.ps1 `
+     -ApiUrl https://<api-host> `
+     -EnvFile C:\secure\shapi-owner.env
+   ```
+
+   This idempotent command creates the tenant's GitHub integration and the two
+   reviewed GitHub invariants when they are missing. It never prints or
+   overwrites credentials, and `-DryRun` previews the records without changing
+   hosted data. It does not install the GitHub App or sync an installation;
+   those remain explicit App-configuration steps.
+5. Run the remote readiness checks from a trusted operator environment.
 
 Both Render web services use `autoDeployTrigger: checksPass`, so a connected
 Render workspace will wait for the repository's required GitHub checks before
