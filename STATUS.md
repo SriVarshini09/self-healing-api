@@ -7,17 +7,17 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 - The local production Docker stack runs PostgreSQL, the backend, and the
   dashboard. On 2026-10-01, the backend was rebuilt from `master` at
-  `f0e8de7`; `/health`, `/ready`, the dashboard, and the authenticated
+  `80abf3d`; `/health`, `/ready`, the dashboard, and the authenticated
   `/api/v1/alerts/status` endpoint returned 200. The live alert status response
-  included the new `processing` count, and the dashboard displayed the live
-  alert-delivery panel.
+  included pending, processing, retrying, delivered, and failed counts, and the
+  dashboard smoke verified all five labels in the live alert-delivery panel.
 - GitHub Actions CI on `master` passed for the current verified product code
-  head `f0e8de7`, including the business-outcome regression and repair-readiness
+  head `80abf3d`, including the business-outcome regression and repair-readiness
   release-gate integration:
-  [run 36952013523](https://github.com/SriVarshini09/self-healing-api/actions/runs/36952013523).
+  [run 36952538925](https://github.com/SriVarshini09/self-healing-api/actions/runs/36952538925).
   The production Docker workflow also passed its readiness, security, and load
   checks:
-  [run 36952013494](https://github.com/SriVarshini09/self-healing-api/actions/runs/36952013494).
+  [run 36952538802](https://github.com/SriVarshini09/self-healing-api/actions/runs/36952538802).
   CI checks workspace types, backend lint, package/backend unit tests, backend
   and dashboard builds, and Prisma schema validation.
 - Webhook and SDK events feed behavioral invariants; drift detection and
@@ -325,21 +325,21 @@ claim a replay-verified fix prematurely.
 ### Latest verification snapshot
 
 Verified locally on 2026-10-01 against the live Docker stack rebuilt from
-`f0e8de7`:
+`80abf3d`:
 
 - Production readiness passed: API, database, dashboard, GitHub App mode,
   security, 100 authenticated requests with 0 errors, dashboard browser smoke,
   and repair-readiness audit.
 - Production dashboard smoke passed for the direct API, same-origin proxy,
-  command center, live telemetry, alert delivery, repair targets, and diagnosis
-  modal.
+  command center, live telemetry, all five alert-delivery states, repair targets,
+  and diagnosis modal.
 - Repair readiness audit reported 4/6 ready for target review, 2 explicit
   `MANUAL_REVIEW` GitHub invariants, and 0 blocked for missing checks.
 - Workspace tests passed: 16 backend test files and 89 backend tests; the
   repair-generation package suite includes the structured business-outcome
   proof and real demo adapter proof.
-- GitHub Actions CI run `36952013523` and Docker production run
-  `36952013494` both passed.
+- GitHub Actions CI run `36952538925` and Docker production run
+  `36952538802` both passed.
 
 ```sh
 pnpm typecheck
