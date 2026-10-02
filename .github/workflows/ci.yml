@@ -30,6 +30,33 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      - name: Test secret-safe GitHub key encoder
+        shell: pwsh
+        run: |
+          $fixture = Join-Path $env:RUNNER_TEMP 'shapi-test-private-key.pem'
+          $output = Join-Path $env:RUNNER_TEMP 'shapi-test-private-key.b64'
+          @"
+          -----BEGIN PRIVATE KEY-----
+          TEST-KEY-MATERIAL
+          -----END PRIVATE KEY-----
+          "@ | Set-Content -LiteralPath $fixture -Encoding utf8
+
+          & pwsh -NoLogo -NoProfile -File ./scripts/encode-github-app-private-key.ps1 `
+            -PemFile $fixture -OutputFile $output
+          if ($LASTEXITCODE -ne 0) { throw 'The encoder failed for a valid synthetic PEM.' }
+
+          $encoded = (Get-Content -LiteralPath $output -Raw).Trim()
+          if ($encoded -notmatch '^[A-Za-z0-9+/]+=*$') {
+            throw 'The encoder did not produce a single Base64 value.'
+          }
+          $decoded = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($encoded))
+          $expected = (Get-Content -LiteralPath $fixture -Raw).Trim()
+          if ($decoded -ne $expected) { throw 'The encoded PEM did not round-trip.' }
+
+          & pwsh -NoLogo -NoProfile -File ./scripts/encode-github-app-private-key.ps1 `
+            -PemFile ./README.md -OutputFile $output 2>$null
+          if ($LASTEXITCODE -eq 0) { throw 'The encoder accepted malformed PEM input.' }
+
       - name: Generate Prisma Client
         run: pnpm --filter @shapi/backend db:generate
 
