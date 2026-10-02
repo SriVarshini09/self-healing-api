@@ -35,6 +35,11 @@ describe('repair-generation', () => {
     expect(repairs[0]).toMatchObject({
       changes: [{ after: 'event.payload?.data?.object?.amount_paid > 0' }],
     });
+    const repairedPredicate = repairs[0].changes?.[0];
+    expect(repairedPredicate?.kind).toBe('replace');
+    if (repairedPredicate?.kind !== 'replace') throw new Error('expected a structured predicate replacement');
+    const evaluate = new Function('event', `return ${repairedPredicate.after};`) as (event: unknown) => boolean;
+    expect(evaluate({ payload: { data: null } })).toBe(false);
   });
 
   it('generates an exact replacement only for an explicitly mapped repository file', () => {
