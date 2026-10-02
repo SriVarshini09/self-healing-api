@@ -103,7 +103,7 @@ if ($apiKey) {
     throw 'FAIL GitHub App readiness: GITHUB_APP_ID is not configured in the running API'
   }
   if ($RequireGitHubApp -and -not $status.appPrivateKeyConfigured) {
-    throw 'FAIL GitHub App readiness: the running API cannot resolve a usable private-key source'
+    throw 'FAIL GitHub App readiness: the running API cannot resolve a usable private-key source. Set GITHUB_APP_PRIVATE_KEY_B64 on the Render API service (not the dashboard) to one-line Base64 of the full PEM, then save and redeploy.'
   }
   if ($RequireGitHubApp -and -not $status.appCredentialsConfigured) {
     throw 'FAIL GitHub App readiness: the running API has no usable App credentials'
