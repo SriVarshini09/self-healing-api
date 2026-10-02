@@ -380,9 +380,12 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 1. **Production GitHub App deployment.** The local stack now has a real App
    installation, repository permissions, a public webhook URL, and a verified
    `200` delivery. A provider-specific Render Blueprint is now committed for
-   the API, dashboard, and PostgreSQL. Production rollout still needs a Render
-   workspace to apply it, secure secret entry, hosted tenant-isolated
-   onboarding, and running the hosted signed-webhook smoke against that URL.
+   the API, dashboard, and PostgreSQL. The connected Render workspace was
+   inspected read-only on 2026-10-02: it contains unrelated services but no
+   SHAPI services or Postgres database. Production rollout still needs the
+   Blueprint applied to the intended workspace, secure secret entry, hosted
+   tenant-isolated onboarding, and running the hosted signed-webhook smoke
+   against that URL. No external Render resources were created or modified.
 2. **Repository-aware repair workflow.** Invariants can now store an explicit
    `repairRepository` and `repairFilePath`, and a structured predicate edit
    is generated only for a mapped target. Three reviewed Stripe predicate
