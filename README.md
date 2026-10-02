@@ -171,12 +171,17 @@ history, store `SHAPI_BOOTSTRAP_TOKEN` in a separate operator env file and run:
   -ApiUrl https://<api-host> `
   -EnvFile ./hosted-bootstrap.env `
   -TenantName "Production" `
-  -Slug production
+  -Slug production `
+  -ApiKeyOutputFile C:\secure\shapi-owner.env `
+  -DashboardApiKeyOutputFile C:\secure\shapi-dashboard.env
 ```
 
-The script makes no file changes and prints the owner API key once. Copy it
-into the dashboard's secret configuration immediately, then remove the
-temporary operator env file from the machine.
+The script writes the owner key and a separate `OPERATOR` dashboard key with
+only `read` and `write` permissions to the two files; it does not print either
+raw key. Copy only the dashboard key into `VITE_SHAPI_API_KEY`. For a real
+production deployment, configure OIDC so no API key is embedded in browser
+runtime configuration. Then remove the temporary operator env file from the
+machine.
 
 For a repeatable single-host deployment, use the guarded deployment command. It
 validates the rendered Compose configuration, starts the services, waits for

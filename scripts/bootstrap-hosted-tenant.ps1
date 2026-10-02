@@ -11,6 +11,7 @@ param(
   [string]$KeyName = 'Initial admin key',
   [string]$ExpiresAt,
   [string]$ApiKeyOutputFile,
+  [string]$DashboardApiKeyOutputFile,
   [switch]$DryRun
 )
 
@@ -35,7 +36,45 @@ function Assert-PublicHttpsUrl([string]$Value) {
   }
 }
 
+function Get-SafeOutputPath([string]$Path, [string]$Label) {
+  $outputPath = [IO.Path]::GetFullPath($Path)
+  $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..')).TrimEnd(
+    [IO.Path]::DirectorySeparatorChar,
+    [IO.Path]::AltDirectorySeparatorChar
+  )
+  $repoPrefix = "$repoRoot$([IO.Path]::DirectorySeparatorChar)"
+  if (
+    $outputPath.Equals($repoRoot, [StringComparison]::OrdinalIgnoreCase) -or
+    $outputPath.StartsWith($repoPrefix, [StringComparison]::OrdinalIgnoreCase)
+  ) {
+    throw "$Label must be outside the repository so the key cannot be committed accidentally"
+  }
+  if (Test-Path -LiteralPath $outputPath) {
+    throw "Refusing to overwrite existing $Label file: $outputPath"
+  }
+  $parent = [IO.Path]::GetDirectoryName($outputPath)
+  if (-not $parent -or -not (Test-Path -LiteralPath $parent -PathType Container)) {
+    throw "$Label directory does not exist: $parent"
+  }
+  return $outputPath
+}
+
+function Write-SafeApiKeyFile([string]$Path, [string]$Key, [string]$Label) {
+  [IO.File]::WriteAllText($Path, "SHAPI_API_KEY=$Key$([Environment]::NewLine)", [Text.UTF8Encoding]::new($false))
+  if (-not $IsWindows) {
+    [IO.File]::SetUnixFileMode(
+      $Path,
+      [IO.UnixFileMode]::UserRead -bor [IO.UnixFileMode]::UserWrite
+    )
+  }
+  Write-Output "$Label written to: $Path"
+  Write-Output "$Label was not printed. Keep the output file outside the repository."
+}
+
 Assert-PublicHttpsUrl $ApiUrl
+if ($DashboardApiKeyOutputFile -and -not $ApiKeyOutputFile) {
+  throw 'DashboardApiKeyOutputFile requires ApiKeyOutputFile so the owner key is never printed'
+}
 $bootstrapToken = Read-EnvValue -Path $EnvFile -Name 'SHAPI_BOOTSTRAP_TOKEN'
 if ([string]::IsNullOrWhiteSpace($bootstrapToken)) {
   throw "SHAPI_BOOTSTRAP_TOKEN was not found in $EnvFile"
@@ -76,37 +115,35 @@ Write-Output "Tenant created: $($result.tenant.name) ($($result.tenant.slug))"
 Write-Output "Tenant ID: $($result.tenant.id)"
 
 if ($ApiKeyOutputFile) {
-  $outputPath = [IO.Path]::GetFullPath($ApiKeyOutputFile)
-  $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..')).TrimEnd(
-    [IO.Path]::DirectorySeparatorChar,
-    [IO.Path]::AltDirectorySeparatorChar
-  )
-  $repoPrefix = "$repoRoot$([IO.Path]::DirectorySeparatorChar)"
-  if (
-    $outputPath.Equals($repoRoot, [StringComparison]::OrdinalIgnoreCase) -or
-    $outputPath.StartsWith($repoPrefix, [StringComparison]::OrdinalIgnoreCase)
-  ) {
-    throw 'ApiKeyOutputFile must be outside the repository so the owner key cannot be committed accidentally'
-  }
-  if (Test-Path -LiteralPath $outputPath) {
-    throw "Refusing to overwrite existing API key output file: $outputPath"
-  }
-  $parent = [IO.Path]::GetDirectoryName($outputPath)
-  if (-not $parent -or -not (Test-Path -LiteralPath $parent -PathType Container)) {
-    throw "API key output directory does not exist: $parent"
-  }
+  $ownerOutputPath = Get-SafeOutputPath $ApiKeyOutputFile 'ApiKeyOutputFile'
+  Write-SafeApiKeyFile $ownerOutputPath $result.key 'Owner API key'
 
-  $content = "SHAPI_API_KEY=$($result.key)$([Environment]::NewLine)"
-  [IO.File]::WriteAllText($outputPath, $content, [Text.UTF8Encoding]::new($false))
-  if (-not $IsWindows) {
-    [IO.File]::SetUnixFileMode(
-      $outputPath,
-      [IO.UnixFileMode]::UserRead -bor [IO.UnixFileMode]::UserWrite
-    )
+  if ($DashboardApiKeyOutputFile) {
+    $dashboardOutputPath = Get-SafeOutputPath $DashboardApiKeyOutputFile 'DashboardApiKeyOutputFile'
+    $dashboardBody = @{
+      name = 'Hosted dashboard runtime'
+      permissions = @('read', 'write')
+      role = 'OPERATOR'
+    } | ConvertTo-Json -Compress
+    $dashboardResponse = Invoke-WebRequest `
+      -Method Post `
+      -Uri "$($ApiUrl.TrimEnd('/'))/api/v1/api-keys" `
+      -Headers @{ 'x-api-key' = $result.key } `
+      -ContentType 'application/json' `
+      -Body $dashboardBody `
+      -UseBasicParsing `
+      -SkipHttpErrorCheck
+    if ([int]$dashboardResponse.StatusCode -ne 201) {
+      throw "Dashboard API-key creation failed with HTTP $($dashboardResponse.StatusCode). The owner key is already stored at $ownerOutputPath."
+    }
+    $dashboardResult = $dashboardResponse.Content | ConvertFrom-Json
+    if (-not $dashboardResult.key -or $dashboardResult.apiKey.role -ne 'OPERATOR') {
+      throw 'Dashboard API-key creation returned an incomplete response'
+    }
+    Write-SafeApiKeyFile $dashboardOutputPath $dashboardResult.key 'Dashboard API key'
+    Write-Output 'The dashboard key has read/write permissions with the OPERATOR role; it cannot administer API keys.'
+    Write-Output 'For production, prefer OIDC so no API key is embedded in browser runtime configuration.'
   }
-
-  Write-Output "Owner API key written to: $outputPath"
-  Write-Output 'The owner API key was not printed. Keep the output file outside the repository.'
 } else {
   Write-Output ''
   Write-Output 'OWNER_API_KEY (copy now; SHAPI will not return it again):'

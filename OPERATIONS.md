@@ -68,12 +68,16 @@ From a trusted PowerShell session in the repository:
   -EnvFile ./hosted-bootstrap.env `
   -TenantName "Production" `
   -Slug production `
-  -ApiKeyOutputFile C:\secure\shapi-owner.env
+  -ApiKeyOutputFile C:\secure\shapi-owner.env `
+  -DashboardApiKeyOutputFile C:\secure\shapi-dashboard.env
 ```
 
-The output file contains the one-time owner API key as `SHAPI_API_KEY` without
-printing it to terminal logs. Keep that file outside the repository and copy
-its value into the dashboard's secret configuration. If
+The first output file contains the one-time owner API key and the second
+contains a separate `OPERATOR` key with only `read` and `write` permissions.
+Neither raw key is printed. Keep both files outside the repository and copy
+only the dashboard key into `VITE_SHAPI_API_KEY`. For a real production
+deployment, configure OIDC instead so no API key is embedded in browser
+runtime configuration. If
 `-ApiKeyOutputFile` is omitted, the script prints the key for backward
 compatibility. Then remove the temporary operator file, rotate or remove
 `SHAPI_BOOTSTRAP_TOKEN` in Render, and restart the API if the secret changed.
