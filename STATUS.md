@@ -5,6 +5,14 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Verified in this repository
 
+- Business-outcome target gating is now driven by the reviewed adapter
+  registry's repository/file coordinates, not by a special invariant ID. A
+  renamed invariant pointing at a reviewed adapter still requires that
+  adapter's exact `business-outcome` check and remains fail-closed otherwise.
+  Commit `2712db8` passed 119 backend tests, full CI
+  [36982229659](https://github.com/SriVarshini09/self-healing-api/actions/runs/36982229659),
+  and Docker production validation
+  [36982229555](https://github.com/SriVarshini09/self-healing-api/actions/runs/36982229555).
 - OIDC callbacks now clear the signed login-state cookie after validation and
   combine that expiry with the new session cookie, reducing replay residue
   without exposing session values. Commit `16060e3` passed the focused auth
