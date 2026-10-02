@@ -305,6 +305,9 @@ Verified locally on 2026-10-01 against the live Docker stack at commit
   command center, live telemetry, repair targets, and diagnosis modal.
 - The guarded backup/restore drill passed, including restore into an isolated
   database and representative row-count verification.
+- Paced sustained-capacity smoke passed with 126/126 HTTP 200 responses,
+  0% error rate, and 15.9 ms p95 latency; an intentionally over-quota profile
+  correctly produces HTTP 429 responses instead of service errors.
 - Repair readiness audit reported 4/6 ready for target review, 2 explicit
   `MANUAL_REVIEW` GitHub invariants, and 0 blocked for missing checks.
 - Workspace tests passed: 11 projects, 15 backend test files, and 85 backend
