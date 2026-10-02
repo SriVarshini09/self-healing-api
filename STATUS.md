@@ -11,15 +11,15 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   `/api/v1/alerts/status` endpoint returned 200. The live alert status response
   included pending, processing, retrying, delivered, and failed counts, and the
   dashboard smoke verified all five labels in the live alert-delivery panel.
-- The latest `master` head `2ec5ceb` passed GitHub Actions CI, including the
+- The latest `master` head `829dc6b` passed GitHub Actions CI, including the
   business-outcome regression, production builds, unit tests, and Prisma
   validation:
-  [run 36954469951](https://github.com/SriVarshini09/self-healing-api/actions/runs/36954469951).
-  The matching production Docker workflow passed Compose validation, image
-  builds, stack readiness, authenticated security/load checks, and the
-  non-root backend assertion:
-  [run 36954469984](https://github.com/SriVarshini09/self-healing-api/actions/runs/36954469984).
-  Render Blueprint schema validation also passed:
+  [run 36955295393](https://github.com/SriVarshini09/self-healing-api/actions/runs/36955295393).
+  The latest production code head `6ea4736` also passed the production Docker
+  workflow, including Compose validation, image builds, stack readiness,
+  authenticated security/load checks, and the non-root backend assertion:
+  [run 36955088118](https://github.com/SriVarshini09/self-healing-api/actions/runs/36955088118).
+  Render Blueprint schema validation for the workflow-hardening change passed:
   [run 36954469954](https://github.com/SriVarshini09/self-healing-api/actions/runs/36954469954).
 - CI, Docker production, and Render Blueprint workflows now declare
   read-only repository permissions and cancel obsolete same-branch runs, so
@@ -346,7 +346,7 @@ claim a replay-verified fix prematurely.
 ### Latest verification snapshot
 
 Verified locally on 2026-10-01 against the live Docker stack rebuilt from
-`2373b8a`:
+`6ea4736`:
 
 - Production readiness passed: API, database, dashboard, GitHub App mode,
   security, 100 authenticated requests with 0 errors, dashboard browser smoke,
@@ -355,6 +355,8 @@ Verified locally on 2026-10-01 against the live Docker stack rebuilt from
   gate with 20/20 authenticated requests, dashboard browser smoke, and the
   audit reporting 4/6 ready, 2 explicit `MANUAL_REVIEW`, and 0 blocked for
   missing checks.
+- The live incidents API returned `requiredChecks: ["verify"]` for persisted
+  repair candidates, including both manual-review and PR-ready candidates.
 - Production dashboard smoke passed for the direct API, same-origin proxy,
   command center, live telemetry, all five alert-delivery states, repair targets,
   and diagnosis modal.
@@ -363,12 +365,13 @@ Verified locally on 2026-10-01 against the live Docker stack rebuilt from
 - Workspace tests passed: 16 backend test files and 89 backend tests; the
   repair-generation package suite includes the structured business-outcome
   proof and real demo adapter proof.
-- GitHub Actions CI run `36954469951` and Docker production run
-  `36954469984` both passed; Render Blueprint validation run
+- GitHub Actions CI run `36955295393` and Docker production run
+  `36955088118` both passed; Render Blueprint validation run
   `36954469954` also passed.
 - The latest business-outcome HTTP E2E and full CI verification passed in run
-  `36954469951`; the Docker workflow also ran because the workflow definition
-  changed.
+  `36955295393`; the Docker workflow for the preceding production code change
+  passed separately because the documentation-only follow-up did not rebuild
+  images.
 
 ```sh
 pnpm typecheck
