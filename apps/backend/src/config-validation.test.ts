@@ -58,6 +58,28 @@ describe('productionConfigIssues', () => {
     );
   });
 
+  it('rejects partial OIDC credentials', () => {
+    expect(productionConfigIssues({
+      ...safe,
+      OIDC_ISSUER_URL: 'https://issuer.example.test',
+      OIDC_CLIENT_ID: 'client-id',
+      OIDC_REDIRECT_URI: 'https://api.example.test/api/v1/auth/callback',
+    })).toContain(
+      'OIDC_ISSUER_URL, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, OIDC_REDIRECT_URI, and OIDC_DEFAULT_TENANT_SLUG must be configured together',
+    );
+  });
+
+  it('accepts a complete OIDC configuration', () => {
+    expect(productionConfigIssues({
+      ...safe,
+      OIDC_ISSUER_URL: 'https://issuer.example.test',
+      OIDC_CLIENT_ID: 'client-id',
+      OIDC_CLIENT_SECRET: 'client-secret',
+      OIDC_REDIRECT_URI: 'https://api.example.test/api/v1/auth/callback',
+      OIDC_DEFAULT_TENANT_SLUG: 'local-dev',
+    })).toEqual([]);
+  });
+
   it('requires a signing secret when production alert delivery is enabled', () => {
     expect(productionConfigIssues({ ...safe, ALERT_WEBHOOK_URL: 'https://alerts.example.test/shapi' })).toContain(
       'ALERT_WEBHOOK_URL requires ALERT_WEBHOOK_SECRET for signed production delivery',

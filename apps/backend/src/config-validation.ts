@@ -9,6 +9,11 @@ export type ProductionConfigInput = {
   GITHUB_TOKEN?: string;
   GITHUB_ACCOUNT_LOGIN?: string;
   GITHUB_REPOSITORIES?: string;
+  OIDC_ISSUER_URL?: string;
+  OIDC_CLIENT_ID?: string;
+  OIDC_CLIENT_SECRET?: string;
+  OIDC_REDIRECT_URI?: string;
+  OIDC_DEFAULT_TENANT_SLUG?: string;
   ALERT_WEBHOOK_URL?: string;
   ALERT_WEBHOOK_SECRET?: string;
 };
@@ -41,6 +46,17 @@ export function productionConfigIssues(input: ProductionConfigInput): string[] {
   const tokenFields = [input.GITHUB_TOKEN, input.GITHUB_ACCOUNT_LOGIN, input.GITHUB_REPOSITORIES];
   if (tokenFields.some(present) && tokenFields.some(value => !present(value))) {
     issues.push('GITHUB_TOKEN, GITHUB_ACCOUNT_LOGIN, and GITHUB_REPOSITORIES must be configured together');
+  }
+
+  const oidcFields = [
+    input.OIDC_ISSUER_URL,
+    input.OIDC_CLIENT_ID,
+    input.OIDC_CLIENT_SECRET,
+    input.OIDC_REDIRECT_URI,
+    input.OIDC_DEFAULT_TENANT_SLUG,
+  ];
+  if (oidcFields.some(present) && oidcFields.some(value => !present(value))) {
+    issues.push('OIDC_ISSUER_URL, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, OIDC_REDIRECT_URI, and OIDC_DEFAULT_TENANT_SLUG must be configured together');
   }
 
   if (present(input.ALERT_WEBHOOK_URL) && !present(input.ALERT_WEBHOOK_SECRET)) {
