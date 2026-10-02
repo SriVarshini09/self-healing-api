@@ -19,8 +19,9 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   browser behavior, signed webhook replay protection, and repair-readiness.
 - The hosted dashboard is no longer at its authentication gate: it reports
   `Live SHAPI API`, `SHAPI systems online`, and live incident telemetry. The
-  hosted tenant now has one GitHub integration record and zero active
-  incidents; it still has no synced GitHub installation or repair invariants.
+  hosted tenant now has one GitHub integration record, two reviewed GitHub
+  invariants, and zero active incidents; both invariants report
+  `READY_FOR_TARGET_REVIEW`. It still has no synced GitHub installation.
 - Hosted GitHub App onboarding is the remaining production configuration gap.
   The live API reports `mode=unconfigured`, zero real installations, and zero
   repositories. The tenant-scoped GitHub integration record exists, but the
