@@ -109,6 +109,8 @@ type GitHubPr = {
 type GitHubStatus = {
   mode: 'app' | 'token' | 'simulated' | 'unconfigured';
   message: string;
+  appIdConfigured: boolean;
+  appPrivateKeyConfigured: boolean;
   appCredentialsConfigured: boolean;
   tokenConfigured: boolean;
   webhookConfigured: boolean;
@@ -149,6 +151,31 @@ async function fetchShapi<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 function GitHubSetupGuide({ status }: { status: GitHubStatus | null }) {
   if (!status) return null;
+
+  const appIdReady = status.appIdConfigured === true;
+  const privateKeyReady = status.appPrivateKeyConfigured === true;
+  const appCredentialsReady = status.appCredentialsConfigured === true;
+  const installationReady = status.realInstallations > 0;
+  const diagnosis =
+    status.mode === 'app'
+      ? 'The GitHub App is connected. Confirm repository access here before creating a repair PR.'
+      : status.mode === 'token'
+      ? 'Operator token mode is active for local testing. Use an installed GitHub App for multi-tenant production access.'
+      : status.appIdConfigured === false
+      ? 'The running API is missing GITHUB_APP_ID.'
+      : status.appPrivateKeyConfigured === false
+      ? 'The running API cannot resolve a usable private-key source. In Render, set GITHUB_APP_PRIVATE_KEY_B64 to one-line Base64 of the full PEM, then redeploy.'
+      : status.appCredentialsConfigured === false
+      ? 'The running API has no usable GitHub App credentials.'
+      : 'GitHub App credentials are ready. Install the App on the target repository, then refresh this diagnosis.';
+
+  const readinessChecks = [
+    ['App ID', appIdReady],
+    ['Private key', privateKeyReady],
+    ['App credentials', appCredentialsReady],
+    ['Installation', installationReady],
+  ] as const;
+
   return (
     <div className="mt-4 rounded border border-warning/30 bg-warning/5 p-3 text-xs">
       <div className="flex items-center justify-between gap-2">
@@ -158,12 +185,18 @@ function GitHubSetupGuide({ status }: { status: GitHubStatus | null }) {
         </span>
       </div>
       <p className="mt-1 text-muted-foreground">
-        {status.mode === 'app'
-          ? 'The GitHub App is connected. Confirm repository access here before creating a repair PR.'
-          : status.mode === 'token'
-          ? 'Operator token mode is active for local testing. Use an installed GitHub App for multi-tenant production access.'
-          : 'Configure GitHub credentials before creating real repair PRs.'}
+        {diagnosis}
       </p>
+      {status.mode !== 'app' && (
+        <div className="mt-2 grid grid-cols-2 gap-1 text-[10px]">
+          {readinessChecks.map(([label, ready]) => (
+            <div key={label} className="flex items-center gap-1 text-muted-foreground">
+              <span className={ready ? 'text-success' : 'text-warning'}>{ready ? '✓' : '!'}</span>
+              <span>{label}: {ready ? 'ready' : 'missing'}</span>
+            </div>
+          ))}
+        </div>
+      )}
       {status.appInstallUrl && (
         <a
           href={status.appInstallUrl}
