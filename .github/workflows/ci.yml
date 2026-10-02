@@ -39,22 +39,13 @@ jobs:
       - name: Backend lint
         run: pnpm --filter @shapi/backend lint
 
-      - name: Build backend runtime graph
+      - name: Build all workspaces
         run: |
-          pnpm --filter @shapi/backend... build
+          pnpm -r build
           pnpm --filter @shapi/backend exec node -e "require('@shapi/github-integration')"
 
-      - name: Unit tests (DB-free)
-        run: |
-          pnpm --filter @shapi/invariant-engine test
-          pnpm --filter @shapi/drift-detection test
-          pnpm --filter @shapi/sdk test
-          pnpm --filter @shapi/diagnosis-engine test
-          pnpm --filter @shapi/replay-engine test
-          pnpm --filter @shapi/repair-generation test
-          pnpm --filter @shapi/github-integration test
-          pnpm --filter @shapi/demo-saas test
-          pnpm --filter @shapi/backend exec vitest run
+      - name: Unit tests (all workspaces)
+        run: pnpm -r test
 
       - name: Build dashboard
         run: pnpm --filter @shapi/dashboard build
