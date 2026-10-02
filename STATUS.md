@@ -73,6 +73,12 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   mappings. Commit `471359f` passed full CI and the production Docker workflow:
   [CI run 36966846545](https://github.com/SriVarshini09/self-healing-api/actions/runs/36966846545),
   [Docker run 36966846533](https://github.com/SriVarshini09/self-healing-api/actions/runs/36966846533).
+- The nested repair regression now evaluates the generated predicate against a
+  payload whose intermediate `data` object is null and proves it returns
+  `false` without throwing. Commit `fd1c1f9` passed CI and Docker production
+  validation:
+  [CI run 36967233865](https://github.com/SriVarshini09/self-healing-api/actions/runs/36967233865),
+  [Docker run 36967233874](https://github.com/SriVarshini09/self-healing-api/actions/runs/36967233874).
 - CI now runs the same complete workspace build and test coverage instead of
   a hand-picked package list. The workflow change passed all workspace
   builds, tests, typechecks, backend lint, production dashboard build, Prisma
@@ -507,6 +513,8 @@ Verified locally on 2026-10-02 against the live Docker stack rebuilt from
   replay deduplication, and repair-readiness audit all passed. The audit
   remained 4/6 ready, with 2 explicit GitHub `MANUAL_REVIEW` invariants and
   0 blocked targets.
+- The semantic nested-payload regression was also included in the succeeding
+  all-workspace CI and Docker validation for `fd1c1f9`.
 - The GitHub CI workflow now executes the same all-workspace build and test
   coverage; the follow-up documentation commit passed in [CI run 36966010061](https://github.com/SriVarshini09/self-healing-api/actions/runs/36966010061).
 - GitHub Actions CI run `36961198358` and Docker production run
