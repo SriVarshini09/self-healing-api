@@ -34,6 +34,22 @@ export function signAlertBody(body: string, secret: string): string {
   return `sha256=${createHmac('sha256', secret).update(body).digest('hex')}`;
 }
 
+export function buildAlertRequest(
+  incident: IncidentAlertInput,
+  secret: string,
+): { body: string; headers: Record<string, string> } {
+  const body = JSON.stringify(buildIncidentAlertPayload(incident));
+  return {
+    body,
+    headers: {
+      'content-type': 'application/json',
+      'user-agent': 'SHAPI-alert-delivery/1.0',
+      'x-shapi-alert-event': 'incident.detected',
+      'x-shapi-alert-signature': signAlertBody(body, secret),
+    },
+  };
+}
+
 export function nextAlertAttempt(attempt: number, now = new Date()): Date {
   const delayMs = Math.min(5 * 60 * 1000, 1000 * 2 ** Math.max(0, attempt - 1));
   return new Date(now.getTime() + delayMs);

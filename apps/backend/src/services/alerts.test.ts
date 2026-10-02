@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { alertProcessingCutoff, buildIncidentAlertPayload, nextAlertAttempt, signAlertBody } from './alerts-core.js';
+import {
+  alertProcessingCutoff,
+  buildAlertRequest,
+  buildIncidentAlertPayload,
+  nextAlertAttempt,
+  signAlertBody,
+} from './alerts-core.js';
 
 describe('incident alert delivery helpers', () => {
   it('signs the exact JSON body with an HMAC header value', () => {
@@ -23,6 +29,32 @@ describe('incident alert delivery helpers', () => {
     expect(payload.event).toBe('incident.detected');
     expect(payload.incident.integration.name).toBe('Payments');
     expect(JSON.stringify(payload)).not.toContain('secret');
+  });
+
+  it('builds a signed webhook request with stable delivery headers', () => {
+    const request = buildAlertRequest(
+      {
+        id: 'incident-1',
+        title: 'Drift detected',
+        description: 'Outcome changed',
+        severity: 'HIGH',
+        status: 'DETECTED',
+        detectedAt: '2026-10-01T00:00:00.000Z',
+        integration: { id: 'integration-1', name: 'Payments', type: 'STRIPE' },
+      },
+      'secret',
+    );
+
+    expect(request.headers).toEqual({
+      'content-type': 'application/json',
+      'user-agent': 'SHAPI-alert-delivery/1.0',
+      'x-shapi-alert-event': 'incident.detected',
+      'x-shapi-alert-signature': signAlertBody(request.body, 'secret'),
+    });
+    expect(JSON.parse(request.body)).toMatchObject({
+      event: 'incident.detected',
+      incident: { id: 'incident-1', severity: 'HIGH' },
+    });
   });
 
   it('backs off exponentially and caps the delay', () => {

@@ -4,9 +4,8 @@ import { prisma } from '../utils/prisma.js';
 import { logger } from '../utils/logger.js';
 import {
   alertProcessingCutoff,
-  buildIncidentAlertPayload,
+  buildAlertRequest,
   nextAlertAttempt,
-  signAlertBody,
   type IncidentAlertInput,
 } from './alerts-core.js';
 
@@ -26,19 +25,14 @@ async function sendAlert(incident: IncidentAlertInput): Promise<{ status: number
   if (!config.ALERT_WEBHOOK_URL || !config.ALERT_WEBHOOK_SECRET) {
     throw new Error('Alert webhook is not configured with a signing secret');
   }
-  const body = JSON.stringify(buildIncidentAlertPayload(incident));
+  const request = buildAlertRequest(incident, config.ALERT_WEBHOOK_SECRET);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), config.ALERT_WEBHOOK_TIMEOUT_MS);
   try {
     const response = await fetch(config.ALERT_WEBHOOK_URL, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'user-agent': 'SHAPI-alert-delivery/1.0',
-        'x-shapi-alert-event': 'incident.detected',
-        'x-shapi-alert-signature': signAlertBody(body, config.ALERT_WEBHOOK_SECRET),
-      },
-      body,
+      headers: request.headers,
+      body: request.body,
       signal: controller.signal,
     });
     return { status: response.status };
