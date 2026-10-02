@@ -129,6 +129,13 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   permissions, expiry cleanup, logout deletion, and the `/auth/*` route
   contracts. Commits `d7536fe`, `59d1551`, and `7076c65` passed local checks;
   the latest CI run `36975964752` and Docker run `36975964816` both passed.
+- The OIDC route suite now covers the valid callback path as well as invalid
+  state: discovery, authorization-code exchange, profile lookup, tenant-scoped
+  user creation, session creation, and safe dashboard redirect. Commit
+  `01c4c95` passed 114 backend tests, full CI
+  [36978157447](https://github.com/SriVarshini09/self-healing-api/actions/runs/36978157447),
+  and Docker production validation
+  [36978157430](https://github.com/SriVarshini09/self-healing-api/actions/runs/36978157430).
 - The Render Blueprint now declares the complete OIDC configuration surface as
   explicit secret-backed inputs, including the provider callback URI and
   default tenant slug. Hosted setup documentation points the identity provider
