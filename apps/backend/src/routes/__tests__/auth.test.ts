@@ -1,15 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
+import crypto from 'node:crypto';
 
 const fake = vi.hoisted(() => ({
   authenticateSession: vi.fn(),
+  createSession: vi.fn(),
   destroySession: vi.fn(),
   oidcEnabled: vi.fn(),
+  prisma: {
+    tenant: { findUnique: vi.fn() },
+    $transaction: vi.fn(),
+  },
 }));
 
 vi.mock('../../utils/auth-sessions.js', () => ({
   authenticateSession: fake.authenticateSession,
-  createSession: vi.fn(),
+  createSession: fake.createSession,
   destroySession: fake.destroySession,
   getCookie: (header: string | undefined, name: string) => header
     ?.split(';')
@@ -20,7 +26,7 @@ vi.mock('../../utils/auth-sessions.js', () => ({
   SESSION_COOKIE: 'shapi_session',
 }));
 
-vi.mock('../../utils/prisma.js', () => ({ prisma: {} }));
+vi.mock('../../utils/prisma.js', () => ({ prisma: fake.prisma }));
 vi.mock('../../config.js', () => ({
   config: {
     DASHBOARD_URL: 'http://dashboard.example.test',
@@ -42,8 +48,11 @@ describe('authentication routes', () => {
 
   beforeEach(async () => {
     fake.authenticateSession.mockReset();
+    fake.createSession.mockReset();
     fake.destroySession.mockReset();
     fake.oidcEnabled.mockReset();
+    fake.prisma.tenant.findUnique.mockReset();
+    fake.prisma.$transaction.mockReset();
     fake.oidcEnabled.mockReturnValue(false);
     app = Fastify();
     await authRoutes(app);
@@ -85,6 +94,54 @@ describe('authentication routes', () => {
     expect(response.statusCode).toBe(400);
     expect(response.json()).toEqual({ error: 'Invalid OIDC callback state' });
     expect(providerRequest).not.toHaveBeenCalled();
+  });
+
+  it('exchanges a valid OIDC callback, creates a tenant user session, and redirects safely', async () => {
+    fake.oidcEnabled.mockReturnValue(true);
+    fake.prisma.tenant.findUnique.mockResolvedValue({ id: 'tenant-1' });
+    const createdUser = { id: 'user-1' };
+    const tx = {
+      user: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        count: vi.fn().mockResolvedValue(0),
+        create: vi.fn().mockResolvedValue(createdUser),
+      },
+    };
+    fake.prisma.$transaction.mockImplementation(async (callback: (transaction: typeof tx) => Promise<unknown>) => callback(tx));
+
+    const state = 'state-from-browser';
+    const signature = crypto.createHmac('sha256', 'test-jwt-secret').update(state).digest('base64url');
+    const providerRequest = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        authorization_endpoint: 'https://issuer.example.test/authorize',
+        token_endpoint: 'https://issuer.example.test/token',
+        userinfo_endpoint: 'https://issuer.example.test/userinfo',
+      }), { status: 200, headers: { 'content-type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'provider-access-token' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ sub: 'subject-1', email: 'owner@example.com', name: 'Owner' }), { status: 200 }));
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/auth/callback?code=authorization-code&state=${state}`,
+      headers: { cookie: `shapi_oidc_state=${state}.${signature}` },
+    });
+
+    expect(response.statusCode).toBe(302);
+    expect(response.headers.location).toBe('http://dashboard.example.test');
+    expect(fake.prisma.tenant.findUnique).toHaveBeenCalledWith({ where: { slug: 'tenant' } });
+    expect(tx.user.create).toHaveBeenCalledWith({
+      data: {
+        tenantId: 'tenant-1',
+        issuer: 'https://issuer.example.test',
+        subject: 'subject-1',
+        email: 'owner@example.com',
+        name: 'Owner',
+        role: 'OWNER',
+      },
+    });
+    expect(fake.createSession).toHaveBeenCalledWith('user-1', expect.anything());
+    expect(providerRequest).toHaveBeenCalledTimes(3);
+    expect(JSON.stringify(response.headers)).not.toContain('provider-access-token');
   });
 
   it('returns the tenant-scoped session user without exposing session data', async () => {
