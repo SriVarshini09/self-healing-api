@@ -87,6 +87,10 @@ jobs:
             -e SHAPI_API_KEY="$SHAPI_CI_API_KEY" \
             backend ./apps/backend/node_modules/.bin/tsx apps/backend/prisma/seed.ts
 
+          runtime_uid=$(docker compose -f docker-compose.production.yml exec -T backend id -u | tr -d '\r\n')
+          test "$runtime_uid" != '0'
+          echo "Backend runtime UID is non-root: $runtime_uid"
+
           unauthenticated_status=$(curl -sS -o /dev/null -w '%{http_code}' \
             http://127.0.0.1:3001/api/v1/alerts/status)
           invalid_status=$(curl -sS -o /dev/null -w '%{http_code}' \

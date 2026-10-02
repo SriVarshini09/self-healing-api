@@ -176,6 +176,11 @@ In `NODE_ENV=production`, the backend refuses to start with a placeholder
 intentional: a deployment should fail during rollout rather than appear
 healthy while repair automation is misconfigured.
 
+The production backend image runs as the non-root `node` user. Its Docker
+workflow asserts the live container UID is not 0; application state belongs in
+PostgreSQL or the configured secret manager, not in the immutable container
+filesystem.
+
 ### Database backup and restore
 
 The production Docker stack includes safe PowerShell runbooks. Backups are

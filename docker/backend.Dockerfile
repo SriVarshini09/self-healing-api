@@ -20,6 +20,10 @@ COPY --from=build /app ./
 COPY docker/backend-entrypoint.sh /usr/local/bin/shapi-backend-entrypoint
 RUN sed -i 's/\r$//' /usr/local/bin/shapi-backend-entrypoint && chmod +x /usr/local/bin/shapi-backend-entrypoint
 
+# The backend only reads the immutable application bundle and talks to
+# PostgreSQL; run it without root privileges in the production container.
+USER node
+
 EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD node -e "fetch('http://127.0.0.1:' + (process.env.PORT || '3001') + '/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 ENTRYPOINT ["/usr/local/bin/shapi-backend-entrypoint"]
