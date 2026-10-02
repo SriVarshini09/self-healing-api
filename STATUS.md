@@ -45,20 +45,28 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   production Docker validation:
   [CI run 36963752573](https://github.com/SriVarshini09/self-healing-api/actions/runs/36963752573),
   [Docker run 36963752517](https://github.com/SriVarshini09/self-healing-api/actions/runs/36963752517).
+- Repair target readiness is now computed by the backend and shown directly in
+  the Repair targets panel, with explicit `MANUAL_REVIEW`, blocked, or ready
+  state and a human-readable reason. This keeps the dashboard aligned with the
+  fail-closed repair contract instead of making operators infer readiness from
+  empty fields. Commit `b49a5ed` passed 98 backend tests, full CI, and Docker
+  production validation:
+  [CI run 36964351802](https://github.com/SriVarshini09/self-healing-api/actions/runs/36964351802),
+  [Docker run 36964351707](https://github.com/SriVarshini09/self-healing-api/actions/runs/36964351707).
 - Integration creation now redacts generated webhook secrets from its response;
   the secret remains write-only and the regression test confirms the API returns
   only `webhookSecretConfigured`. Commit `0a70a92` passed both full CI and the
   production Docker workflow:
   [CI run 36962263558](https://github.com/SriVarshini09/self-healing-api/actions/runs/36962263558),
   [Docker run 36962263552](https://github.com/SriVarshini09/self-healing-api/actions/runs/36962263552).
-- The latest production-code head `50e8453` passed GitHub Actions CI, including
+- The latest production-code head `b49a5ed` passed GitHub Actions CI, including
   the business-outcome regression, production builds, unit tests, and Prisma
   validation:
-  [run 36963752573](https://github.com/SriVarshini09/self-healing-api/actions/runs/36963752573).
+  [run 36964351802](https://github.com/SriVarshini09/self-healing-api/actions/runs/36964351802).
   It also passed the production Docker workflow, including Compose validation,
   image builds, stack readiness, authenticated security/load checks, and the
   non-root backend assertion:
-  [run 36963752517](https://github.com/SriVarshini09/self-healing-api/actions/runs/36963752517).
+  [run 36964351707](https://github.com/SriVarshini09/self-healing-api/actions/runs/36964351707).
   The follow-up status-ledger commit `092eec5` passed full CI in
   [run 36960535445](https://github.com/SriVarshini09/self-healing-api/actions/runs/36960535445).
   Subsequent documentation-only commits were also verified by full CI.
@@ -424,9 +432,9 @@ claim a replay-verified fix prematurely.
 ### Latest verification snapshot
 
 Verified locally on 2026-10-02 against the live Docker stack rebuilt from
-`50e8453`:
+`b49a5ed`:
 
-- The dashboard image rebuilt from `50e8453` passed direct-API and same-origin
+- The dashboard image rebuilt from `b49a5ed` passed direct-API and same-origin
   browser smoke, including the corrected incident headings, live telemetry,
   GitHub connection status, connected integrations, repair-review counts, alert
   delivery, repair targets, and diagnosis modal.
@@ -451,11 +459,14 @@ Verified locally on 2026-10-02 against the live Docker stack rebuilt from
   duplicate acknowledgment.
 - Repair readiness audit reported 4/6 ready for target review, 2 explicit
   `MANUAL_REVIEW` GitHub invariants, and 0 blocked for missing checks.
+- The authenticated invariants API now reports the same readiness states and
+  reasons: four `READY_FOR_TARGET_REVIEW`, two GitHub `MANUAL_REVIEW`, and no
+  blocked invariants.
 - The guarded backup/restore drill passed against the live Docker PostgreSQL
   instance: it created a temporary database, restored the SQL backup, matched
   the key table row counts to the live database, and removed the temporary
   database and backup artifacts.
-- Workspace tests passed: 17 backend test files and 92 backend tests; the
+- Workspace tests passed: 19 backend test files and 98 backend tests; the
   repair-generation package suite includes the structured business-outcome
   proof and real demo adapter proof.
 - GitHub Actions CI run `36961198358` and Docker production run
