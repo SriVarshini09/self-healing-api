@@ -71,20 +71,19 @@ jobs:
           set -euo pipefail
           trap 'rm -f hosted-operator.env' EXIT
           umask 077
-          cat > hosted-operator.env <<EOF
-          SHAPI_API_KEY=$SHAPI_API_KEY
-          GITHUB_WEBHOOK_SECRET_APP=$GITHUB_WEBHOOK_SECRET_APP
-          GITHUB_APP_ID=$GITHUB_APP_ID
-          GITHUB_APP_SLUG=$GITHUB_APP_SLUG
-          GITHUB_APP_PRIVATE_KEY_B64=$GITHUB_APP_PRIVATE_KEY_B64
-          OIDC_ISSUER_URL=$OIDC_ISSUER_URL
-          OIDC_CLIENT_ID=$OIDC_CLIENT_ID
-          OIDC_CLIENT_SECRET=$OIDC_CLIENT_SECRET
-          OIDC_REDIRECT_URI=$OIDC_REDIRECT_URI
-          OIDC_DEFAULT_TENANT_SLUG=$OIDC_DEFAULT_TENANT_SLUG
-          ALERT_WEBHOOK_URL=$ALERT_WEBHOOK_URL
-          ALERT_WEBHOOK_SECRET=$ALERT_WEBHOOK_SECRET
-          EOF
+          printf '%s\n' \
+            "SHAPI_API_KEY=$SHAPI_API_KEY" \
+            "GITHUB_WEBHOOK_SECRET_APP=$GITHUB_WEBHOOK_SECRET_APP" \
+            "GITHUB_APP_ID=$GITHUB_APP_ID" \
+            "GITHUB_APP_SLUG=$GITHUB_APP_SLUG" \
+            "GITHUB_APP_PRIVATE_KEY_B64=$GITHUB_APP_PRIVATE_KEY_B64" \
+            "OIDC_ISSUER_URL=$OIDC_ISSUER_URL" \
+            "OIDC_CLIENT_ID=$OIDC_CLIENT_ID" \
+            "OIDC_CLIENT_SECRET=$OIDC_CLIENT_SECRET" \
+            "OIDC_REDIRECT_URI=$OIDC_REDIRECT_URI" \
+            "OIDC_DEFAULT_TENANT_SLUG=$OIDC_DEFAULT_TENANT_SLUG" \
+            "ALERT_WEBHOOK_URL=$ALERT_WEBHOOK_URL" \
+            "ALERT_WEBHOOK_SECRET=$ALERT_WEBHOOK_SECRET" > hosted-operator.env
 
           validation_args=(-EnvFile hosted-operator.env -RequireGitHubApp)
           if [[ "$REQUIRE_OIDC" == 'true' ]]; then
