@@ -162,6 +162,39 @@ async function runDashboardSmoke(mode: {
   }
 }
 
+async function runOidcAccessSmoke() {
+  const context = await browser.newContext();
+  const oidcDashboardUrl = /^http:\/\/(localhost|127\.0\.0\.1)(?::\d+)?$/u.test(dashboardUrl)
+    ? dashboardUrl.replace(/(localhost|127\.0\.0\.1)/u, 'dashboard.localtest.me')
+    : dashboardUrl;
+  await context.route('**/config.js', route => route.fulfill({
+    contentType: 'application/javascript',
+    body: 'window.__SHAPI_CONFIG__ = { apiUrl: "/api/v1", apiKey: "" };',
+  }));
+  await context.route('**/api/v1/auth/me', route => route.fulfill({
+    status: 401,
+    contentType: 'application/json',
+    body: JSON.stringify({ error: 'Not authenticated' }),
+  }));
+  await context.route('**/api/v1/auth/config', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ oidcEnabled: true }),
+  }));
+  try {
+    const page = await context.newPage();
+    await page.goto(`${oidcDashboardUrl}/`, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('heading', { name: 'Sign in to continue' }).waitFor({ timeout: 15000 });
+    const login = page.getByRole('link', { name: 'Sign in with SSO', exact: true });
+    await login.waitFor({ timeout: 15000 });
+    if (!(await login.getAttribute('href'))?.endsWith('/auth/login')) {
+      throw new Error('OIDC access smoke found an invalid SSO login URL');
+    }
+  } finally {
+    await context.close();
+  }
+}
+
 try {
   await runDashboardSmoke({
     label: 'direct API',
@@ -175,7 +208,8 @@ try {
     apiRequestPrefix: `${dashboardUrl}/api/v1`,
     requireSameOrigin: true,
   });
-  console.log('Production dashboard smoke passed: direct API, same-origin proxy, command center, live telemetry, connection panel, integration list, repair review queue, alert delivery, repair targets, and diagnosis modal.');
+  await runOidcAccessSmoke();
+  console.log('Production dashboard smoke passed: direct API, same-origin proxy, live telemetry, OIDC access gate, connection panel, integration list, repair review queue, alert delivery, repair targets, and diagnosis modal.');
 } finally {
   await browser.close();
 }
