@@ -120,20 +120,8 @@ without credentials. Apply it from the Render Dashboard, then set the
 
    Paste the clipboard contents into the Render API service's
    `GITHUB_APP_PRIVATE_KEY_B64` variable, save the environment change, and
-   redeploy. Verify the running API—not only the local file—before syncing the
-   GitHub installation:
-
-   ```powershell
-   ./scripts/stack-smoke.ps1 `
-     -ApiUrl https://<api-host> `
-     -DashboardUrl https://<dashboard-host> `
-     -EnvFile C:\secure\shapi-owner.env `
-     -RequireGitHubApp
-   ```
-
-   The smoke check reports whether the operator key was rejected or whether
-   the running API still cannot parse the App private key, without printing
-   either secret.
+   redeploy. The authenticated smoke check comes after the owner key is
+   created in the next step; it cannot run until that operator env file exists.
 3. Deploy the services, call `POST /api/v1/bootstrap/tenant` once with the
    bootstrap token, and store the returned owner API key. Prefer:
 
@@ -146,8 +134,42 @@ without credentials. Apply it from the Render Dashboard, then set the
    Neither key is printed to terminal logs. Copy only the separately scoped
    dashboard key into `VITE_SHAPI_API_KEY`, or configure OIDC before exposing
    the dashboard; do not put the owner key in browser runtime configuration.
-4. Point the GitHub App webhook at `https://<api-host>/api/v1/github/webhook`,
-   then provision the reviewed GitHub monitoring targets with the owner key:
+
+   Now verify the running API—not only the local key file—before installing or
+   syncing the GitHub App:
+
+   ```powershell
+   ./scripts/stack-smoke.ps1 `
+     -ApiUrl https://<api-host> `
+     -DashboardUrl https://<dashboard-host> `
+     -EnvFile C:\secure\shapi-owner.env `
+     -RequireGitHubApp
+   ```
+
+   The smoke check reports whether the operator key was rejected or whether
+   the running API still cannot parse the App private key, without printing
+   either secret.
+4. Open the App installation URL reported by `GET /api/v1/github/status`
+   (normally `https://github.com/apps/<app-slug>/installations/new`) and grant
+   the App access to the target repository. Point its webhook at
+   `https://<api-host>/api/v1/github/webhook`. GitHub's
+   `installation.created` delivery normally creates the hosted installation
+   record automatically. If that delivery was missed, sync it explicitly
+   with the numeric installation id from the GitHub installation URL:
+
+   ```powershell
+   $ownerKey = (Get-Content C:\secure\shapi-owner.env |
+     Where-Object { $_ -match '^SHAPI_API_KEY=' } |
+     Select-Object -First 1) -replace '^SHAPI_API_KEY=', ''
+   Invoke-RestMethod -Method Post `
+     -Uri 'https://<api-host>/api/v1/github/installations/sync' `
+     -Headers @{ 'x-api-key' = $ownerKey } `
+     -ContentType 'application/json' `
+     -Body (@{ githubInstallationId = 123456789 } | ConvertTo-Json)
+   ```
+
+   Replace `123456789` with the real GitHub installation id. Then provision
+   the reviewed GitHub monitoring targets with the owner key:
 
    ```powershell
    ./scripts/provision-hosted-github-demo.ps1 `
