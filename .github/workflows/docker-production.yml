@@ -50,6 +50,7 @@ jobs:
       JWT_SECRET: shapi_ci_jwt_secret_0123456789_abcdefghijklmnopqrstuvwxyz
       VITE_API_URL: http://localhost:3001/api/v1
       SHAPI_CI_API_KEY: shapi_ci_api_key_20261001
+      VITE_SHAPI_API_KEY: shapi_ci_api_key_20261001
       # Synthetic values satisfy production configuration validation for the
       # tokenless signed-webhook smoke; no GitHub API call uses these values.
       GITHUB_APP_ID: shapi-ci
