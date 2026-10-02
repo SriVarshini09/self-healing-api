@@ -454,6 +454,7 @@ type InvariantMapping = {
     state: 'MANUAL_REVIEW' | 'BLOCKED_NO_REQUIRED_CHECKS' | 'BLOCKED_MISSING_BUSINESS_OUTCOME_CHECK' | 'READY_FOR_TARGET_REVIEW';
     reason: string;
     requiredChecks: string[];
+    adapterId?: string | null;
   };
 };
 
@@ -575,7 +576,14 @@ function RepairTargetPanel() {
                   )}
                 </div>
                 <p className="truncate font-mono text-[10px] text-muted-foreground">{item.predicateExpression}</p>
-                {readiness && <p className="text-[10px] text-muted-foreground">{readiness.reason}</p>}
+                {readiness && (
+                  <div className="space-y-0.5">
+                    <p className="text-[10px] text-muted-foreground">{readiness.reason}</p>
+                    {readiness.adapterId && (
+                      <p className="font-mono text-[10px] text-muted-foreground">reviewed adapter: {readiness.adapterId}</p>
+                    )}
+                  </div>
+                )}
                 <div className="grid gap-2 md:grid-cols-[1fr_1.4fr_1.1fr_auto]">
                   <input
                     value={draft.repository}

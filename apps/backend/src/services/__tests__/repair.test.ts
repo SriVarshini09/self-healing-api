@@ -78,7 +78,7 @@ describe('repair candidate repository mapping', () => {
     expect(repairCandidateReadiness(candidate, ['verify'])).toMatchObject({
       reviewStatus: 'MANUAL_REVIEW',
       automationEligible: false,
-      reviewReason: 'The reviewed demo business-outcome adapter requires the business-outcome check',
+      reviewReason: 'The reviewed demo-saas-provisioning adapter requires the business-outcome check',
       requiredChecks: ['verify'],
     });
     expect(repairCandidateReadiness(candidate, ['verify', 'business-outcome'])).toMatchObject({

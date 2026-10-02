@@ -6,6 +6,7 @@ import {
   DEMO_SAAS_REPOSITORY,
   isDemoSaasProvisioningTarget,
   optionalChainPayloadAccess,
+  reviewedBusinessOutcomeAdapter,
 } from '@shapi/repair-generation';
 import type { DiagnosisResult } from './diagnosis.js';
 
@@ -67,14 +68,14 @@ export function repairCandidateReadiness(
     };
   }
 
-  const isReviewedDemoBusinessOutcome =
-    candidate.repository === DEMO_SAAS_REPOSITORY &&
-    candidate.files?.includes(DEMO_SAAS_PROVISIONING_PATH);
-  if (isReviewedDemoBusinessOutcome && !requiredChecks.includes('business-outcome')) {
+  const adapter = candidate.repository && candidate.files
+    ? candidate.files.map(filePath => reviewedBusinessOutcomeAdapter(candidate.repository, filePath)).find(Boolean) ?? null
+    : null;
+  if (adapter && !requiredChecks.includes(adapter.requiredCheck)) {
     return {
       reviewStatus: 'MANUAL_REVIEW',
       automationEligible: false,
-      reviewReason: 'The reviewed demo business-outcome adapter requires the business-outcome check',
+      reviewReason: `The reviewed ${adapter.adapterId} adapter requires the ${adapter.requiredCheck} check`,
       requiredChecks,
     };
   }

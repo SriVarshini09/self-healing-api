@@ -13,6 +13,7 @@ describe('repairTargetReadiness', () => {
     expect(repairTargetReadiness(base)).toMatchObject({
       state: 'MANUAL_REVIEW',
       reason: expect.stringContaining('Map a repository'),
+      adapterId: null,
     });
   });
 
@@ -24,6 +25,7 @@ describe('repairTargetReadiness', () => {
     })).toMatchObject({
       state: 'BLOCKED_NO_REQUIRED_CHECKS',
       reason: expect.stringContaining('exact GitHub check'),
+      adapterId: null,
     });
   });
 
@@ -35,10 +37,14 @@ describe('repairTargetReadiness', () => {
       repairFilePath: 'apps/demo-saas/src/business-outcome.ts',
       repairRequiredChecks: ['verify'],
     };
-    expect(repairTargetReadiness(target).state).toBe('BLOCKED_MISSING_BUSINESS_OUTCOME_CHECK');
+    expect(repairTargetReadiness(target)).toMatchObject({
+      state: 'BLOCKED_MISSING_BUSINESS_OUTCOME_CHECK',
+      adapterId: 'demo-saas-provisioning',
+    });
     expect(repairTargetReadiness({ ...target, repairRequiredChecks: ['verify', 'business-outcome'] })).toMatchObject({
       state: 'READY_FOR_TARGET_REVIEW',
       requiredChecks: ['verify', 'business-outcome'],
+      adapterId: 'demo-saas-provisioning',
     });
   });
 });

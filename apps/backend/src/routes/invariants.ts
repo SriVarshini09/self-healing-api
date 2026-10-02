@@ -8,6 +8,7 @@ import {
   DEMO_SAAS_PROVISIONING_PATH,
   DEMO_SAAS_REPOSITORY,
   isDemoSaasProvisioningTarget,
+  reviewedBusinessOutcomeAdapter,
   validateRepairChanges,
 } from '@shapi/repair-generation';
 import { evaluateInvariantWindow } from '../services/invariants.js';
@@ -337,8 +338,9 @@ export function reviewedBusinessOutcomeTargetError(
   ) {
     return null;
   }
-  if (!requiredChecks.includes('business-outcome')) {
-    return `the reviewed ${DEMO_SAAS_REPOSITORY}/${DEMO_SAAS_PROVISIONING_PATH} adapter requires the exact business-outcome check`;
+  const adapter = reviewedBusinessOutcomeAdapter(repository, filePath);
+  if (adapter && !requiredChecks.includes(adapter.requiredCheck)) {
+    return `the reviewed ${DEMO_SAAS_REPOSITORY}/${DEMO_SAAS_PROVISIONING_PATH} adapter requires the exact ${adapter.requiredCheck} check`;
   }
   return null;
 }

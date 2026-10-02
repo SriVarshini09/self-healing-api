@@ -3,8 +3,10 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import ts from 'typescript';
 import {
+  DEMO_SAAS_PROVISIONING_ADAPTER_ID,
   DEMO_SAAS_PROVISIONING_PATH,
   DEMO_SAAS_PROVISIONING_REPAIR,
+  reviewedBusinessOutcomeAdapter,
   proveBusinessOutcomeRepair,
 } from './index.js';
 
@@ -53,6 +55,14 @@ function createUsers() {
 }
 
 describe('real demo-saas business-outcome adapter', () => {
+  it('exposes explicit reviewed adapter metadata', () => {
+    expect(reviewedBusinessOutcomeAdapter('SriVarshini09/self-healing-api', targetPath)).toMatchObject({
+      adapterId: DEMO_SAAS_PROVISIONING_ADAPTER_ID,
+      requiredCheck: 'business-outcome',
+    });
+    expect(reviewedBusinessOutcomeAdapter('acme/customer-app', targetPath)).toBeNull();
+  });
+
   it('proves the reviewed patch recovers the real demo provisioning outcome', () => {
     const proof = proveBusinessOutcomeRepair({
       files: { [targetPath]: originalSource },
