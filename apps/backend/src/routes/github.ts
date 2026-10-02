@@ -4,7 +4,7 @@ import { GitHubPRStatus, IncidentStatus, IntegrationType, Prisma, WebhookEventSt
 import crypto from 'crypto';
 import { z } from 'zod';
 import { tenantIdFor } from '../utils/auth-context.js';
-import { hasGitHubAppConfiguration, hasGitHubAppCredentials, listInstallationRepositories } from '@shapi/github-integration';
+import { getGitHubAppPrivateKey, hasGitHubAppConfiguration, hasGitHubAppCredentials, listInstallationRepositories } from '@shapi/github-integration';
 import { repairTargetReadiness } from '../services/repair-target-readiness.js';
 
 type JsonRecord = Record<string, unknown>;
@@ -369,6 +369,8 @@ export async function githubRoutes(app: FastifyInstance) {
         select: { githubInstallationId: true, repositories: true },
       });
     const repositories = new Set(installations.flatMap(installation => installation.repositories));
+    const appIdConfigured = Boolean(process.env.GITHUB_APP_ID?.trim());
+    const appPrivateKeyConfigured = Boolean(getGitHubAppPrivateKey());
     const appCredentialsConfigured = hasGitHubAppConfiguration();
     const tokenConfigured = Boolean(
       process.env.GITHUB_TOKEN &&
@@ -399,6 +401,8 @@ export async function githubRoutes(app: FastifyInstance) {
     return reply.send({
       mode,
       message,
+      appIdConfigured,
+      appPrivateKeyConfigured,
       appCredentialsConfigured,
       tokenConfigured,
       webhookConfigured,

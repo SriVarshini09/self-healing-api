@@ -164,6 +164,7 @@ const openRepairPrFromChangesMock = vi.fn();
 const previewRepairPrChangesMock = vi.fn();
 
 vi.mock('@shapi/github-integration', () => ({
+  getGitHubAppPrivateKey: () => process.env.GITHUB_APP_PRIVATE_KEY || process.env.GITHUB_APP_PRIVATE_KEY_B64,
   hasGitHubAppConfiguration: () => Boolean(
     process.env.GITHUB_APP_ID &&
     (process.env.GITHUB_APP_PRIVATE_KEY || process.env.GITHUB_APP_PRIVATE_KEY_B64 || process.env.GITHUB_APP_PRIVATE_KEY_FILE),
@@ -262,6 +263,8 @@ describe('GET /github/status', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({
       mode: 'app',
+      appIdConfigured: true,
+      appPrivateKeyConfigured: true,
       appCredentialsConfigured: true,
       webhookConfigured: true,
       realInstallations: 1,
@@ -275,7 +278,12 @@ describe('GET /github/status', () => {
     process.env.GITHUB_APP_PRIVATE_KEY_B64 = Buffer.from('-----BEGIN PRIVATE KEY-----\nkey\n-----END PRIVATE KEY-----').toString('base64');
     const res = await app.inject({ method: 'GET', url: '/github/status' });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toMatchObject({ mode: 'app', appCredentialsConfigured: true });
+    expect(res.json()).toMatchObject({
+      mode: 'app',
+      appIdConfigured: true,
+      appPrivateKeyConfigured: true,
+      appCredentialsConfigured: true,
+    });
   });
 });
 
