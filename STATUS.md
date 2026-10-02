@@ -27,6 +27,12 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   passes the public infrastructure smoke and then stops with the explicit
   missing-dashboard-authentication error, rather than falsely reporting a
   usable command center.
+- Dashboard data fidelity is complete for the current product scope: the
+  command center uses live SHAPI incidents and exact incident, severity,
+  integration, invariant, repair-review, and alert-delivery values. It does
+  not invent geographic telemetry, availability percentages, request rates,
+  correlation confidence, or sample incidents; geographic telemetry is
+  intentionally outside the current SHAPI data model.
 - The remaining hosted onboarding input is the bootstrap token in the local
   operator env file. It is not present in the checked external env file, so no
   hosted tenant or API key was created by automation and no secret is recorded
@@ -694,14 +700,6 @@ product is production-ready. See [README.md](README.md) for setup and API detail
    local load drills are repeatable; the local sustained profile passed and the
    rate-limit boundary has been observed under stress. The hosted readiness
    command now includes the signed webhook and retry-deduplication check.
-5. **Dashboard data fidelity.** The production command view now uses only live
-   SHAPI incidents, shows exact active/severity/integration/invariant counts,
-   and avoids presenting invented regions, map coordinates, correlation
-   confidence, availability percentages, request rates, or sample incidents as
-   telemetry. Geographic regional telemetry is intentionally not shown because
-   SHAPI does not collect location data yet. CI now builds both the legacy
-   workspace dashboard and the production `dashboard/` app.
-
 ## Next engineering priority
 
 Complete hosted tenant bootstrap with secure secrets, configure OIDC or the
