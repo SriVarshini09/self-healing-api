@@ -43,11 +43,7 @@ export function repairTargetReadiness(invariant: RepairTargetInvariant): RepairT
     };
   }
 
-  if (
-    invariant.id === 'inv-stripe-provisioning' &&
-    adapter &&
-    !requiredChecks.includes(adapter.requiredCheck)
-  ) {
+  if (adapter && !requiredChecks.includes(adapter.requiredCheck)) {
     return {
       state: 'BLOCKED_MISSING_BUSINESS_OUTCOME_CHECK',
       reason: `The reviewed ${adapter.adapterId} adapter requires the ${adapter.requiredCheck} check for ${adapter.repository}/${adapter.targetPath}.`,

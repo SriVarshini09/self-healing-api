@@ -32,7 +32,7 @@ describe('repairTargetReadiness', () => {
   it('requires business-outcome for the reviewed provisioning adapter', () => {
     const target = {
       ...base,
-      id: 'inv-stripe-provisioning',
+      id: 'customer-renamed-invariant',
       repairRepository: 'SriVarshini09/self-healing-api',
       repairFilePath: 'apps/demo-saas/src/business-outcome.ts',
       repairRequiredChecks: ['verify'],

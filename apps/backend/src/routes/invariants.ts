@@ -5,9 +5,6 @@ import {
   validatePredicate as sandboxValidate,
 } from '@shapi/invariant-engine';
 import {
-  DEMO_SAAS_PROVISIONING_PATH,
-  DEMO_SAAS_REPOSITORY,
-  isDemoSaasProvisioningTarget,
   reviewedBusinessOutcomeAdapter,
   validateRepairChanges,
 } from '@shapi/repair-generation';
@@ -327,20 +324,14 @@ export function repairRequiredChecksError(value: unknown): string | null {
 }
 
 export function reviewedBusinessOutcomeTargetError(
-  invariantId: string,
+  _invariantId: string,
   repository: string | null | undefined,
   filePath: string | null | undefined,
   requiredChecks: readonly string[],
 ): string | null {
-  if (
-    invariantId !== 'inv-stripe-provisioning' ||
-    !isDemoSaasProvisioningTarget(repository, filePath)
-  ) {
-    return null;
-  }
   const adapter = reviewedBusinessOutcomeAdapter(repository, filePath);
   if (adapter && !requiredChecks.includes(adapter.requiredCheck)) {
-    return `the reviewed ${DEMO_SAAS_REPOSITORY}/${DEMO_SAAS_PROVISIONING_PATH} adapter requires the exact ${adapter.requiredCheck} check`;
+    return `the reviewed ${adapter.repository}/${adapter.targetPath} adapter requires the exact ${adapter.requiredCheck} check`;
   }
   return null;
 }

@@ -143,7 +143,7 @@ describe('POST /invariants tenant quota', () => {
     const createdId = created.json().id as string;
     const invariant = fake.invariants.get(createdId)!;
     fake.invariants.delete(createdId);
-    invariant.id = 'inv-stripe-provisioning';
+    invariant.id = 'customer-renamed-invariant';
     fake.invariants.set(invariant.id, invariant);
 
     const target = {
