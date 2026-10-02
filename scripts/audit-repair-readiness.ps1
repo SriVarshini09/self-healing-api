@@ -35,29 +35,20 @@ $audit = @($rows | ForEach-Object {
   $id = [string]$_.id
   $repository = [string]$_.repairRepository
   $filePath = [string]$_.repairFilePath
-  $checks = @($_.repairRequiredChecks | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
-  $mapped = -not [string]::IsNullOrWhiteSpace($repository) -and -not [string]::IsNullOrWhiteSpace($filePath)
-  $hasRequiredChecks = $checks.Count -gt 0
-  $isReviewedBusinessOutcomeTarget =
-    $id -eq 'inv-stripe-provisioning' -and
-    $repository -eq 'SriVarshini09/self-healing-api' -and
-    $filePath -eq 'apps/demo-saas/src/business-outcome.ts'
-  $hasBusinessOutcomeCheck = $checks -contains 'business-outcome'
-  $state = if (-not $mapped) {
-    'MANUAL_REVIEW'
-  } elseif (-not $hasRequiredChecks) {
-    'BLOCKED_NO_REQUIRED_CHECKS'
-  } elseif ($isReviewedBusinessOutcomeTarget -and -not $hasBusinessOutcomeCheck) {
-    'BLOCKED_MISSING_BUSINESS_OUTCOME_CHECK'
-  } else {
-    'READY_FOR_TARGET_REVIEW'
+  $readiness = $_.repairReadiness
+  if (-not $readiness -or [string]::IsNullOrWhiteSpace([string]$readiness.state)) {
+    throw "Invariant $id did not include the backend repairReadiness decision"
   }
+  $checks = @($readiness.requiredChecks | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+  $mapped = -not [string]::IsNullOrWhiteSpace($repository) -and -not [string]::IsNullOrWhiteSpace($filePath)
 
   [pscustomobject]@{
     id = $id
     name = [string]$_.name
     integrationId = [string]$_.integrationId
-    state = $state
+    state = [string]$readiness.state
+    reason = [string]$readiness.reason
+    adapterId = if ($readiness.adapterId) { [string]$readiness.adapterId } else { $null }
     repository = if ($mapped) { $repository } else { $null }
     filePath = if ($mapped) { $filePath } else { $null }
     requiredChecks = @($checks)
