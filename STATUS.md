@@ -5,6 +5,13 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Verified in this repository
 
+- OIDC callbacks now clear the signed login-state cookie after validation and
+  combine that expiry with the new session cookie, reducing replay residue
+  without exposing session values. Commit `16060e3` passed the focused auth
+  tests, full CI
+  [36981543936](https://github.com/SriVarshini09/self-healing-api/actions/runs/36981543936),
+  and Docker production validation
+  [36981543828](https://github.com/SriVarshini09/self-healing-api/actions/runs/36981543828).
 - The repair review UI now shows each candidate's required checks, explains
   when a dedicated `business-outcome` proof is required in addition to generic
   CI, and allows an operator to cancel a preview before review. Commit
