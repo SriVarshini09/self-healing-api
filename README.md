@@ -108,10 +108,17 @@ without credentials. Apply it from the Render Dashboard, then set the
    base64-encoded private key in `GITHUB_APP_PRIVATE_KEY_B64` so the PEM never
    needs to be pasted into a multiline environment value.
 3. Deploy the services, call `POST /api/v1/bootstrap/tenant` once with the
-   bootstrap token, and store the returned owner API key. Prefer
-   `scripts/bootstrap-hosted-tenant.ps1 -ApiKeyOutputFile <outside-repo-path>`
-   so the one-time key is not printed to terminal logs. Use that key as
-   `VITE_SHAPI_API_KEY` or configure OIDC before exposing the dashboard.
+   bootstrap token, and store the returned owner API key. Prefer:
+
+   ```powershell
+   ./scripts/bootstrap-hosted-tenant.ps1 `
+     -ApiKeyOutputFile C:\secure\shapi-owner.env `
+     -DashboardApiKeyOutputFile C:\secure\shapi-dashboard.env
+   ```
+
+   Neither key is printed to terminal logs. Copy only the separately scoped
+   dashboard key into `VITE_SHAPI_API_KEY`, or configure OIDC before exposing
+   the dashboard; do not put the owner key in browser runtime configuration.
 4. Point the GitHub App webhook at `https://<api-host>/api/v1/github/webhook`,
    then run the remote readiness checks from a trusted operator environment.
 
@@ -119,9 +126,9 @@ Both Render web services use `autoDeployTrigger: checksPass`, so a connected
 Render workspace will wait for the repository's required GitHub checks before
 deploying a new commit.
 
-The Blueprint is deployment-ready but cannot be considered hosted until a
-Render workspace applies it, secrets are entered, and the public URLs and
-GitHub delivery are verified.
+The Blueprint is deployment-ready but cannot be considered production-ready
+until secrets are entered, tenant authentication is configured, the public
+URLs and GitHub delivery are verified, and the authenticated hosted gate passes.
 
 Immediately after the API and dashboard deploy, run the credential-free public
 infrastructure smoke before tenant onboarding:
@@ -155,9 +162,12 @@ deduplication:
 
 The operator env file must contain the hosted readiness credentials, including
 `SHAPI_API_KEY` and `GITHUB_WEBHOOK_SECRET_APP`; keep it outside the repository.
-The gate checks API/database readiness, security headers and 401 behavior,
-authenticated load, GitHub App mode, the dashboard's live command center, and
-optional paced capacity. It also sends a harmless signed GitHub `ping` twice
+The gate first verifies that the hosted dashboard has either a non-empty
+runtime API key or enabled OIDC; otherwise it stops with a clear
+authentication-configuration error instead of treating the locked dashboard as
+ready. It then checks API/database readiness, security headers and 401
+behavior, authenticated load, GitHub App mode, the dashboard's live command
+center, and optional paced capacity. It also sends a harmless signed GitHub `ping` twice
 and requires the second delivery to be acknowledged as a duplicate. This
 proves the public webhook accepts the configured secret and handles retries.
 The gate also prints the read-only repair-readiness audit by default, including

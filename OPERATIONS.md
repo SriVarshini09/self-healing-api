@@ -115,9 +115,10 @@ preflight rejects placeholder values, partial OIDC configuration, multiple
 GitHub private-key sources, and mismatched alert-webhook configuration.
 
 The gate refuses localhost and non-HTTPS URLs. It checks API/database
-readiness, security headers and unauthenticated rejection, authenticated load,
-GitHub App mode, the live dashboard, signed webhook delivery plus replay
-deduplication, and repair-target readiness. A production release should stop if
+readiness, security headers and unauthenticated rejection, and first verifies
+that the dashboard has either a runtime API key or enabled OIDC. It then checks
+authenticated load, GitHub App mode, the live dashboard, signed webhook
+delivery plus replay deduplication, and repair-target readiness. A production release should stop if
 any check fails or if the audit reports a manual-review or blocked target that
 the release owner has not explicitly accepted.
 

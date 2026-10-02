@@ -19,7 +19,11 @@ param(
   # Retained for command-line compatibility; the audit is now always included.
   [switch]$IncludeRepairAudit,
   [switch]$RequireRepairTargets,
-  [switch]$RequireOidc
+  [switch]$RequireOidc,
+  # A hosted release is not usable if the dashboard has neither an API-key
+  # runtime configuration nor an enabled OIDC provider. Keep this check on by
+  # default; callers can explicitly disable it for infrastructure-only trials.
+  [switch]$RequireDashboardAuthentication = $true
 )
 
 $ErrorActionPreference = 'Stop'
@@ -42,6 +46,52 @@ Write-Host 'Running credential-free hosted infrastructure checks...'
 & "$PSScriptRoot\hosted-infrastructure-smoke.ps1" `
   -ApiUrl $ApiUrl `
   -DashboardUrl $DashboardUrl
+
+if ($RequireDashboardAuthentication) {
+  $runtimeConfigResponse = Invoke-WebRequest `
+    -Method GET `
+    -Uri "$($DashboardUrl.TrimEnd('/'))/config.js" `
+    -UseBasicParsing `
+    -SkipHttpErrorCheck `
+    -TimeoutSec 15
+  if ([int]$runtimeConfigResponse.StatusCode -ne 200) {
+    throw "Hosted dashboard runtime configuration is unavailable (HTTP $($runtimeConfigResponse.StatusCode))."
+  }
+
+  # The dashboard entrypoint writes the API key as base64 in config.js. Only
+  # inspect whether the encoded value is empty; never decode or print it.
+  $apiKeyMatch = [regex]::Match(
+    [string]$runtimeConfigResponse.Content,
+    'apiKey:\s*atob\("(?<value>[^"]*)"\)',
+    [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+  )
+  $dashboardApiKeyConfigured = $apiKeyMatch.Success -and $apiKeyMatch.Groups['value'].Value.Length -gt 0
+
+  $authConfigResponse = Invoke-WebRequest `
+    -Method GET `
+    -Uri "$($ApiUrl.TrimEnd('/'))/api/v1/auth/config" `
+    -UseBasicParsing `
+    -SkipHttpErrorCheck `
+    -TimeoutSec 15
+  if ([int]$authConfigResponse.StatusCode -ne 200) {
+    throw "Hosted API authentication configuration is unavailable (HTTP $($authConfigResponse.StatusCode))."
+  }
+  try {
+    $authConfig = $authConfigResponse.Content | ConvertFrom-Json
+  } catch {
+    throw 'Hosted API authentication configuration returned invalid JSON.'
+  }
+  $oidcConfigured = [bool]$authConfig.oidcEnabled
+
+  if (-not $dashboardApiKeyConfigured -and -not $oidcConfigured) {
+    throw 'Hosted dashboard authentication is not configured: set VITE_SHAPI_API_KEY to the scoped dashboard key or enable complete OIDC configuration before release.'
+  }
+  if ($dashboardApiKeyConfigured) {
+    Write-Host 'PASS hosted dashboard authentication configuration (runtime API key present; value omitted)'
+  } else {
+    Write-Host 'PASS hosted dashboard authentication configuration (OIDC enabled)'
+  }
+}
 
 $envValidationParams = @{ EnvFile = $EnvFile }
 if ($RequireGitHubApp) { $envValidationParams.RequireGitHubApp = $true }

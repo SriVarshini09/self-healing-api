@@ -22,6 +22,11 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   rendering failure. Hosted tenant bootstrap and either OIDC or a separately
   scoped dashboard operator key are still required before operators can use
   the command center.
+- The hosted release gate now checks that runtime authentication state before
+  using any operator credentials. Running it against the current Render URLs
+  passes the public infrastructure smoke and then stops with the explicit
+  missing-dashboard-authentication error, rather than falsely reporting a
+  usable command center.
 - The remaining hosted onboarding input is the bootstrap token in the local
   operator env file. It is not present in the checked external env file, so no
   hosted tenant or API key was created by automation and no secret is recorded
