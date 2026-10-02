@@ -5,6 +5,14 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Verified in this repository
 
+- The complete local release procedure passed on 2026-10-02 against the live
+  Docker stack with GitHub App mode enabled. It covered stack/database
+  readiness, security and unauthenticated rejection, 20/20 authenticated
+  requests, dashboard browser smoke, signed GitHub webhook replay
+  deduplication, the 7/7 repair-readiness audit, and a guarded PostgreSQL
+  backup/restore drill with restored row-count verification. The latest pushed
+  commit `528b941` also passed CI in
+  [36993148709](https://github.com/SriVarshini09/self-healing-api/actions/runs/36993148709).
 - The complete subscription-outcome release path passed after the final runtime
   loading hardening: CI [36992842575](https://github.com/SriVarshini09/self-healing-api/actions/runs/36992842575)
   and Docker production validation
