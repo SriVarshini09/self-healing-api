@@ -398,15 +398,15 @@ Verified locally on 2026-10-01 against the live Docker stack rebuilt from
   duplicate acknowledgment.
 - Repair readiness audit reported 4/6 ready for target review, 2 explicit
   `MANUAL_REVIEW` GitHub invariants, and 0 blocked for missing checks.
-- Workspace tests passed: 16 backend test files and 89 backend tests; the
+- Workspace tests passed: 17 backend test files and 92 backend tests; the
   repair-generation package suite includes the structured business-outcome
   proof and real demo adapter proof.
-- GitHub Actions CI run `36957625164` and Docker production run
-  `36957625173` both passed; Render Blueprint validation run
+- GitHub Actions CI run `36958730447` and Docker production run
+  `36958730375` both passed; Render Blueprint validation run
   `36954469954` also passed.
 - The latest business-outcome HTTP E2E and full CI verification passed in run
-  `36957625164`; the Docker workflow rebuilt the images and passed production
-  readiness in run `36957625173`.
+  `36958730447`; the Docker workflow rebuilt the images and passed production
+  readiness in run `36958730375`.
 
 ```sh
 pnpm typecheck
