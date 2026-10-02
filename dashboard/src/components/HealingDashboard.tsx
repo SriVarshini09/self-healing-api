@@ -210,11 +210,20 @@ type IntegrationSummary = {
   _count?: { webhookEvents?: number; invariants?: number; incidents?: number };
 };
 
+type WebhookSetup = {
+  webhookUrl: string;
+  webhookSecretConfigured: boolean;
+  instructions: string;
+};
+
 function ConnectionsPanel() {
   const [githubStatus, setGithubStatus] = useState<GitHubStatus | null>(null);
   const [integrations, setIntegrations] = useState<IntegrationSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [setupId, setSetupId] = useState<string | null>(null);
+  const [setup, setSetup] = useState<WebhookSetup | null>(null);
+  const [setupLoading, setSetupLoading] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -236,6 +245,24 @@ function ConnectionsPanel() {
   useEffect(() => {
     void load();
   }, []);
+
+  const showSetup = async (integration: IntegrationSummary) => {
+    if (setupId === integration.id) {
+      setSetupId(null);
+      setSetup(null);
+      return;
+    }
+    setSetupId(integration.id);
+    setSetup(null);
+    setSetupLoading(true);
+    try {
+      setSetup(await fetchShapi<WebhookSetup>(`integrations/${integration.id}/webhook-url`));
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Could not load webhook setup');
+    } finally {
+      setSetupLoading(false);
+    }
+  };
 
   return (
     <section id="connections" className="mt-3.5 grid gap-3.5 xl:grid-cols-[1.15fr_1fr]">
@@ -295,17 +322,37 @@ function ConnectionsPanel() {
         ) : integrations.length ? (
           <div className="mt-3 divide-y divide-border">
             {integrations.map(integration => (
-              <div key={integration.id} className="flex items-center gap-3 py-2 first:pt-0 last:pb-0">
-                <span className={`size-2 rounded-full ${integration.webhookEnabled && integration.webhookSecretConfigured ? 'bg-success' : 'bg-warning'}`} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-medium">{integration.name}</p>
-                  <p className="font-mono text-[10px] text-muted-foreground">
-                    {integration.type} · {integration._count?.invariants ?? 0} invariants · {integration._count?.incidents ?? 0} incidents
-                  </p>
+              <div key={integration.id}>
+                <div className="flex items-center gap-3 py-2 first:pt-0 last:pb-0">
+                  <span className={`size-2 rounded-full ${integration.webhookEnabled && integration.webhookSecretConfigured ? 'bg-success' : 'bg-warning'}`} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-medium">{integration.name}</p>
+                    <p className="font-mono text-[10px] text-muted-foreground">
+                      {integration.type} · {integration._count?.invariants ?? 0} invariants · {integration._count?.incidents ?? 0} incidents
+                    </p>
+                  </div>
+                  <span className="font-mono text-[10px] text-muted-foreground">
+                    {integration.webhookEnabled && integration.webhookSecretConfigured ? 'ready' : 'setup needed'}
+                  </span>
+                  <Button variant="outline" size="sm" onClick={() => void showSetup(integration)} disabled={setupLoading && setupId === integration.id}>
+                    {setupLoading && setupId === integration.id ? 'Loading…' : setupId === integration.id ? 'Hide setup' : 'Setup'}
+                  </Button>
                 </div>
-                <span className="font-mono text-[10px] text-muted-foreground">
-                  {integration.webhookEnabled && integration.webhookSecretConfigured ? 'ready' : 'setup needed'}
-                </span>
+                {setupId === integration.id && setup && (
+                  <div className="mb-2 rounded border border-border bg-secondary/30 p-2 text-[10px]">
+                    <p className="font-semibold">Webhook endpoint</p>
+                    <code className="mt-1 block break-all rounded bg-background/70 p-2 font-mono text-[10px] text-primary">
+                      {setup.webhookUrl}
+                    </code>
+                    <p className="mt-2 whitespace-pre-line leading-relaxed text-muted-foreground">
+                      {setup.instructions}
+                    </p>
+                    <p className="mt-2 text-warning">
+                      Secret status: {setup.webhookSecretConfigured ? 'configured (value hidden)' : 'not configured'}.
+                      Secrets are never displayed in this panel.
+                    </p>
+                  </div>
+                )}
               </div>
             ))}
           </div>
