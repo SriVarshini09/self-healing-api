@@ -71,6 +71,15 @@ Write-Host 'PASS Dashboard runtime configuration cache protection'
 $apiKey = Read-EnvValue -Path $EnvFile -Name 'SHAPI_API_KEY'
 if ($apiKey) {
   $status = Invoke-RestMethod -Uri "$($ApiUrl.TrimEnd('/'))/api/v1/github/status" -Headers @{ 'x-api-key' = $apiKey }
+  if ($RequireGitHubApp -and -not $status.appIdConfigured) {
+    throw 'FAIL GitHub App readiness: GITHUB_APP_ID is not configured in the running API'
+  }
+  if ($RequireGitHubApp -and -not $status.appPrivateKeyConfigured) {
+    throw 'FAIL GitHub App readiness: the running API cannot resolve a usable private-key source'
+  }
+  if ($RequireGitHubApp -and -not $status.appCredentialsConfigured) {
+    throw 'FAIL GitHub App readiness: the running API has no usable App credentials'
+  }
   if ($RequireGitHubApp -and $status.mode -ne 'app') {
     throw "FAIL GitHub App readiness: mode is '$($status.mode)'"
   }
