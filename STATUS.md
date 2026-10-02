@@ -5,6 +5,12 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Verified in this repository
 
+- Business-outcome verification now covers two real demo application outcomes:
+  payment provisioning and subscription activation. The SDK supports explicit
+  success/failure outcome event names, the demo sends both outcomes through the
+  same HTTP 200 webhook flow, and reviewed adapters prove recovery against both
+  target source files. The seeded subscription target requires both `verify` and
+  `business-outcome` checks, so it cannot be treated as generic CI proof.
 - Hosted readiness now has a secret-safe preflight that validates the external
   operator env file before any public request: it rejects placeholders, partial
   OIDC configuration, multiple GitHub private-key sources, invalid OIDC callback
@@ -654,11 +660,11 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Next engineering priority
 
-Extend the target-app business-outcome harness beyond its current demo adapter
-before claiming arbitrary repository repairs are verified. The next release
-blocker is still applying the hosted Blueprint with secure secrets and
-tenant-isolated onboarding; local deployment and readiness gates are now
-repeatable. Do not claim a replay-verified fix prematurely.
+Apply the hosted Blueprint with secure secrets and tenant-isolated onboarding,
+then run the public HTTPS readiness gate. Local deployment and readiness gates
+are repeatable, and two distinct demo business outcomes now have reviewed
+proofs. Do not claim a replay-verified fix for an arbitrary customer repository
+without that repository's own adapter and test command.
 
 ## Local checks
 

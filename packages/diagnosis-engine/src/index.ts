@@ -26,7 +26,7 @@ export function diagnose(input: DiagnosisInput): Diagnosis {
         `${o.count} failed business outcome(s) tracked` +
         (o.latestType ? ` (latest: ${o.latestType}${o.latestReason ? ` — ${o.latestReason}` : ''})` : ''),
       suggestedFix:
-        'The HTTP layer succeeded but the business outcome failed. Inspect the provisioning/business-logic path, not the webhook transport.',
+        'The HTTP layer succeeded but the business outcome failed. Inspect the business-logic path, not the webhook transport.',
       confidence: 0.9,
       evidence: [
         `${o.count} tracked failure(s)`,

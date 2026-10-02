@@ -47,4 +47,30 @@ describe('sdk', () => {
     ).rejects.toThrow('provisioning failed');
     expect(calls).toEqual(['invoice.payment_succeeded', 'provisioning.failed']);
   });
+
+  it('webhookReporter supports explicit business outcome event names', async () => {
+    const calls: string[] = [];
+    (globalThis as any).fetch = vi.fn(async (_url: string, init: any) => {
+      calls.push(JSON.parse(init.body).type);
+      return { ok: true, status: 200 } as any;
+    });
+    const client = new Shapi({ apiKey: 'k' });
+    const report = client.webhookReporter('stripe', {
+      success: 'subscription.activated',
+      failure: 'subscription.activation_failed',
+    });
+
+    const outcome = await report('customer.subscription.created', { customer: 'cus_1' }, async () => ({
+      success: true,
+      details: { customer: 'cus_1' },
+    }));
+
+    expect(outcome.success).toBe(true);
+    expect(calls).toEqual(['customer.subscription.created', 'subscription.activated']);
+  });
+
+  it('rejects empty explicit business outcome event names', () => {
+    const client = new Shapi({ apiKey: 'k' });
+    expect(() => client.webhookReporter('stripe', { success: '', failure: 'failed' })).toThrow(/event names/);
+  });
 });

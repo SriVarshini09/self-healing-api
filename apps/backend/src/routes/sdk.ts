@@ -53,8 +53,8 @@ export async function sdkRoutes(app: FastifyInstance) {
       });
 
       // Behavioral evaluation: tracked business outcomes feed the same
-      // invariant engine as webhooks, so a `provisioning.failed` flips its
-      // invariant even though the HTTP layer returned 200 everywhere.
+      // invariant engine as webhooks, so an outcome-specific failure flips
+      // its invariant even though the HTTP layer returned 200 everywhere.
       const integration = await prisma.integration.findFirst({
         where: { type: integrationType, webhookEnabled: true, tenantId },
       });

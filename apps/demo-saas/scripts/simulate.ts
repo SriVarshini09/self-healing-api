@@ -22,6 +22,14 @@ function stripeEvent(customer: string, amount_paid: number) {
   };
 }
 
+function subscriptionEvent(customer: string) {
+  return {
+    id: `evt_subscription_${Math.random().toString(36).slice(2)}`,
+    type: 'customer.subscription.created',
+    data: { object: { id: 'sub_test', customer, status: 'active' } },
+  };
+}
+
 async function main() {
   if (mode === 'success' || mode === 'failure') {
     const enableFailure = mode === 'failure';
@@ -31,9 +39,10 @@ async function main() {
     };
     const customer = typeof co.customerId === 'string' ? co.customerId : 'cus_demo';
     await post(`${DEMO}/webhooks/stripe`, stripeEvent(customer, 2000), { 'stripe-signature': 'test' });
+    await post(`${DEMO}/webhooks/stripe`, subscriptionEvent(customer), { 'stripe-signature': 'test' });
     console.log(enableFailure
-      ? 'Sent payment webhook with failureMode=ON (200 OK expected, provisioning.failed tracked)'
-      : 'Sent payment webhook with failureMode=OFF (provisioning.completed expected)');
+      ? 'Sent payment and subscription webhooks with failureMode=ON (200 OK expected, business failures tracked)'
+      : 'Sent payment and subscription webhooks with failureMode=OFF (business outcomes completed)');
   } else if (mode === 'drift') {
     await post(`${DEMO}/admin/failure-mode`, { enabled: true });
     for (let i = 0; i < 60; i++) {

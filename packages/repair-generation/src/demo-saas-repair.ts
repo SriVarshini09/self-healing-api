@@ -26,6 +26,30 @@ export const DEMO_SAAS_PROVISIONING_REPAIR: RepairChange[] = [{
   after: DEMO_SAAS_PROVISIONING_AFTER,
 }];
 
+export const DEMO_SAAS_SUBSCRIPTION_PATH = 'apps/demo-saas/src/subscription-outcome.ts';
+export const DEMO_SAAS_SUBSCRIPTION_ADAPTER_ID = 'demo-saas-subscription-activation';
+
+export const DEMO_SAAS_SUBSCRIPTION_BEFORE = [
+  '  if (failureMode) {',
+  '    return {',
+  '      success: false,',
+  "      details: { reason: 'subscription activation skipped (simulated bug)', customer },",
+  '    };',
+  '  }',
+].join('\n') + '\n';
+
+export const DEMO_SAAS_SUBSCRIPTION_AFTER = [
+  '  // The reviewed repair removes the silent subscription activation branch',
+  '  // so the subscription state is applied.',
+].join('\n') + '\n';
+
+export const DEMO_SAAS_SUBSCRIPTION_REPAIR: RepairChange[] = [{
+  kind: 'replace',
+  path: DEMO_SAAS_SUBSCRIPTION_PATH,
+  before: DEMO_SAAS_SUBSCRIPTION_BEFORE,
+  after: DEMO_SAAS_SUBSCRIPTION_AFTER,
+}];
+
 export interface ReviewedBusinessOutcomeAdapter {
   adapterId: string;
   repository: string;
@@ -57,6 +81,19 @@ export const REVIEWED_BUSINESS_OUTCOME_ADAPTERS: readonly ReviewedBusinessOutcom
       diff: `- ${DEMO_SAAS_PROVISIONING_BEFORE.trimEnd().replace(/\n/gu, '\n- ')}\n+ ${DEMO_SAAS_PROVISIONING_AFTER.trimEnd().replace(/\n/gu, '\n+ ')}`,
       confidence: 0.95,
       changes: DEMO_SAAS_PROVISIONING_REPAIR,
+    },
+  },
+  {
+    adapterId: DEMO_SAAS_SUBSCRIPTION_ADAPTER_ID,
+    repository: DEMO_SAAS_REPOSITORY,
+    targetPath: DEMO_SAAS_SUBSCRIPTION_PATH,
+    requiredCheck: 'business-outcome',
+    description: 'Demo SaaS subscription activation outcome',
+    repair: {
+      description: 'Remove the reviewed silent subscription activation failure branch',
+      diff: `- ${DEMO_SAAS_SUBSCRIPTION_BEFORE.trimEnd().replace(/\n/gu, '\n- ')}\n+ ${DEMO_SAAS_SUBSCRIPTION_AFTER.trimEnd().replace(/\n/gu, '\n+ ')}`,
+      confidence: 0.94,
+      changes: DEMO_SAAS_SUBSCRIPTION_REPAIR,
     },
   },
 ];

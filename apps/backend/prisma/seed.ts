@@ -13,6 +13,7 @@ const REVIEWED_PREDICATE_FILE_PATH = 'apps/backend/prisma/seed.ts';
 const REVIEWED_REQUIRED_CHECKS = ['verify'];
 const DEMO_SAAS_REPOSITORY = 'SriVarshini09/self-healing-api';
 const DEMO_SAAS_PROVISIONING_PATH = 'apps/demo-saas/src/business-outcome.ts';
+const DEMO_SAAS_SUBSCRIPTION_PATH = 'apps/demo-saas/src/subscription-outcome.ts';
 
 async function main() {
   console.log('🌱 Seeding database...');
@@ -110,6 +111,22 @@ async function main() {
       predicateExample: "event.type !== 'provisioning.failed'",
       repairRepository: DEMO_SAAS_REPOSITORY,
       repairFilePath: DEMO_SAAS_PROVISIONING_PATH,
+      repairRequiredChecks: ['verify', 'business-outcome'],
+      evaluationWindowSec: 300,
+      minSamples: 5,
+      expectedSuccessRate: 0.99,
+      status: InvariantStatus.HEALTHY
+    },
+    {
+      id: 'inv-stripe-subscription-activation',
+      integrationId: stripeIntegration.id,
+      name: 'No Failed Subscription Activation Invariant',
+      description: 'No subscription.activation_failed business outcome may occur — a successful subscription event must activate the account',
+      predicateExpression: "event.type !== 'subscription.activation_failed'",
+      predicateDescription: 'Every tracked subscription activation outcome must succeed',
+      predicateExample: "event.type !== 'subscription.activation_failed'",
+      repairRepository: DEMO_SAAS_REPOSITORY,
+      repairFilePath: DEMO_SAAS_SUBSCRIPTION_PATH,
       repairRequiredChecks: ['verify', 'business-outcome'],
       evaluationWindowSec: 300,
       minSamples: 5,

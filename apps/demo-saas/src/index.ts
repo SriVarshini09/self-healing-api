@@ -1,6 +1,7 @@
 import express from 'express';
 import { Shapi } from '@shapi/sdk';
 import { applyProvisioningOutcome, type DemoUser } from './business-outcome.js';
+import { applySubscriptionActivationOutcome } from './subscription-outcome.js';
 
 const PORT = Number(process.env.DEMO_PORT ?? 3000);
 const SHAPI_URL = process.env.SHAPI_URL ?? 'http://localhost:3001';
@@ -31,7 +32,13 @@ app.post('/checkout', async (req, res) => {
   const { email, plan } = (req.body ?? {}) as { email?: unknown; plan?: unknown };
   if (typeof email !== 'string' || !email) return res.status(400).json({ error: 'email required' });
   const id = `cus_${Math.random().toString(36).slice(2, 10)}`;
-  users.set(id, { id, email, plan: typeof plan === 'string' ? plan : 'pro', provisioned: false });
+  users.set(id, {
+    id,
+    email,
+    plan: typeof plan === 'string' ? plan : 'pro',
+    provisioned: false,
+    subscriptionActive: false,
+  });
   await shapi.track('stripe', 'checkout.initiated', { customer: id, email, plan }).catch(() => undefined);
   res.status(201).json({ customerId: id, message: 'checkout created; awaiting Stripe webhook' });
 });
@@ -76,6 +83,25 @@ app.post('/webhooks/stripe', async (req, res) => {
       // reporter already tracked provisioning.failed
     }
     // Always 200 — this is the point: HTTP success hides business failure
+    return res.json({ received: true });
+  }
+
+  if (type === 'customer.subscription.created') {
+    const stripeObject = event.data?.object ?? {};
+    const customer = (stripeObject.customer ?? event.customer) as string | undefined;
+    const report = shapi.webhookReporter('stripe', {
+      success: 'subscription.activated',
+      failure: 'subscription.activation_failed',
+    });
+    try {
+      await report(
+        type,
+        { ...(event as Record<string, unknown>), customer },
+        async () => applySubscriptionActivationOutcome(users, customer, failureMode),
+      );
+    } catch {
+      // reporter already tracked subscription.activation_failed
+    }
     return res.json({ received: true });
   }
 

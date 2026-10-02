@@ -12,6 +12,11 @@ export interface TrackOptions {
   metadata?: Record<string, unknown>;
 }
 
+export interface WebhookOutcomeEventNames {
+  success: string;
+  failure: string;
+}
+
 export class Shapi {
   private apiUrl: string;
   private apiKey: string;
@@ -48,7 +53,16 @@ export class Shapi {
   }
 
   // Express middleware helper: wraps a webhook handler and reports business outcome
-  webhookReporter(integration: string) {
+  webhookReporter(
+    integration: string,
+    outcomeEvents: WebhookOutcomeEventNames = {
+      success: 'provisioning.completed',
+      failure: 'provisioning.failed',
+    },
+  ) {
+    if (!outcomeEvents.success || !outcomeEvents.failure) {
+      throw new Error('Shapi: webhook outcome event names are required');
+    }
     return async (
       eventType: string,
       payload: Record<string, unknown>,
@@ -62,13 +76,13 @@ export class Shapi {
       try {
         const outcome = await businessOutcome();
         await safeTrack(
-          outcome.success ? 'provisioning.completed' : 'provisioning.failed',
+          outcome.success ? outcomeEvents.success : outcomeEvents.failure,
           { ...(payload as object), outcome: outcome.details ?? null } as Record<string, unknown>,
         );
         return outcome;
       } catch (e) {
         await safeTrack(
-          'provisioning.failed',
+          outcomeEvents.failure,
           { ...(payload as object), error: e instanceof Error ? e.message : String(e) } as Record<string, unknown>,
         );
         throw e;

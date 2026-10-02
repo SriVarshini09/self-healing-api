@@ -48,6 +48,35 @@ try {
   console.log('provisioned (must be true):', u2?.provisioned);
   if (!u2?.provisioned) throw new Error('success mode should provision');
 
+  // The second business outcome uses the same customer but a distinct event
+  // contract, proving subscription activation is not conflated with payment
+  // provisioning.
+  await post('/admin/failure-mode', { enabled: true });
+  const subscriptionCustomer: any = await post('/checkout', { email: 'subscription-failure@test.com', plan: 'pro' }).then(r => JSON.parse(r.body));
+  const failedSubscription = await post('/webhooks/stripe', {
+    id: 'evt_subscription_failure',
+    type: 'customer.subscription.created',
+    data: { object: { customer: subscriptionCustomer.customerId, status: 'active' } },
+  });
+  if (failedSubscription.status !== 200) throw new Error('subscription webhook should return 200');
+  const afterFailedSubscription: any[] = await fetch(`${DEMO}/users`).then(r => r.json());
+  if (afterFailedSubscription.find((x: any) => x.id === subscriptionCustomer.customerId)?.subscriptionActive) {
+    throw new Error('failure mode should skip subscription activation');
+  }
+
+  await post('/admin/failure-mode', { enabled: false });
+  const activeSubscriptionCustomer: any = await post('/checkout', { email: 'subscription-ok@test.com', plan: 'pro' }).then(r => JSON.parse(r.body));
+  const successfulSubscription = await post('/webhooks/stripe', {
+    id: 'evt_subscription_success',
+    type: 'customer.subscription.created',
+    data: { object: { customer: activeSubscriptionCustomer.customerId, status: 'active' } },
+  });
+  if (successfulSubscription.status !== 200) throw new Error('subscription webhook should return 200 after recovery');
+  const afterSuccessfulSubscription: any[] = await fetch(`${DEMO}/users`).then(r => r.json());
+  if (!afterSuccessfulSubscription.find((x: any) => x.id === activeSubscriptionCustomer.customerId)?.subscriptionActive) {
+    throw new Error('success mode should activate the subscription');
+  }
+
   console.log('DEMO E2E OK');
 } finally {
   await new Promise<void>((resolve, reject) => {

@@ -304,7 +304,7 @@ Open:
 ## The demo: 200 OK that fails the business
 
 ```powershell
-# happy path: payment -> provisioning.completed
+# happy path: payment -> provisioning.completed and subscription -> subscription.activated
 pnpm --filter @shapi/demo-saas simulate:success
 
 # the bug: webhook returns 200 OK but provisioning silently fails.
@@ -322,14 +322,15 @@ Then in the dashboard: **incidents → select incident → Diagnose + suggest re
 inspect the timeline, replay results, and repair candidates.
 
 The `business-outcome` CI check runs the demo's HTTP-level checkout/webhook
-flow, a target-application contract fixture, and a reviewed adapter against the
-real `apps/demo-saas/src/business-outcome.ts` source. The HTTP proof shows that
-an intentionally broken webhook can return 200 while leaving the user
-unprovisioned, then verifies recovery with the same application flow. The
-adapter proof applies a structured repair change, executes the patched handler,
-and verifies that the same user becomes provisioned. This is still a bounded
-proof of the repair mechanism, not a substitute for running the full test suite
-of every customer repository.
+flow, a target-application contract fixture, and reviewed adapters against the
+real `apps/demo-saas/src/business-outcome.ts` and
+`apps/demo-saas/src/subscription-outcome.ts` sources. The HTTP proof shows that
+intentionally broken payment and subscription webhooks can return 200 while
+leaving the business state incomplete, then verifies recovery with the same
+application flow. The adapter proofs apply structured repair changes, execute
+the patched handlers, and verify both provisioning and subscription activation.
+This is still a bounded proof of the repair mechanism, not a substitute for
+running the full test suite of every customer repository.
 The reusable `proveBusinessOutcomeRepair` contract requires each target adapter
 to provide its source loader, isolated state factory, event runner, and explicit
 failure/recovery predicates; it fails closed when the baseline does not reproduce
@@ -440,13 +441,15 @@ For a bounded authenticated load baseline, run:
   targets can be checked and configured repeatably with
   `./scripts/configure-demo-repair-targets.ps1 -EnvFile ./path/to/.env -Apply`.
   Add `-IncludeProvisioningAdapter` to also map the reviewed provisioning
-  business-outcome patch to `apps/demo-saas/src/business-outcome.ts`; that
-  target requires both the generic `verify` check and the dedicated
-  `business-outcome` check before it can be considered verified. Add
+  business-outcome patch to `apps/demo-saas/src/business-outcome.ts`, and
+  `-IncludeSubscriptionAdapter` to map the reviewed subscription activation
+  patch to `apps/demo-saas/src/subscription-outcome.ts`; both targets require
+  the generic `verify` check and the dedicated `business-outcome` check before
+  they can be considered verified. Add
   `-IncludeGitHubTargets` to map the reviewed pull-request and workflow
   predicates to `apps/backend/src/services/github-invariants.ts`; those targets
   require the exact `verify` check and do not receive a business-outcome claim.
-  Fresh databases receive all six reviewed mappings from `prisma/seed.ts`, so
+  Fresh databases receive all seven reviewed mappings from `prisma/seed.ts`, so
   clean CI or deployment environments do not depend on this operator script.
   Customer repositories still need their own reviewed adapter and test command.
 

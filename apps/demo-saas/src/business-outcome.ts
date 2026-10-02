@@ -3,6 +3,7 @@ export type DemoUser = {
   email: string;
   plan: string;
   provisioned: boolean;
+  subscriptionActive: boolean;
 };
 
 export type ProvisioningOutcome = {

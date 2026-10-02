@@ -75,7 +75,7 @@ export async function diagnoseIncident(incident: Incident & { invariant: Invaria
       `(latest: ${latest.type}${reason ? ` — ${reason}` : ''})`;
     suggestedFix =
       'The HTTP layer succeeded but the business outcome failed. ' +
-      'Inspect the provisioning/business-logic path for this integration, not the webhook transport.';
+      'Inspect the business-logic path for this integration, not the webhook transport.';
     confidence = 0.9;
     evidence.push(
       `${failedOutcomes.length} tracked failure(s), e.g. ${latest.type} at ${latest.timestamp.toISOString()}`,

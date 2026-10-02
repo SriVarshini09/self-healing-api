@@ -169,6 +169,18 @@ async function main() {
     console.log('dashboard API wiring (invariants):', uiInvariants.status);
     if (!uiInvariants.ok) throw new Error('dashboard API wiring failed');
 
+    // The demo also exercises the distinct subscription activation outcome.
+    const subscription = await post(
+      `http://localhost:${DEMO_PORT}/webhooks/stripe`,
+      {
+        id: `evt_stack_subscription_${Date.now()}`,
+        type: 'customer.subscription.created',
+        data: { object: { customer: co.customerId, status: 'active' } },
+      },
+      { 'stripe-signature': 'test' },
+    );
+    if (subscription.status !== 200) throw new Error('subscription webhook must return 200');
+
     console.log('STACK CHECK OK');
   } finally {
     for (const child of children) child.kill();

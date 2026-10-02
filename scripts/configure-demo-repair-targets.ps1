@@ -11,6 +11,7 @@ param(
     'inv-stripe-refund-succeeded'
   ),
   [switch]$IncludeProvisioningAdapter,
+  [switch]$IncludeSubscriptionAdapter,
   [switch]$IncludeGitHubTargets,
   [switch]$Apply
 )
@@ -67,6 +68,23 @@ if ($IncludeProvisioningAdapter) {
     FilePath = 'apps/demo-saas/src/business-outcome.ts'
     RequiredChecks = @('verify', 'business-outcome')
     ExpectedText = $provisioningBefore
+  }
+}
+if ($IncludeSubscriptionAdapter) {
+  $subscriptionBefore = @(
+    '  if (failureMode) {',
+    '    return {',
+    '      success: false,',
+    "      details: { reason: 'subscription activation skipped (simulated bug)', customer },",
+    '    };',
+    '  }'
+  ) -join "`n"
+  $subscriptionBefore += "`n"
+  $mappingSpecs += [pscustomobject]@{
+    InvariantIds = @('inv-stripe-subscription-activation')
+    FilePath = 'apps/demo-saas/src/subscription-outcome.ts'
+    RequiredChecks = @('verify', 'business-outcome')
+    ExpectedText = $subscriptionBefore
   }
 }
 
