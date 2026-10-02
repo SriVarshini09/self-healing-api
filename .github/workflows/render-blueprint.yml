@@ -11,6 +11,13 @@ on:
       - render.yaml
       - .github/workflows/render-blueprint.yml
 
+permissions:
+  contents: read
+
+concurrency:
+  group: render-blueprint-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: ubuntu-24.04

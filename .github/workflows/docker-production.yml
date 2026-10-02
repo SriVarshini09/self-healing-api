@@ -33,6 +33,13 @@ on:
       - pnpm-workspace.yaml
       - .github/workflows/docker-production.yml
 
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-production-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate-and-build:
     runs-on: ubuntu-24.04
