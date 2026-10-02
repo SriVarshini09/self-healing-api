@@ -405,6 +405,15 @@ targets with both an explicit repository/file mapping and at least one required
 check as `READY_FOR_TARGET_REVIEW`. Add `-FailOnUnready` in a release checklist
 when every invariant in a tenant must be mapped before automatic repair review.
 Use `-Json` for CI or onboarding tooling.
+
+The incident endpoints expose the same decision directly on each persisted
+repair candidate: `reviewStatus` is `PR_READY_AFTER_REVIEW` only when the
+candidate has an explicit repository mapping, structured file changes, and at
+least one configured required GitHub check. `automationEligible` is false for
+`MANUAL_REVIEW` candidates, and `reviewReason` explains which prerequisite is
+missing. These fields are included in incident list/detail/update responses,
+diagnosis responses, and repair-candidate timeline events so clients cannot
+mistake a suggestion-only diff for an automatable repair.
 - `POST /github/incidents/:id/pr/preview` performs no writes. It returns the
   repository base SHA, bounded source/result excerpts, and a short-lived
   signed approval token only after the candidate applies cleanly at that
