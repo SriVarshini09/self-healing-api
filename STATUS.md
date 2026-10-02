@@ -12,19 +12,28 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   `/api/v1/alerts/status` endpoint returned 200. The live alert status response
   included pending, processing, retrying, delivered, and failed counts, and the
   dashboard smoke verified all five labels in the live alert-delivery panel.
-- The latest application change `e3f279f` passed GitHub Actions CI, including the
+- The latest application change `c781914` passed GitHub Actions CI, including the
   business-outcome regression, production builds, unit tests, and Prisma
   validation:
-  [run 36957625164](https://github.com/SriVarshini09/self-healing-api/actions/runs/36957625164).
-  The latest production-code head `e3f279f` also passed the production Docker
+  [run 36958277897](https://github.com/SriVarshini09/self-healing-api/actions/runs/36958277897).
+  The latest production-code head `c781914` also passed the production Docker
   workflow, including Compose validation, image builds, stack readiness,
   authenticated security/load checks, and the non-root backend assertion:
-  [run 36957625173](https://github.com/SriVarshini09/self-healing-api/actions/runs/36957625173).
+  [run 36958277884](https://github.com/SriVarshini09/self-healing-api/actions/runs/36958277884).
   Subsequent documentation-only commits were also verified by full CI; the
   latest ledger update passed in
   [run 36957005423](https://github.com/SriVarshini09/self-healing-api/actions/runs/36957005423).
   Render Blueprint schema validation for the workflow-hardening change passed:
   [run 36954469954](https://github.com/SriVarshini09/self-healing-api/actions/runs/36954469954).
+- Alert webhook request construction is now a tested core contract: the exact
+  JSON body, provider-neutral event, delivery headers, and HMAC signature are
+  built together and covered by backend tests. This change does not call an
+  external receiver during tests. Commit `c781914` passed full CI, including
+  typecheck, lint, builds, unit tests, Prisma validation, and the business-
+  outcome regression in [run 36958277897](https://github.com/SriVarshini09/self-healing-api/actions/runs/36958277897).
+  The production Docker workflow also passed Compose validation, image builds,
+  stack startup, readiness, authenticated security/load checks, and teardown
+  in [run 36958277884](https://github.com/SriVarshini09/self-healing-api/actions/runs/36958277884).
 - CI, Docker production, and Render Blueprint workflows now declare
   read-only repository permissions and cancel obsolete same-branch runs, so
   superseded commits do not continue consuming runners.
