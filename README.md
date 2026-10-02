@@ -118,7 +118,9 @@ GitHub delivery are verified.
 
 After the hosted services are live, run the public-only gate from a trusted
 operator machine. It refuses localhost or non-HTTPS URLs and does not mutate
-the hosted database:
+business data. Its signed webhook check records one harmless `ping` delivery
+in the webhook audit table and replays that same delivery id to test
+deduplication:
 
 ```powershell
 ./scripts/hosted-readiness.ps1 `
