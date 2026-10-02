@@ -7,7 +7,7 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 - The local production Docker stack runs PostgreSQL, the backend, and the
   dashboard. On 2026-10-01, the backend and dashboard were rebuilt from the
-  repair-review queue change at `a8a10cc`; `/health`, `/ready`, the dashboard,
+  repair-review queue change at `e3f279f`; `/health`, `/ready`, the dashboard,
   and the authenticated
   `/api/v1/alerts/status` endpoint returned 200. The live alert status response
   included pending, processing, retrying, delivered, and failed counts, and the
@@ -362,7 +362,7 @@ claim a replay-verified fix prematurely.
 ### Latest verification snapshot
 
 Verified locally on 2026-10-01 against the live Docker stack rebuilt from
-`a8a10cc`:
+`e3f279f`:
 
 - Production readiness passed: API, database, dashboard, GitHub App mode,
   security, 100 authenticated requests with 0 errors, dashboard browser smoke,
