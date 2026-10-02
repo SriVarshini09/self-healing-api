@@ -31,20 +31,27 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   passed locally, and commit `af7ddb0` passed CI and production Docker checks:
   [CI run 36962625769](https://github.com/SriVarshini09/self-healing-api/actions/runs/36962625769),
   [Docker run 36962625753](https://github.com/SriVarshini09/self-healing-api/actions/runs/36962625753).
+- The dashboard's connected-integration panel now includes an operator-safe
+  setup view with the provider webhook endpoint, setup instructions, and a
+  boolean secret-status indicator; the secret value is never displayed. The
+  browser smoke opens this view and verifies the live `/webhook-url` request.
+  Commit `7cae46f` passed full CI and production Docker validation:
+  [CI run 36963183902](https://github.com/SriVarshini09/self-healing-api/actions/runs/36963183902),
+  [Docker run 36963183979](https://github.com/SriVarshini09/self-healing-api/actions/runs/36963183979).
 - Integration creation now redacts generated webhook secrets from its response;
   the secret remains write-only and the regression test confirms the API returns
   only `webhookSecretConfigured`. Commit `0a70a92` passed both full CI and the
   production Docker workflow:
   [CI run 36962263558](https://github.com/SriVarshini09/self-healing-api/actions/runs/36962263558),
   [Docker run 36962263552](https://github.com/SriVarshini09/self-healing-api/actions/runs/36962263552).
-- The latest production-code head `af7ddb0` passed GitHub Actions CI, including
+- The latest production-code head `7cae46f` passed GitHub Actions CI, including
   the business-outcome regression, production builds, unit tests, and Prisma
   validation:
-  [run 36962625769](https://github.com/SriVarshini09/self-healing-api/actions/runs/36962625769).
+  [run 36963183902](https://github.com/SriVarshini09/self-healing-api/actions/runs/36963183902).
   It also passed the production Docker workflow, including Compose validation,
   image builds, stack readiness, authenticated security/load checks, and the
   non-root backend assertion:
-  [run 36962625753](https://github.com/SriVarshini09/self-healing-api/actions/runs/36962625753).
+  [run 36963183979](https://github.com/SriVarshini09/self-healing-api/actions/runs/36963183979).
   The follow-up status-ledger commit `092eec5` passed full CI in
   [run 36960535445](https://github.com/SriVarshini09/self-healing-api/actions/runs/36960535445).
   Subsequent documentation-only commits were also verified by full CI.
@@ -410,9 +417,9 @@ claim a replay-verified fix prematurely.
 ### Latest verification snapshot
 
 Verified locally on 2026-10-02 against the live Docker stack rebuilt from
-`af7ddb0`:
+`7cae46f`:
 
-- The dashboard image rebuilt from `af7ddb0` passed direct-API and same-origin
+- The dashboard image rebuilt from `7cae46f` passed direct-API and same-origin
   browser smoke, including the corrected incident headings, live telemetry,
   GitHub connection status, connected integrations, repair-review counts, alert
   delivery, repair targets, and diagnosis modal.
@@ -427,8 +434,9 @@ Verified locally on 2026-10-02 against the live Docker stack rebuilt from
 - The live incidents API returned `requiredChecks: ["verify"]` for persisted
   repair candidates, including both manual-review and PR-ready candidates.
 - Production dashboard smoke passed for the direct API, same-origin proxy,
-  command center, live telemetry, repair-review queue, all five alert-delivery
-  states, repair targets, and diagnosis modal.
+  command center, live telemetry, connection setup view, webhook URL request,
+  repair-review queue, all five alert-delivery states, repair targets, and
+  diagnosis modal.
 - The dashboard smoke also matched the displayed repair-review totals to the
   live API snapshot after the queue hardening change.
 - The signed GitHub webhook smoke passed against the live Docker API: the first
@@ -447,8 +455,8 @@ Verified locally on 2026-10-02 against the live Docker stack rebuilt from
   `36961198357` both passed; Render Blueprint validation run
   `36954469954` also passed.
 - The latest business-outcome HTTP E2E and full CI verification passed in run
-  `36962625769`; the Docker workflow rebuilt the images and passed production
-  readiness in run `36962625753`.
+  `36963183902`; the Docker workflow rebuilt the images and passed production
+  readiness in run `36963183979`.
 - The bounded sustained-capacity profile passed with 275 authenticated
   requests over 30 seconds at concurrency 1 plus a 100 ms delay: 0.000% error
   rate, 9.2 requests/second, p50 3.7 ms, p95 5.4 ms, and maximum 33.9 ms.
