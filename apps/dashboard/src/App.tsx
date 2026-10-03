@@ -71,6 +71,87 @@ function repairReadinessTone(state: string): string {
   return 'gray';
 }
 
+function RecoveryObservatory({
+  summary,
+  openCount,
+  command,
+}: {
+  summary: any;
+  openCount: number;
+  command: boolean;
+}) {
+  const integrationCount = summary?.monitoredIntegrations ?? '—';
+  const invariantCount = summary?.totalInvariants ?? '—';
+  const alertCount = summary?.activeAlerts ?? '—';
+  const stable = openCount === 0;
+  const nodes = [
+    { key: 'api', label: 'API gateway', value: 'LIVE', tone: 'stable' },
+    { key: 'events', label: 'Event mesh', value: `${integrationCount} streams`, tone: 'stable' },
+    { key: 'outcomes', label: 'Outcome engine', value: `${invariantCount} checks`, tone: 'stable' },
+    { key: 'repair', label: 'Repair queue', value: stable ? 'CLEAR' : `${openCount} open`, tone: stable ? 'stable' : 'watch' },
+    { key: 'drift', label: 'Drift monitor', value: `${alertCount} alerts`, tone: Number(alertCount) > 0 ? 'watch' : 'stable' },
+  ];
+
+  return (
+    <section className={`recovery-observatory ${command ? 'recovery-observatory-command' : ''}`} aria-labelledby="observatory-title">
+      <div className="observatory-copy">
+        <div className="observatory-eyebrow"><span className="observatory-eyebrow-dot" /> RECOVERY OBSERVATORY</div>
+        <h2 id="observatory-title">See the system<br /><span>recover in motion.</span></h2>
+        <p>
+          A living map of business outcomes across every connected service. SHAPI watches the
+          signal, finds the break, and keeps the repair path visible.
+        </p>
+        <div className={`observatory-state ${stable ? 'state-stable' : 'state-watch'}`}>
+          <span className="observatory-state-lamp" />
+          <strong>{stable ? 'All systems stable' : 'Attention required'}</strong>
+          <span>{stable ? 'monitoring normally' : `${openCount} active incident${openCount === 1 ? '' : 's'}`}</span>
+        </div>
+        <div className="observatory-legend" aria-label="System map legend">
+          <span><i className="legend-dot legend-stable" />Healthy</span>
+          <span><i className="legend-dot legend-watch" />Needs attention</span>
+          <span><i className="legend-line" />Live signal</span>
+        </div>
+      </div>
+
+      <div className="observatory-scene-wrap">
+        <div className="observatory-scene" role="img" aria-label="Three dimensional SHAPI service map">
+          <div className="scene-stars" aria-hidden="true" />
+          <div className="scene-grid" aria-hidden="true" />
+          <div className="scene-ring scene-ring-wide" aria-hidden="true" />
+          <div className="scene-ring scene-ring-tilt" aria-hidden="true" />
+          <div className="scene-orbit-line scene-orbit-line-a" aria-hidden="true" />
+          <div className="scene-orbit-line scene-orbit-line-b" aria-hidden="true" />
+          <div className="scene-signal scene-signal-a" aria-hidden="true" />
+          <div className="scene-signal scene-signal-b" aria-hidden="true" />
+          <div className="scene-signal scene-signal-c" aria-hidden="true" />
+          <div className="observatory-core">
+            <span className="core-pulse" aria-hidden="true" />
+            <span className="core-kicker"><span className="core-dot" /> SHAPI CORE</span>
+            <strong>{stable ? 'STABLE' : openCount}</strong>
+            <small>{stable ? 'watching for drift' : 'active incidents'}</small>
+          </div>
+          {nodes.map(node => (
+            <div key={node.key} className={`observatory-node observatory-node-${node.key} node-${node.tone}`}>
+              <span className="node-connector" aria-hidden="true" />
+              <div className="node-card">
+                <span className="node-status"><i /> {node.tone === 'stable' ? 'ONLINE' : 'WATCH'}</span>
+                <strong>{node.label}</strong>
+                <small>{node.value}</small>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="observatory-readout">
+        <div><span>INTEGRATIONS</span><strong>{integrationCount}</strong><small>event streams</small></div>
+        <div><span>INVARIANTS</span><strong>{invariantCount}</strong><small>outcome checks</small></div>
+        <div><span>DRIFT ALERTS</span><strong>{alertCount}</strong><small>last 24 hours</small></div>
+      </div>
+    </section>
+  );
+}
+
 function Overview({ refreshKey, command }: { refreshKey: number; command: boolean }) {
   const [summary, setSummary] = useState<any>(null);
   const [incidents, setIncidents] = useState<any[]>([]);
@@ -104,11 +185,6 @@ function Overview({ refreshKey, command }: { refreshKey: number; command: boolea
   if (error) return <div className="card error">Backend unreachable: {error} — run backend on :3001</div>;
 
   const openCount = incidents.filter(i => !['RESOLVED', 'DISMISSED'].includes(String(i.status))).length;
-  const activeIncidents = incidents.filter(i => !['RESOLVED', 'DISMISSED'].includes(String(i.status)));
-  const highestSeverity = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].find(severity =>
-    activeIncidents.some(i => String(i.severity).toUpperCase() === severity),
-  ) ?? 'NONE';
-  const affectedIntegrations = new Set(activeIncidents.map(i => i.integration?.name ?? i.integrationId)).size;
   const tiles = [
     { label: 'Invariants', value: summary?.totalInvariants ?? '—', delta: 'asserting outcomes' },
     { label: 'Monitored integrations', value: summary?.monitoredIntegrations ?? '—', delta: 'event streams live' },
@@ -118,36 +194,7 @@ function Overview({ refreshKey, command }: { refreshKey: number; command: boolea
 
   return (
     <>
-      {command && (
-        <div className="cmd-hero">
-          <div className="cmd-hero-copy">
-            <div className="eyebrow">Behavioral operations center</div>
-            <h2 className="cmd-title">Integration Outcomes, Verified Live</h2>
-            <p className="muted">Real-time business-outcome assurance across every connected service. A 200 OK does not prove success.</p>
-            <div className="cmd-hero-stats">
-              <div><span className="cmd-hero-num">{summary?.totalInvariants ?? '—'}</span><span className="muted"> invariants</span></div>
-              <div><span className="cmd-hero-num">{openCount}</span><span className="muted"> open incidents</span></div>
-            </div>
-          </div>
-          <div className="incident-radar" aria-label="Live incident radar">
-            <div className="radar-grid" aria-hidden="true" />
-            <div className="radar-sweep" aria-hidden="true" />
-            <div className="radar-center">
-              <span className="radar-live"><span className="live-dot" />LIVE</span>
-              <strong>{openCount}</strong>
-              <small>active incidents</small>
-            </div>
-            <span className="radar-ping p1" aria-hidden="true" />
-            <span className="radar-ping p2" aria-hidden="true" />
-            <span className="radar-ping p3" aria-hidden="true" />
-          </div>
-          <div className="radar-summary">
-            <div><span className="table-label">DATA SOURCE</span><strong>Live SHAPI incidents</strong></div>
-            <div><span className="table-label">AFFECTED INTEGRATIONS</span><strong>{affectedIntegrations}</strong></div>
-            <div><span className="table-label">HIGHEST SEVERITY</span><Badge text={highestSeverity} tone={toneFor(highestSeverity)} /></div>
-          </div>
-        </div>
-      )}
+      <RecoveryObservatory summary={summary} openCount={openCount} command={command} />
       <div className="tiles">
         {tiles.map(t => (
           <div key={t.label} className="card tile">
