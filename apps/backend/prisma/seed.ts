@@ -74,7 +74,7 @@ async function main() {
       integrationId: stripeIntegration.id,
       name: 'Payment Succeeded Invariant',
       description: 'Invoice payment succeeded events should have amount_paid > 0 and status = paid',
-      predicateExpression: "event.type === 'invoice.payment_succeeded' && event.payload && event.payload.data && event.payload.data.object && event.payload.data.object.amount_paid > 0 && event.payload.data.object.status === 'paid'",
+      predicateExpression: "event.type === 'invoice.payment_succeeded' && event.payload && event.payload?.data && event.payload?.data.object && event.payload?.data.object.amount_paid > 0 && event.payload?.data.object.status === 'paid'",
       predicateDescription: 'Successful payments have positive amount and paid status',
       predicateExample: "event.type === 'invoice.payment_succeeded' && event.payload.data.object.amount_paid > 0",
       repairRepository: REVIEWED_REPAIR_REPOSITORY,
