@@ -460,3 +460,26 @@ html.theme-light .command-next-action,html.theme-light .command-activity-stream,
 html.theme-light .command-rail-heading { color:#64748b; }.theme-light .command-next-action h2 { color:#1e293b; }.theme-light .command-next-action p { color:#64748b; }.theme-light .command-next-action button { color:#5b21b6; border-color:rgba(109,40,217,.24); background:rgba(139,92,246,.08); }.theme-light .command-activity-item > span { color:#64748b; }.theme-light .command-activity-item strong { color:#334155; }.theme-light .command-trust-list div { color:#475569; }
 @media (max-width:980px) { .command-center-rail { grid-template-columns:1fr 1fr; }.command-next-action { grid-row:span 2; }.command-trust-panel { grid-column:2; } }
 @media (max-width:640px) { .command-center-rail { grid-template-columns:1fr; }.command-next-action { grid-row:auto; }.command-trust-panel { grid-column:auto; }.command-next-action,.command-activity-stream,.command-trust-panel { min-height:0; } }
+
+/* Investor narrative layer: make the protection loop actionable, not decorative. */
+.product-command-center .product-hero-proof-step { position:relative; display:grid; grid-template-columns:auto 1fr; gap:3px 9px; align-items:center; width:100%; min-width:0; padding:11px 16px 12px 0; border:0; border-radius:8px; color:inherit; background:transparent; text-align:left; cursor:pointer; transition:background .2s ease,transform .2s ease,box-shadow .2s ease; }
+.product-command-center .product-hero-proof-step + .product-hero-proof-step { padding-left:18px; border-left:1px solid rgba(148,163,184,.12); border-radius:0 8px 8px 0; }
+.product-command-center .product-hero-proof-step:hover,.product-command-center .product-hero-proof-step:focus-visible { background:rgba(167,139,250,.08); box-shadow:inset 0 1px 0 rgba(255,255,255,.04); outline:none; transform:translateY(-1px); }
+.product-command-center .product-hero-proof-step:focus-visible { box-shadow:inset 0 0 0 1px rgba(196,181,253,.58),0 0 0 3px rgba(167,139,250,.12); }
+.product-command-center .product-hero-proof-step > span { grid-row:1 / span 2; }
+.product-command-center .product-hero-proof-step strong { display:flex; align-items:center; gap:5px; }
+.product-proof-arrow { width:11px; height:11px; opacity:.55; transition:transform .2s ease,opacity .2s ease; }
+.product-command-center .product-hero-proof-step:hover .product-proof-arrow,.product-command-center .product-hero-proof-step:focus-visible .product-proof-arrow { opacity:1; transform:translate(2px,-2px); }
+.product-proof-progress { position:absolute; right:16px; bottom:0; left:0; height:2px; border-radius:999px; background:rgba(148,163,184,.12); overflow:hidden; }
+.product-proof-progress::after { content:''; display:block; width:34%; height:100%; border-radius:inherit; background:#64748b; opacity:.6; }
+.product-hero-proof-step.is-complete .product-proof-progress::after,.product-hero-proof-step.is-clear .product-proof-progress::after { width:100%; background:#86efac; opacity:.9; }
+.product-hero-proof-step.is-attention .product-proof-progress::after { width:68%; background:#fbbf24; opacity:.9; }
+.product-hero-proof-step.is-complete > span,.product-hero-proof-step.is-clear > span { border-color:rgba(134,239,172,.4); color:#86efac; }
+.product-hero-proof-step.is-attention > span { border-color:rgba(251,191,36,.4); color:#fcd34d; }
+html.theme-light .product-command-center .product-hero-proof-step:hover,html.theme-light .product-command-center .product-hero-proof-step:focus-visible { background:rgba(139,92,246,.08); }
+html.theme-light .product-command-center .product-hero-proof-step + .product-hero-proof-step { border-left-color:rgba(71,85,105,.14); }
+html.theme-light .product-proof-progress { background:rgba(71,85,105,.12); }
+html.theme-light .product-proof-progress::after { background:#64748b; }
+html.theme-light .product-hero-proof-step.is-complete > span,html.theme-light .product-hero-proof-step.is-clear > span { border-color:rgba(22,163,74,.36); color:#15803d; }
+html.theme-light .product-hero-proof-step.is-attention > span { border-color:rgba(217,119,6,.4); color:#b45309; }
+@media (max-width:540px) { .product-command-center .product-hero-proof-step { display:block; padding:11px 6px 13px 0; }.product-command-center .product-hero-proof-step + .product-hero-proof-step { padding-left:8px; }.product-command-center .product-hero-proof-step > span { margin-bottom:7px; }.product-proof-progress { right:6px; }.product-proof-arrow { display:none; } }
