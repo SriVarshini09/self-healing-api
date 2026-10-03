@@ -818,7 +818,7 @@ function AssuranceHero({
       : 'The control plane is waiting for its first signal.';
 
   return (
-    <section className="product-hero" aria-labelledby="product-hero-title">
+    <section className="product-hero product-command-center" aria-labelledby="product-hero-title">
       <div className="product-hero-grid" aria-hidden="true" />
       <div className="product-hero-orb product-hero-orb-one" aria-hidden="true" />
       <div className="product-hero-orb product-hero-orb-two" aria-hidden="true" />
@@ -827,7 +827,7 @@ function AssuranceHero({
           <span className="product-brand-mark">S</span>
           <strong>SHAPI</strong>
           <span aria-hidden="true">/</span>
-          <span>Production</span>
+          <span>Production workspace</span>
         </div>
         <div className="product-hero-live">
           <span className={liveSnapshot ? 'is-live' : ''} />
@@ -838,22 +838,22 @@ function AssuranceHero({
       <div className="product-hero-main">
         <div className="product-hero-copy">
           <div className="product-eyebrow">
-            <span className="product-eyebrow-dot" /> OUTCOME PROTECTION
+            <span className="product-eyebrow-dot" /> PROTECTION COMMAND CENTER
           </div>
           <h2 id="product-hero-title">
-            {stable ? <>Your operations are <em>protected.</em></> : liveSnapshot ? <>One outcome needs your <em>attention.</em></> : <>Connect SHAPI to <em>start protecting.</em></>}
+            {stable ? <>Protection is active <em>across your outcomes.</em></> : liveSnapshot ? <>One outcome needs <em>your review.</em></> : <>Connect SHAPI to <em>start protecting.</em> </>}
           </h2>
           <p>
-            Monitor the business outcomes behind your integrations, see drift early, and move
-            from diagnosis to a reviewable repair.
+            A live view of the outcomes SHAPI is checking, the signals it sees, and the repairs
+            your team can review.
           </p>
           <div className="product-hero-actions">
             <button type="button" className="product-primary-action" onClick={onOpenDiagnosis}>
               <Sparkles className="size-3.5" />
-              Run a diagnosis
+              Open signal feed
             </button>
             <button type="button" className="product-secondary-action" onClick={() => onNavigate('traffic')}>
-              View protection signals <span aria-hidden="true">↗</span>
+              Explore coverage <span aria-hidden="true">↗</span>
             </button>
           </div>
           <div className="product-hero-status">
@@ -861,19 +861,19 @@ function AssuranceHero({
               {stable ? <Check className="size-4" /> : <CircleAlert className="size-4" />}
             </span>
             <span>
-              <strong>{statusLabel}</strong>
+              <strong>{stable ? 'Workspace healthy' : statusLabel}</strong>
               <small>{statusDetail}</small>
             </span>
           </div>
         </div>
 
         <div className="product-protection-panel" aria-label="SHAPI protection status">
-          <div className="product-protection-caption">WORKSPACE HEALTH</div>
+          <div className="product-protection-caption">OUTCOME COVERAGE</div>
           <div className="product-protection-ring">
             <div className="product-protection-ring-inner">
-              <span>{stable ? 'GOOD' : liveSnapshot ? 'WATCH' : 'SYNC'}</span>
-              <strong>{stable ? 'OK' : liveSnapshot ? String(activeIncidentCount).padStart(2, '0') : '—'}</strong>
-              <em>{stable ? 'all outcomes clear' : liveSnapshot ? 'open exceptions' : 'waiting for telemetry'}</em>
+              <span>{stable ? 'PASS' : liveSnapshot ? 'OPEN' : 'WAIT'}</span>
+              <strong>{stable ? `${liveSnapshot?.summary.totalInvariants ?? 0}/${liveSnapshot?.summary.totalInvariants ?? 0}` : liveSnapshot ? String(activeIncidentCount).padStart(2, '0') : '—'}</strong>
+              <em>{stable ? 'checks passing' : liveSnapshot ? 'needs review' : 'waiting for telemetry'}</em>
             </div>
           </div>
           <div className="product-signal-chip product-signal-chip-one">
@@ -892,9 +892,9 @@ function AssuranceHero({
       </div>
 
       <div className="product-hero-proof">
-        <div><span>01</span><strong>Live signal</strong><small>Events arrive from your connected services.</small></div>
-        <div><span>02</span><strong>Verified outcome</strong><small>Business behavior is checked continuously.</small></div>
-        <div><span>03</span><strong>Safe repair</strong><small>Every change stays reviewable by your team.</small></div>
+        <div><span>01</span><strong>Signal</strong><small>Services send live events into SHAPI.</small></div>
+        <div><span>02</span><strong>Verify</strong><small>Business outcomes are checked continuously.</small></div>
+        <div><span>03</span><strong>Repair</strong><small>Every change stays reviewable by your team.</small></div>
       </div>
     </section>
   );
