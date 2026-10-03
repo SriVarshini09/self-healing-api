@@ -1,0 +1,201 @@
+name: docker-production
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths:
+      - docker-compose.production.yml
+      - docker/**
+      - apps/backend/**
+      - apps/backend/prisma/**
+      - apps/dashboard/**
+      - dashboard/**
+      - packages/**
+      - scripts/**
+      - deploy/**
+      - render.yaml
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - .github/workflows/docker-production.yml
+  pull_request:
+    paths:
+      - docker-compose.production.yml
+      - docker/**
+      - apps/backend/**
+      - apps/backend/prisma/**
+      - apps/dashboard/**
+      - dashboard/**
+      - packages/**
+      - scripts/**
+      - deploy/**
+      - render.yaml
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - .github/workflows/docker-production.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-production-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-and-build:
+    runs-on: ubuntu-24.04
+    env:
+      COMPOSE_PROJECT_NAME: shapi-ci
+      POSTGRES_USER: shapi_ci
+      POSTGRES_PASSWORD: shapi_ci_password
+      POSTGRES_DB: shapi_ci
+      JWT_SECRET: shapi_ci_jwt_secret_0123456789_abcdefghijklmnopqrstuvwxyz
+      VITE_API_URL: http://localhost:3001/api/v1
+      SHAPI_CI_API_KEY: shapi_ci_api_key_20261001
+      VITE_SHAPI_API_KEY: shapi_ci_api_key_20261001
+      # Synthetic values satisfy production configuration validation for the
+      # tokenless signed-webhook smoke; no GitHub API call uses these values.
+      GITHUB_APP_ID: shapi-ci
+      GITHUB_APP_PRIVATE_KEY: shapi-ci-private-key
+      GITHUB_WEBHOOK_SECRET_APP: shapi_ci_github_webhook_secret_20261002
+      # Keep the CI stack in tokenless mode: no installation or GitHub token is supplied.
+      GITHUB_APP_SLUG: ''
+      # Synthetic but complete OIDC values verify that Compose passes the hosted
+      # session configuration into the backend. No provider is called.
+      OIDC_ISSUER_URL: http://127.0.0.1:3999
+      OIDC_CLIENT_ID: shapi-ci
+      OIDC_CLIENT_SECRET: shapi_ci_oidc_secret
+      OIDC_REDIRECT_URI: http://localhost:3001/api/v1/auth/callback
+      OIDC_DEFAULT_TENANT_SLUG: local-dev
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Validate Compose configuration
+        run: docker compose -f docker-compose.production.yml config --quiet
+
+      - name: Build production images
+        run: docker compose -f docker-compose.production.yml build --pull=false backend dashboard
+
+      - name: Start production stack
+        run: |
+          set -euo pipefail
+          if ! docker compose -f docker-compose.production.yml up -d; then
+            docker compose -f docker-compose.production.yml ps
+            docker compose -f docker-compose.production.yml logs --no-color --tail=100 backend postgres dashboard
+            exit 1
+          fi
+
+      - name: Verify production readiness
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            api_status=$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:3001/ready || true)
+            dashboard_status=$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/health || true)
+            if [ "$api_status" = '200' ] && [ "$dashboard_status" = '200' ]; then
+              echo "Production stack ready: API=$api_status dashboard=$dashboard_status"
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose -f docker-compose.production.yml ps
+          docker compose -f docker-compose.production.yml logs --no-color --tail=100 backend postgres dashboard
+          exit 1
+
+      - name: Verify authenticated security and load behavior
+        run: |
+          set -euo pipefail
+          docker compose -f docker-compose.production.yml exec -T \
+            -e SHAPI_API_KEY="$SHAPI_CI_API_KEY" \
+            backend ./apps/backend/node_modules/.bin/tsx apps/backend/prisma/seed.ts
+
+          runtime_uid=$(docker compose -f docker-compose.production.yml exec -T backend id -u | tr -d '\r\n')
+          test "$runtime_uid" != '0'
+          echo "Backend runtime UID is non-root: $runtime_uid"
+
+          unauthenticated_status=$(curl -sS -o /dev/null -w '%{http_code}' \
+            http://127.0.0.1:3001/api/v1/alerts/status)
+          invalid_status=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -H 'x-api-key: invalid-ci-key' \
+            http://127.0.0.1:3001/api/v1/alerts/status)
+          metrics_status=$(curl -sS -o /dev/null -w '%{http_code}' \
+            http://127.0.0.1:3001/metrics)
+
+          test "$unauthenticated_status" = '401'
+          test "$invalid_status" = '401'
+          test "$metrics_status" = '404'
+          oidc_enabled=$(curl -fsS http://127.0.0.1:3001/api/v1/auth/config | \
+            node -e "let body=''; process.stdin.on('data', chunk => body += chunk); process.stdin.on('end', () => process.stdout.write(String(JSON.parse(body).oidcEnabled)));")
+          test "$oidc_enabled" = 'true'
+          echo "OIDC backend configuration is enabled through the production Compose wiring"
+
+          trap 'rm -f .ci-api.env' EXIT
+          printf 'SHAPI_API_KEY=%s\n' "$SHAPI_CI_API_KEY" > .ci-api.env
+          node scripts/load-smoke.mjs \
+            --url http://127.0.0.1:3001 \
+            --env-file .ci-api.env \
+            --requests 20 \
+            --concurrency 5
+
+      - name: Verify backup and restore drill
+        shell: bash
+        run: |
+          set -euo pipefail
+          trap 'rm -f .ci-compose.env' EXIT
+          printf 'POSTGRES_USER=%s\nPOSTGRES_PASSWORD=%s\nPOSTGRES_DB=%s\n' \
+            "$POSTGRES_USER" "$POSTGRES_PASSWORD" "$POSTGRES_DB" > .ci-compose.env
+          pwsh -NoLogo -NoProfile -File scripts/backup-restore-drill.ps1 \
+            -EnvFile .ci-compose.env \
+            -ComposeFile docker-compose.production.yml \
+            -ProjectName "$COMPOSE_PROJECT_NAME" \
+            -Database "$POSTGRES_DB" \
+            -ConfirmDrill
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9.0.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Install dashboard smoke dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify production dashboard browser behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          trap 'rm -f .ci-dashboard.env' EXIT
+          printf 'SHAPI_API_KEY=%s\n' "$SHAPI_CI_API_KEY" > .ci-dashboard.env
+
+          # The smoke uses the same dashboard image and same-origin proxy that
+          # operators use in production; install only the browser test tools
+          # on the runner, not into the production images.
+          pnpm --dir apps/backend exec playwright install --with-deps chromium
+          pnpm --dir apps/backend exec tsx scripts/production-dashboard-test.ts \
+            --api-url http://localhost:3001 \
+            --dashboard-url http://localhost:8080 \
+            --env-file "$GITHUB_WORKSPACE/.ci-dashboard.env"
+
+      - name: Verify signed webhook replay protection and repair readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          trap 'rm -f .ci-api.env' EXIT
+          printf 'SHAPI_API_KEY=%s\nGITHUB_WEBHOOK_SECRET_APP=%s\n' \
+            "$SHAPI_CI_API_KEY" "$GITHUB_WEBHOOK_SECRET_APP" > .ci-api.env
+
+          docker compose -f docker-compose.production.yml exec -T \
+            -e GITHUB_WEBHOOK_SECRET_APP="$GITHUB_WEBHOOK_SECRET_APP" \
+            backend node scripts/github-webhook-smoke.mjs \
+              --api-url http://127.0.0.1:3001
+
+          pwsh -NoLogo -NoProfile -File scripts/audit-repair-readiness.ps1 \
+            -ApiUrl http://127.0.0.1:3001 \
+            -EnvFile .ci-api.env
+
+      - name: Tear down production stack
+        if: always()
+        run: docker compose -f docker-compose.production.yml down -v --remove-orphans

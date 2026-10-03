@@ -1,0 +1,108 @@
+name: hosted-readiness
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: 'Public HTTPS API URL, for example https://shapi-api.onrender.com'
+        required: true
+        type: string
+      dashboard_url:
+        description: 'Public HTTPS dashboard URL, for example https://shapi-dashboard.onrender.com'
+        required: true
+        type: string
+      require_repair_targets:
+        description: 'Fail unless every seeded invariant is ready for target review'
+        required: false
+        default: true
+        type: boolean
+      require_oidc:
+        description: 'Require the complete OIDC configuration in the operator secret set'
+        required: false
+        default: false
+        type: boolean
+      include_capacity_smoke:
+        description: 'Run the bounded public capacity smoke after the functional checks'
+        required: false
+        default: false
+        type: boolean
+      duration_seconds:
+        description: 'Capacity-smoke duration when enabled'
+        required: false
+        default: 30
+        type: number
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hosted-readiness-${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  readiness:
+    runs-on: ubuntu-24.04
+    env:
+      API_URL: ${{ inputs.api_url }}
+      DASHBOARD_URL: ${{ inputs.dashboard_url }}
+      REQUIRE_REPAIR_TARGETS: ${{ inputs.require_repair_targets }}
+      REQUIRE_OIDC: ${{ inputs.require_oidc }}
+      INCLUDE_CAPACITY_SMOKE: ${{ inputs.include_capacity_smoke }}
+      DURATION_SECONDS: ${{ inputs.duration_seconds }}
+      SHAPI_API_KEY: ${{ secrets.SHAPI_API_KEY }}
+      GITHUB_WEBHOOK_SECRET_APP: ${{ secrets.GITHUB_WEBHOOK_SECRET_APP }}
+      GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
+      GITHUB_APP_SLUG: ${{ secrets.GITHUB_APP_SLUG }}
+      GITHUB_APP_PRIVATE_KEY_B64: ${{ secrets.GITHUB_APP_PRIVATE_KEY_B64 }}
+      OIDC_ISSUER_URL: ${{ secrets.OIDC_ISSUER_URL }}
+      OIDC_CLIENT_ID: ${{ secrets.OIDC_CLIENT_ID }}
+      OIDC_CLIENT_SECRET: ${{ secrets.OIDC_CLIENT_SECRET }}
+      OIDC_REDIRECT_URI: ${{ secrets.OIDC_REDIRECT_URI }}
+      OIDC_DEFAULT_TENANT_SLUG: ${{ secrets.OIDC_DEFAULT_TENANT_SLUG }}
+      ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+      ALERT_WEBHOOK_SECRET: ${{ secrets.ALERT_WEBHOOK_SECRET }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Write ephemeral operator environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          trap 'rm -f hosted-operator.env' EXIT
+          umask 077
+          printf '%s\n' \
+            "SHAPI_API_KEY=$SHAPI_API_KEY" \
+            "GITHUB_WEBHOOK_SECRET_APP=$GITHUB_WEBHOOK_SECRET_APP" \
+            "GITHUB_APP_ID=$GITHUB_APP_ID" \
+            "GITHUB_APP_SLUG=$GITHUB_APP_SLUG" \
+            "GITHUB_APP_PRIVATE_KEY_B64=$GITHUB_APP_PRIVATE_KEY_B64" \
+            "OIDC_ISSUER_URL=$OIDC_ISSUER_URL" \
+            "OIDC_CLIENT_ID=$OIDC_CLIENT_ID" \
+            "OIDC_CLIENT_SECRET=$OIDC_CLIENT_SECRET" \
+            "OIDC_REDIRECT_URI=$OIDC_REDIRECT_URI" \
+            "OIDC_DEFAULT_TENANT_SLUG=$OIDC_DEFAULT_TENANT_SLUG" \
+            "ALERT_WEBHOOK_URL=$ALERT_WEBHOOK_URL" \
+            "ALERT_WEBHOOK_SECRET=$ALERT_WEBHOOK_SECRET" > hosted-operator.env
+
+          validation_args=(-EnvFile hosted-operator.env -RequireGitHubApp)
+          if [[ "$REQUIRE_OIDC" == 'true' ]]; then
+            validation_args+=(-RequireOidc)
+          fi
+          pwsh -NoLogo -NoProfile -File scripts/validate-hosted-env.ps1 "${validation_args[@]}"
+
+          readiness_args=(
+            -ApiUrl "$API_URL"
+            -DashboardUrl "$DASHBOARD_URL"
+            -EnvFile hosted-operator.env
+          )
+          if [[ "$REQUIRE_REPAIR_TARGETS" == 'true' ]]; then
+            readiness_args+=(-RequireRepairTargets)
+          fi
+          if [[ "$REQUIRE_OIDC" == 'true' ]]; then
+            readiness_args+=(-RequireOidc)
+          fi
+          if [[ "$INCLUDE_CAPACITY_SMOKE" == 'true' ]]; then
+            readiness_args+=(-IncludeCapacitySmoke -DurationSeconds "$DURATION_SECONDS")
+          fi
+          pwsh -NoLogo -NoProfile -File scripts/hosted-readiness.ps1 "${readiness_args[@]}"

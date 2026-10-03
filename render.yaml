@@ -1,0 +1,112 @@
+# Render Blueprint for the provider-neutral SHAPI production stack.
+#
+# Apply this Blueprint from the Render Dashboard, then fill the sync:false
+# values before the first deploy. The backend entrypoint runs Prisma
+# migrations before starting the API. The dashboard injects its API URL at
+# container start, so its URL can be set after Render assigns the API service
+# hostname without rebuilding the frontend image.
+
+previews:
+  generation: 'off'
+
+databases:
+  - name: shapi-postgres
+    databaseName: shapi
+    user: shapi
+    plan: free
+    region: oregon
+
+services:
+  - type: web
+    name: shapi-api
+    runtime: docker
+    dockerfilePath: ./docker/backend.Dockerfile
+    dockerContext: .
+    plan: free
+    region: oregon
+    healthCheckPath: /ready
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: shapi-postgres
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: '10000'
+      - key: JWT_SECRET
+        generateValue: true
+      - key: METRICS_TOKEN
+        sync: false
+      - key: SHAPI_BOOTSTRAP_TOKEN
+        sync: false
+      - key: DASHBOARD_URL
+        fromService:
+          type: web
+          name: shapi-dashboard
+          envVarKey: RENDER_EXTERNAL_URL
+      # Configure these for an OIDC-only hosted dashboard. Keep provider
+      # credentials and tenant selection out of the repository.
+      - key: OIDC_ISSUER_URL
+        sync: false
+      - key: OIDC_CLIENT_ID
+        sync: false
+      - key: OIDC_CLIENT_SECRET
+        sync: false
+      - key: OIDC_REDIRECT_URI
+        sync: false
+      - key: OIDC_SCOPES
+        value: 'openid profile email'
+      - key: OIDC_DEFAULT_TENANT_SLUG
+        sync: false
+      - key: OIDC_PROVIDER_TIMEOUT_MS
+        value: '10000'
+      - key: DEMO_SAAS_URL
+        sync: false
+      - key: GITHUB_APP_ID
+        sync: false
+      - key: GITHUB_APP_PRIVATE_KEY_B64
+        sync: false
+      - key: GITHUB_APP_SLUG
+        sync: false
+      - key: GITHUB_WEBHOOK_SECRET_APP
+        sync: false
+      - key: GITHUB_APP_INTEGRATION_ID
+        sync: false
+      - key: ALERT_WEBHOOK_URL
+        sync: false
+      - key: ALERT_WEBHOOK_SECRET
+        sync: false
+
+  - type: web
+    name: shapi-dashboard
+    runtime: docker
+    dockerfilePath: ./docker/dashboard.Dockerfile
+    dockerContext: .
+    plan: free
+    region: oregon
+    healthCheckPath: /health
+    autoDeployTrigger: checksPass
+    envVars:
+      # An empty value intentionally uses the same-origin /api/v1 proxy. Nginx
+      # forwards that path to BACKEND_URL, so no API hostname is compiled into
+      # the browser bundle.
+      - key: VITE_API_URL
+        value: ''
+      # Leave empty when using OIDC; otherwise set the raw tenant API key
+      # created by POST /api/v1/bootstrap/tenant.
+      - key: VITE_SHAPI_API_KEY
+        sync: false
+      - key: PORT
+        value: '10000'
+      # Free Render web services cannot receive private-network traffic. Proxy
+      # through the API's public TLS endpoint instead; Nginx preserves the API
+      # request path and sends the upstream hostname for Render routing.
+      - key: BACKEND_URL
+        fromService:
+          type: web
+          name: shapi-api
+          envVarKey: RENDER_EXTERNAL_URL

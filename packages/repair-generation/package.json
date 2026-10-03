@@ -1,0 +1,9 @@
+{
+  "name": "@shapi/repair-generation",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./src/index.ts",
+  "scripts": { "build": "tsc --outDir dist --noEmit false", "test": "vitest run", "typecheck": "tsc --noEmit" },
+  "devDependencies": { "typescript": "^5.3.3", "vitest": "^1.2.0" }
+}

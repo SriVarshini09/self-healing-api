@@ -1,0 +1,11 @@
+.git
+.codex
+.codex-build
+.codex-finalizer
+node_modules
+**/node_modules
+dist
+**/dist
+output
+*.log
+.env

@@ -1,0 +1,88 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    stop_grace_period: 30s
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  backend:
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      METRICS_TOKEN: ${METRICS_TOKEN-}
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      DASHBOARD_URL: ${SHAPI_DASHBOARD_URL:-http://localhost:8080}
+      SHAPI_BOOTSTRAP_TOKEN: ${SHAPI_BOOTSTRAP_TOKEN-}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET-}
+      OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI-}
+      OIDC_SCOPES: ${OIDC_SCOPES:-openid profile email}
+      OIDC_DEFAULT_TENANT_SLUG: ${OIDC_DEFAULT_TENANT_SLUG-}
+      OIDC_PROVIDER_TIMEOUT_MS: ${OIDC_PROVIDER_TIMEOUT_MS:-10000}
+      GITHUB_TOKEN: ${GITHUB_TOKEN-}
+      GITHUB_ACCOUNT_LOGIN: ${GITHUB_ACCOUNT_LOGIN-}
+      GITHUB_REPOSITORIES: ${GITHUB_REPOSITORIES-}
+      GITHUB_APP_ID: ${GITHUB_APP_ID-}
+      GITHUB_APP_PRIVATE_KEY: ${GITHUB_APP_PRIVATE_KEY-}
+      GITHUB_APP_PRIVATE_KEY_FILE: ${GITHUB_APP_PRIVATE_KEY_FILE-}
+      GITHUB_APP_PRIVATE_KEY_B64: ${GITHUB_APP_PRIVATE_KEY_B64-}
+      GITHUB_APP_SLUG: ${GITHUB_APP_SLUG-}
+      GITHUB_WEBHOOK_SECRET_APP: ${GITHUB_WEBHOOK_SECRET_APP-}
+      GITHUB_APP_INTEGRATION_ID: ${GITHUB_APP_INTEGRATION_ID-}
+      ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL-}
+      ALERT_WEBHOOK_SECRET: ${ALERT_WEBHOOK_SECRET-}
+      ALERT_WEBHOOK_TIMEOUT_MS: ${ALERT_WEBHOOK_TIMEOUT_MS-5000}
+      ALERT_WEBHOOK_MAX_ATTEMPTS: ${ALERT_WEBHOOK_MAX_ATTEMPTS-3}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+  dashboard:
+    restart: unless-stopped
+    stop_grace_period: 10s
+    build:
+      context: .
+      dockerfile: docker/dashboard.Dockerfile
+    environment:
+      PORT: 80
+      BACKEND_URL: http://backend:3001
+      VITE_API_URL: ${VITE_API_URL:?set VITE_API_URL}
+      VITE_SHAPI_API_KEY: ${VITE_SHAPI_API_KEY-}
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+
+volumes:
+  postgres_data:

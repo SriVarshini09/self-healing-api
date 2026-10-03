@@ -1,0 +1,783 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import Fastify, { type FastifyInstance } from 'fastify';
+import { createHmac } from 'node:crypto';
+import type { TenantRole } from '@prisma/client';
+import { githubRoutes } from '../github.js';
+import type { AuthenticatedRequest } from '../../utils/auth-context.js';
+
+// ---------------------------------------------------------------------------
+// In-memory Prisma substitute. Route handlers only touch
+// gitHubPullRequest (findUnique/findFirst/update) and incident (update),
+// so the fake implements exactly that surface.
+// ---------------------------------------------------------------------------
+interface FakeWebhookEvent {
+  id: string;
+  integrationId: string;
+  eventType: string;
+  providerEventId: string | null;
+  status: string;
+  processedAt?: Date | null;
+  errorMessage?: string | null;
+}
+
+interface FakePr {
+  id: string;
+  prNumber: number;
+  repository: string;
+  status: string;
+  verified: boolean;
+  incidentId: string;
+  verificationHeadSha?: string | null;
+  verificationChecks?: unknown;
+  verifiedAt?: Date | null;
+}
+
+interface FakeIncident {
+  id: string;
+  status: string;
+  resolvedAt: Date | null;
+  title: string;
+  rootCause: string;
+  suggestedFix: string;
+  githubPrUrl?: string;
+  invariant?: {
+    id?: string;
+    repairRepository?: string | null;
+    repairFilePath?: string | null;
+    repairRequiredChecks: string[];
+  } | null;
+}
+
+interface FakeCandidate {
+  id: string;
+  incidentId: string;
+  description: string;
+  diff: string | null;
+  confidence: number;
+  changes: unknown;
+  repository?: string | null;
+}
+
+type FakePrWhere = { id?: string; prNumber?: number; repository?: string; status?: string };
+type FakePrUpdateArgs = { where: { id: string }; data: Partial<FakePr> };
+type FakeIncidentUpdateArgs = { where: { id: string }; data: Partial<FakeIncident> };
+
+const db = {
+  prs: [] as FakePr[],
+  incidents: [] as FakeIncident[],
+  candidates: [] as FakeCandidate[],
+  webhookEvents: [] as FakeWebhookEvent[],
+};
+
+function matchesPr(p: FakePr, where: Record<string, unknown>): boolean {
+  if (where.id !== undefined && p.id !== where.id) return false;
+  if (where.prNumber !== undefined && p.prNumber !== where.prNumber) return false;
+  if (where.repository !== undefined && p.repository !== where.repository) return false;
+  if (where.status !== undefined && p.status !== where.status) return false;
+  return true;
+}
+
+vi.mock('../../utils/prisma.js', () => ({
+  prisma: {
+    integration: {
+      findMany: vi.fn(async () => [{
+        id: 'github-demo',
+        type: 'GITHUB',
+        webhookEnabled: true,
+        webhookSecret: 'test-secret',
+        config: {},
+      }]),
+    },
+    gitHubInstallation: {
+      findMany: vi.fn(async () => [{
+        id: 'install-1', githubInstallationId: BigInt(166689576),
+        accountLogin: 'SriVarshini09', repositories: ['SriVarshini09/self-healing-api'],
+      }]),
+      findUnique: vi.fn(async ({ where }: { where: { githubInstallationId: bigint } }) =>
+        where.githubInstallationId === BigInt(166689576) ? {
+          id: 'install-1', githubInstallationId: BigInt(166689576),
+          accountLogin: 'SriVarshini09', repositories: ['SriVarshini09/self-healing-api'],
+          integration: { id: 'github-demo' },
+        } : null),
+      findFirst: vi.fn(async ({ where }: { where: { id: string } }) =>
+        where.id === 'install-1' ? {
+          id: 'install-1', githubInstallationId: BigInt(-1),
+          accountLogin: 'acme', repositories: ['acme/demo', 'SriVarshini09/self-healing-api'],
+        } : null),
+    },
+    gitHubPullRequest: {
+      findUnique: vi.fn(async ({ where }: { where: { id: string } }) => db.prs.find(p => p.id === where.id) ?? null),
+      findFirst: vi.fn(async ({ where }: { where: FakePrWhere }) => {
+        const found = db.prs.find(p => matchesPr(p, where));
+        return found ? { ...found, incident: db.incidents.find(i => i.id === found.incidentId) } : null;
+      }),
+      update: vi.fn(async ({ where, data }: FakePrUpdateArgs) => {
+        const pr = db.prs.find(p => p.id === where.id);
+        if (!pr) throw new Error('PR not found');
+        Object.assign(pr, data);
+        return pr;
+      }),
+      create: vi.fn(async ({ data }: { data: Omit<FakePr, 'id' | 'verified'> & { prUrl: string } }) => {
+        const created = { ...data, id: 'new-pr', verified: false };
+        db.prs.push(created);
+        return created;
+      }),
+    },
+    webhookEvent: {
+      findFirst: vi.fn(async ({ where }: { where: { integrationId: string; providerEventId: string } }) =>
+        db.webhookEvents.find(event => event.integrationId === where.integrationId && event.providerEventId === where.providerEventId) ?? null),
+      create: vi.fn(async ({ data }: { data: Omit<FakeWebhookEvent, 'id'> }) => {
+        const created = { ...data, id: `delivery-${db.webhookEvents.length + 1}` };
+        db.webhookEvents.push(created);
+        return created;
+      }),
+      update: vi.fn(async ({ where, data }: { where: { id: string }; data: Partial<FakeWebhookEvent> }) => {
+        const event = db.webhookEvents.find(item => item.id === where.id);
+        if (!event) throw new Error('Webhook event not found');
+        Object.assign(event, data);
+        return event;
+      }),
+    },
+    incident: {
+      findUnique: vi.fn(async ({ where, include }: {
+        where: { id: string };
+        include: { repairCandidates: { where: { id: string } } };
+      }) => {
+        const incident = db.incidents.find(i => i.id === where.id);
+        return incident ? {
+          ...incident,
+          repairCandidates: db.candidates.filter(c => c.incidentId === incident.id && c.id === include.repairCandidates.where.id),
+        } : null;
+      }),
+      update: vi.fn(async ({ where, data }: FakeIncidentUpdateArgs) => {
+        const inc = db.incidents.find(i => i.id === where.id);
+        if (!inc) throw new Error('Incident not found');
+        Object.assign(inc, data);
+        return inc;
+      }),
+    },
+  },
+}));
+
+const verifyRepairPrMock = vi.fn();
+const openRepairPrFromChangesMock = vi.fn();
+const previewRepairPrChangesMock = vi.fn();
+
+vi.mock('@shapi/github-integration', () => ({
+  getGitHubAppPrivateKey: () => process.env.GITHUB_APP_PRIVATE_KEY || process.env.GITHUB_APP_PRIVATE_KEY_B64,
+  hasGitHubAppConfiguration: () => Boolean(
+    process.env.GITHUB_APP_ID &&
+    (process.env.GITHUB_APP_PRIVATE_KEY || process.env.GITHUB_APP_PRIVATE_KEY_B64 || process.env.GITHUB_APP_PRIVATE_KEY_FILE),
+  ),
+  hasGitHubAppCredentials: (installationId: number) => Boolean(
+    Number(installationId) > 0 &&
+    process.env.GITHUB_APP_ID &&
+    (process.env.GITHUB_APP_PRIVATE_KEY || process.env.GITHUB_APP_PRIVATE_KEY_B64 || process.env.GITHUB_APP_PRIVATE_KEY_FILE),
+  ),
+  verifyRepairPr: (...args: unknown[]) => verifyRepairPrMock(...args),
+  openRepairPrFromChanges: (...args: unknown[]) => openRepairPrFromChangesMock(...args),
+  previewRepairPrChanges: (...args: unknown[]) => previewRepairPrChangesMock(...args),
+  openRepairPr: vi.fn(),
+  buildRepairBranch: vi.fn((id: string) => `shapi/fix-${id.slice(0, 8)}`),
+  buildPrBody: vi.fn(() => 'Generated PR body'),
+  RepairChangeError: class extends Error {},
+}));
+
+function seedDb() {
+  db.prs = [
+    { id: 'pr-1', prNumber: 10, repository: 'acme/demo', status: 'OPEN', verified: false, incidentId: 'inc-1' },
+    { id: 'pr-2', prNumber: 11, repository: 'acme/demo', status: 'OPEN', verified: false, incidentId: 'inc-2' },
+  ];
+  db.incidents = [
+    { id: 'inc-1', status: 'REPAIRED', resolvedAt: null, title: 'Incident one', rootCause: 'cause', suggestedFix: 'fix', invariant: { id: 'inv-test', repairRepository: 'acme/demo', repairFilePath: 'src/selected.ts', repairRequiredChecks: ['target-tests'] } },
+    { id: 'inc-2', status: 'REPAIRED', resolvedAt: null, title: 'Incident two', rootCause: 'cause', suggestedFix: 'fix', invariant: { id: 'inv-test-2', repairRepository: 'acme/demo', repairFilePath: 'src/selected.ts', repairRequiredChecks: ['target-tests'] } },
+  ];
+  db.candidates = [];
+  db.webhookEvents = [];
+}
+
+let app: FastifyInstance;
+
+beforeEach(async () => {
+  seedDb();
+  verifyRepairPrMock.mockReset();
+  openRepairPrFromChangesMock.mockReset();
+  previewRepairPrChangesMock.mockReset();
+  process.env.GITHUB_WEBHOOK_SECRET_APP = 'test-secret';
+  process.env.GITHUB_TOKEN = 'test-token';
+  process.env.GITHUB_APP_ID = '5142476';
+  process.env.GITHUB_APP_PRIVATE_KEY = 'test-private-key';
+  process.env.GITHUB_APP_SLUG = 'shapi-self-healing';
+  app = Fastify();
+  app.addHook('onRequest', async request => {
+    (request as AuthenticatedRequest).shapiAuth = {
+      id: 'test-key',
+      name: 'GitHub route test key',
+      tenantId: 'tenant-local-dev',
+      role: 'OWNER' as TenantRole,
+      permissions: ['*'],
+    };
+  });
+  await githubRoutes(app);
+  await app.ready();
+});
+
+afterEach(async () => {
+  await app.close();
+  delete process.env.GITHUB_WEBHOOK_SECRET_APP;
+  delete process.env.GITHUB_TOKEN;
+  delete process.env.GITHUB_APP_ID;
+  delete process.env.GITHUB_APP_PRIVATE_KEY;
+  delete process.env.GITHUB_APP_PRIVATE_KEY_B64;
+  delete process.env.GITHUB_APP_PRIVATE_KEY_FILE;
+  delete process.env.GITHUB_APP_SLUG;
+});
+
+function signedHeaders(payload: Record<string, unknown>, event: string) {
+  const body = JSON.stringify(payload);
+  return {
+    'x-github-event': event,
+    'x-hub-signature-256': `sha256=${createHmac('sha256', 'test-secret').update(body).digest('hex')}`,
+  };
+}
+
+function signedHeadersWithDelivery(payload: Record<string, unknown>, event: string, delivery: string) {
+  return { ...signedHeaders(payload, event), 'x-github-delivery': delivery };
+}
+
+function pr(id: string): FakePr {
+  const found = db.prs.find(p => p.id === id);
+  if (!found) throw new Error(`missing PR ${id}`);
+  return found;
+}
+
+function incident(id: string): FakeIncident {
+  const found = db.incidents.find(i => i.id === id);
+  if (!found) throw new Error(`missing incident ${id}`);
+  return found;
+}
+
+describe('GET /github/status', () => {
+  it('reports App readiness and the direct installation URL', async () => {
+    const res = await app.inject({ method: 'GET', url: '/github/status' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      mode: 'app',
+      appIdConfigured: true,
+      appPrivateKeyConfigured: true,
+      appCredentialsConfigured: true,
+      webhookConfigured: true,
+      realInstallations: 1,
+      repositoryCount: 1,
+      appInstallUrl: 'https://github.com/apps/shapi-self-healing/installations/new',
+    });
+  });
+
+  it('reports App readiness when the key is supplied as base64', async () => {
+    delete process.env.GITHUB_APP_PRIVATE_KEY;
+    process.env.GITHUB_APP_PRIVATE_KEY_B64 = Buffer.from('-----BEGIN PRIVATE KEY-----\nkey\n-----END PRIVATE KEY-----').toString('base64');
+    const res = await app.inject({ method: 'GET', url: '/github/status' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      mode: 'app',
+      appIdConfigured: true,
+      appPrivateKeyConfigured: true,
+      appCredentialsConfigured: true,
+    });
+  });
+});
+
+const passingCi = {
+  verified: true,
+  ciPassed: true,
+  merged: false,
+  closed: false,
+  headSha: 'abc123',
+  checksTotal: 2,
+  checkRuns: [
+    { name: 'target-tests', status: 'completed', conclusion: 'success', detailsUrl: 'https://github.com/acme/demo/actions/runs/1' },
+    { name: 'lint', status: 'completed', conclusion: 'success', detailsUrl: null },
+  ],
+};
+
+const failingCi = {
+  verified: false,
+  ciPassed: false,
+  merged: false,
+  closed: false,
+  headSha: 'abc123',
+  checksTotal: 2,
+};
+
+const mergedPr = {
+  verified: true,
+  ciPassed: true,
+  merged: true,
+  closed: true,
+  headSha: 'abc123',
+  checksTotal: 2,
+};
+
+const closedPr = {
+  verified: false,
+  ciPassed: false,
+  merged: false,
+  closed: true,
+  headSha: 'abc123',
+  checksTotal: 2,
+};
+
+const candidateA = '11111111-1111-4111-8111-111111111111';
+const candidateB = '22222222-2222-4222-8222-222222222222';
+
+async function previewTokenFor(candidateId = candidateB): Promise<string> {
+  previewRepairPrChangesMock.mockResolvedValue({
+    base: 'master', baseSha: 'base-sha',
+    files: [{ path: 'src/selected.ts', kind: 'replace', original: 'const value = old;\n', content: 'const value = new;\n' }],
+  });
+  const response = await app.inject({
+    method: 'POST', url: '/github/incidents/inc-1/pr/preview',
+    payload: { installationId: 'install-1', repository: 'acme/demo', candidateId },
+  });
+  expect(response.statusCode).toBe(200);
+  return (response.json() as { previewToken: string }).previewToken;
+}
+
+describe('POST /github/incidents/:incidentId/pr/preview', () => {
+  it('rejects mapped repairs without a required target check', async () => {
+    db.incidents[0].invariant = { ...db.incidents[0].invariant!, repairRequiredChecks: [] };
+    db.candidates = [{ id: candidateB, incidentId: 'inc-1', description: 'Selected', diff: null, confidence: 0.7, changes: [{ kind: 'create', path: 'safe.txt', content: 'safe' }], repository: 'acme/demo' }];
+    const res = await app.inject({
+      method: 'POST', url: '/github/incidents/inc-1/pr/preview',
+      payload: { installationId: 'install-1', repository: 'acme/demo', candidateId: candidateB },
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toMatchObject({ error: expect.stringContaining('required GitHub check') });
+    expect(previewRepairPrChangesMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a reviewed business-outcome target without its dedicated check', async () => {
+    db.incidents[0].invariant = {
+      id: 'renamed-invariant',
+      repairRepository: 'SriVarshini09/self-healing-api',
+      repairFilePath: 'apps/demo-saas/src/business-outcome.ts',
+      repairRequiredChecks: ['verify'],
+    };
+    db.candidates = [{
+      id: candidateB,
+      incidentId: 'inc-1',
+      description: 'Selected',
+      diff: null,
+      confidence: 0.95,
+      changes: [{ kind: 'replace', path: 'apps/demo-saas/src/business-outcome.ts', before: 'old', after: 'new' }],
+      repository: 'SriVarshini09/self-healing-api',
+    }];
+    const res = await app.inject({
+      method: 'POST', url: '/github/incidents/inc-1/pr/preview',
+      payload: { installationId: 'install-1', repository: 'SriVarshini09/self-healing-api', candidateId: candidateB },
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toMatchObject({ error: expect.stringContaining('business-outcome') });
+    expect(previewRepairPrChangesMock).not.toHaveBeenCalled();
+  });
+
+  it('returns bounded source and result excerpts without opening a PR', async () => {
+    const changes = [{ kind: 'replace', path: 'src/selected.ts', before: 'old', after: 'new' }];
+    db.candidates = [{ id: candidateB, incidentId: 'inc-1', description: 'Selected', diff: null, confidence: 0.7, changes, repository: 'acme/demo' }];
+    previewRepairPrChangesMock.mockResolvedValue({
+      base: 'master', baseSha: 'base-sha',
+      files: [{ path: 'src/selected.ts', kind: 'replace', original: 'const value = old;\n', content: 'const value = new;\n' }],
+    });
+    const res = await app.inject({
+      method: 'POST', url: '/github/incidents/inc-1/pr/preview',
+      payload: { installationId: 'install-1', repository: 'acme/demo', candidateId: candidateB },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      repository: 'acme/demo', base: 'master', baseSha: 'base-sha',
+      changes: [{ path: 'src/selected.ts', before: { text: 'const value = old;\n' }, after: { text: 'const value = new;\n' } }],
+    });
+    expect((res.json() as { previewToken: string }).previewToken).toEqual(expect.any(String));
+    expect(openRepairPrFromChangesMock).not.toHaveBeenCalled();
+    expect(db.prs).toHaveLength(2);
+  });
+});
+
+describe('POST /github/incidents/:incidentId/pr', () => {
+  const payload = { installationId: 'install-1', repository: 'acme/demo', candidateId: candidateB, title: 'Repair' };
+
+  it('applies only the selected persisted candidate', async () => {
+    const selectedChanges = [{ kind: 'replace', path: 'src/selected.ts', before: 'old', after: 'new' }];
+    db.candidates = [
+      { id: candidateA, incidentId: 'inc-1', description: 'Other', diff: 'other diff', confidence: 0.9, changes: null },
+      { id: candidateB, incidentId: 'inc-1', description: 'Selected', diff: 'selected diff', confidence: 0.7, changes: selectedChanges, repository: 'acme/demo' },
+    ];
+    openRepairPrFromChangesMock.mockResolvedValue({ prNumber: 42, prUrl: 'https://github.com/acme/demo/pull/42', real: true });
+
+    const res = await app.inject({
+      method: 'POST', url: '/github/incidents/inc-1/pr',
+      payload: { ...payload, previewToken: await previewTokenFor(candidateB) },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(openRepairPrFromChangesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        changes: selectedChanges,
+        branch: 'shapi/fix-inc-1-22222222',
+        body: expect.stringContaining('selected diff'),
+      }), undefined, undefined, -1,
+    );
+    expect(res.json()).toMatchObject({ prNumber: 42, status: 'OPEN' });
+  });
+
+  it('requires a current preview approval before a PR can be created', async () => {
+    db.candidates = [{ id: candidateB, incidentId: 'inc-1', description: 'Selected', diff: null, confidence: 0.7, changes: [{ kind: 'create', path: 'safe.txt', content: 'safe' }], repository: 'acme/demo' }];
+    const res = await app.inject({ method: 'POST', url: '/github/incidents/inc-1/pr', payload });
+    expect(res.statusCode).toBe(409);
+    expect(openRepairPrFromChangesMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a suggestion with no applicable file changes', async () => {
+    db.candidates = [{ id: candidateB, incidentId: 'inc-1', description: 'Manual', diff: '+ proposed', confidence: 0.8, changes: null }];
+    const res = await app.inject({ method: 'POST', url: '/github/incidents/inc-1/pr', payload });
+    expect(res.statusCode).toBe(409);
+    expect(openRepairPrFromChangesMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects client supplied files and changes', async () => {
+    db.candidates = [{ id: candidateB, incidentId: 'inc-1', description: 'Selected', diff: null, confidence: 0.7, changes: [{ kind: 'create', path: 'safe.txt', content: 'safe' }] }];
+    const res = await app.inject({ method: 'POST', url: '/github/incidents/inc-1/pr', payload: { ...payload, files: ['unsafe.txt'] } });
+    expect(res.statusCode).toBe(400);
+    expect(openRepairPrFromChangesMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a candidate mapped to another repository', async () => {
+    db.candidates = [{ id: candidateB, incidentId: 'inc-1', description: 'Selected', diff: null, confidence: 0.7, changes: [{ kind: 'create', path: 'safe.txt', content: 'safe' }], repository: 'acme/other' }];
+    const res = await app.inject({ method: 'POST', url: '/github/incidents/inc-1/pr', payload });
+    expect(res.statusCode).toBe(409);
+    expect(openRepairPrFromChangesMock).not.toHaveBeenCalled();
+  });
+
+  it('does not reopen a resolved incident through PR creation', async () => {
+    db.incidents[0].status = 'RESOLVED';
+    db.candidates = [{ id: candidateB, incidentId: 'inc-1', description: 'Selected', diff: null, confidence: 0.7, changes: [{ kind: 'create', path: 'safe.txt', content: 'safe' }] }];
+    const res = await app.inject({ method: 'POST', url: '/github/incidents/inc-1/pr', payload });
+    expect(res.statusCode).toBe(409);
+    expect(openRepairPrFromChangesMock).not.toHaveBeenCalled();
+    expect(db.incidents[0].status).toBe('RESOLVED');
+  });
+});
+
+describe('POST /github/prs/:prId/verify', () => {
+  it('passing CI marks verified without touching status or incident', async () => {
+    verifyRepairPrMock.mockResolvedValue(passingCi);
+
+    const res = await app.inject({ method: 'POST', url: '/github/prs/pr-1/verify' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { verified: boolean; ciPassed: boolean; pr: FakePr };
+
+    // Response carries the UPDATED row, not the stale pre-verification object.
+    expect(body.verified).toBe(true);
+    expect(body.ciPassed).toBe(true);
+    expect(body.pr.verified).toBe(true);
+
+    // CI success persists the verification evidence alongside the boolean.
+    expect(pr('pr-1').verified).toBe(true);
+    expect(pr('pr-1').verificationHeadSha).toBe('abc123');
+    expect(pr('pr-1').verificationChecks).toEqual(passingCi.checkRuns);
+    expect(pr('pr-1').verifiedAt).toBeInstanceOf(Date);
+    expect(pr('pr-1').status).toBe('OPEN');
+    expect(incident('inc-1').status).toBe('REPAIRED');
+    expect(incident('inc-1').status).not.toBe('RESOLVED');
+    expect(incident('inc-1').resolvedAt).toBeNull();
+  });
+
+  it('requires configured target checks in addition to generic CI success', async () => {
+    db.incidents[0].invariant = { ...db.incidents[0].invariant!, repairRequiredChecks: ['target-tests', 'business-regression'] };
+    verifyRepairPrMock.mockResolvedValue({
+      ...passingCi,
+      checksTotal: 1,
+      checkRuns: [passingCi.checkRuns[0]],
+    });
+
+    const res = await app.inject({ method: 'POST', url: '/github/prs/pr-1/verify' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { verified: boolean; proof: { missingChecks: string[] } };
+    expect(body.verified).toBe(false);
+    expect(body.proof.missingChecks).toEqual(['business-regression']);
+    expect(pr('pr-1').verified).toBe(false);
+    expect(pr('pr-1').verifiedAt).toBeNull();
+  });
+
+  it('failing CI marks unverified and leaves everything else alone', async () => {
+    verifyRepairPrMock.mockResolvedValue(failingCi);
+
+    const res = await app.inject({ method: 'POST', url: '/github/prs/pr-1/verify' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { verified: boolean; ciPassed: boolean; pr: FakePr };
+    expect(body.verified).toBe(false);
+    expect(body.ciPassed).toBe(false);
+    expect(body.pr.verified).toBe(false);
+
+    expect(pr('pr-1').verified).toBe(false);
+    expect(pr('pr-1').status).toBe('OPEN');
+    expect(incident('inc-1').status).toBe('REPAIRED');
+    expect(incident('inc-1').resolvedAt).toBeNull();
+  });
+
+  it('merged GitHub state synchronizes PR and incident lifecycle', async () => {
+    verifyRepairPrMock.mockResolvedValue(mergedPr);
+
+    const res = await app.inject({ method: 'POST', url: '/github/prs/pr-1/verify' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { merged: boolean; closed: boolean; pr: FakePr };
+    expect(body.merged).toBe(true);
+    expect(body.closed).toBe(true);
+    expect(body.pr.status).toBe('MERGED');
+    expect(pr('pr-1').status).toBe('MERGED');
+    expect(incident('inc-1').status).toBe('RESOLVED');
+    expect(incident('inc-1').resolvedAt).not.toBeNull();
+  });
+
+  it('closed but unmerged GitHub state closes the PR without resolving the incident', async () => {
+    verifyRepairPrMock.mockResolvedValue(closedPr);
+
+    const res = await app.inject({ method: 'POST', url: '/github/prs/pr-1/verify' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { merged: boolean; closed: boolean; pr: FakePr };
+    expect(body.merged).toBe(false);
+    expect(body.closed).toBe(true);
+    expect(body.pr.status).toBe('CLOSED');
+    expect(pr('pr-1').status).toBe('CLOSED');
+    expect(incident('inc-1').status).toBe('REPAIRED');
+    expect(incident('inc-1').resolvedAt).toBeNull();
+  });
+
+  it('verification failure returns 502 with no state changes', async () => {
+    verifyRepairPrMock.mockRejectedValue(new Error('GITHUB_TOKEN is not configured'));
+
+    const res = await app.inject({ method: 'POST', url: '/github/prs/pr-1/verify' });
+    expect(res.statusCode).toBe(502);
+
+    expect(pr('pr-1').verified).toBe(false);
+    expect(pr('pr-1').status).toBe('OPEN');
+    expect(incident('inc-1').status).toBe('REPAIRED');
+    expect(incident('inc-1').resolvedAt).toBeNull();
+  });
+
+  it('unknown PR returns 404', async () => {
+    const res = await app.inject({ method: 'POST', url: '/github/prs/nope/verify' });
+    expect(res.statusCode).toBe(404);
+  });
+});
+
+describe('workflow_run webhook scoping', () => {
+  function workflowPayload(overrides: Record<string, unknown> = {}) {
+    return {
+      action: 'completed',
+      repository: { full_name: 'acme/demo' },
+      workflow_run: {
+        conclusion: 'success',
+        head_repository: { full_name: 'acme/demo' },
+        pull_requests: [{ number: 10 }],
+      },
+      ...overrides,
+    };
+  }
+
+  async function postWorkflow(payload: Record<string, unknown>) {
+    return app.inject({
+      method: 'POST',
+      url: '/github/webhook',
+      headers: signedHeaders(payload, 'workflow_run'),
+      payload,
+    });
+  }
+
+  it('verifies only the referenced PR, never MERGEs or RESOLVEs', async () => {
+    verifyRepairPrMock.mockResolvedValue(passingCi);
+
+    const res = await postWorkflow(workflowPayload());
+    expect(res.statusCode).toBe(200);
+    expect(verifyRepairPrMock).toHaveBeenCalledTimes(1);
+    expect(verifyRepairPrMock).toHaveBeenCalledWith('acme/demo', 10);
+
+    expect(pr('pr-1').verified).toBe(true);
+    // Unrelated OPEN PR in the same repo is untouched.
+    expect(pr('pr-2').verified).toBe(false);
+
+    expect(pr('pr-1').status).toBe('OPEN');
+    expect(pr('pr-2').status).toBe('OPEN');
+    expect(incident('inc-1').status).toBe('REPAIRED');
+    expect(incident('inc-2').status).toBe('REPAIRED');
+    expect(incident('inc-1').resolvedAt).toBeNull();
+    expect(incident('inc-2').resolvedAt).toBeNull();
+  });
+
+  it('ignores non-success conclusions', async () => {
+    const res = await postWorkflow(workflowPayload({ workflow_run: { conclusion: 'failure', pull_requests: [{ number: 10 }] } }));
+    expect(res.statusCode).toBe(200);
+    expect(verifyRepairPrMock).not.toHaveBeenCalled();
+    expect(pr('pr-1').verified).toBe(false);
+  });
+
+  it('clears stale verification when a referenced workflow is running', async () => {
+    db.prs[0].verified = true;
+    db.prs[0].verifiedAt = new Date();
+    db.prs[0].verificationHeadSha = 'old-head';
+    db.prs[0].verificationChecks = [{ name: 'verify', conclusion: 'success' }];
+
+    const res = await postWorkflow(workflowPayload({
+      action: 'in_progress',
+      workflow_run: { conclusion: null, head_sha: 'new-head', pull_requests: [{ number: 10 }] },
+    }));
+
+    expect(res.statusCode).toBe(200);
+    expect(verifyRepairPrMock).not.toHaveBeenCalled();
+    expect(pr('pr-1')).toMatchObject({
+      verified: false,
+      verifiedAt: null,
+      verificationHeadSha: null,
+    });
+    expect(pr('pr-1').verificationChecks).toBeDefined();
+  });
+
+  it('clears stale verification when a referenced workflow fails', async () => {
+    db.prs[0].verified = true;
+    db.prs[0].verifiedAt = new Date();
+    db.prs[0].verificationHeadSha = 'old-head';
+    db.prs[0].verificationChecks = [{ name: 'verify', conclusion: 'success' }];
+
+    const res = await postWorkflow(workflowPayload({
+      workflow_run: { conclusion: 'failure', head_sha: 'new-head', pull_requests: [{ number: 10 }] },
+    }));
+
+    expect(res.statusCode).toBe(200);
+    expect(verifyRepairPrMock).not.toHaveBeenCalled();
+    expect(pr('pr-1')).toMatchObject({ verified: false, verifiedAt: null, verificationHeadSha: null });
+  });
+
+  it('ignores non-completed actions', async () => {
+    const res = await postWorkflow(workflowPayload({ action: 'requested' }));
+    expect(res.statusCode).toBe(200);
+    expect(verifyRepairPrMock).not.toHaveBeenCalled();
+    expect(pr('pr-1').verified).toBe(false);
+  });
+
+  it('verifies nothing when pull_requests is empty', async () => {
+    const res = await postWorkflow(
+      workflowPayload({ workflow_run: { conclusion: 'success', pull_requests: [] } }),
+    );
+    expect(res.statusCode).toBe(200);
+    expect(verifyRepairPrMock).not.toHaveBeenCalled();
+    expect(pr('pr-1').verified).toBe(false);
+    expect(pr('pr-2').verified).toBe(false);
+  });
+
+  it('ignores PR numbers from another repository', async () => {
+    const res = await postWorkflow(
+      workflowPayload({
+        repository: { full_name: 'other/repo' },
+        workflow_run: { conclusion: 'success', pull_requests: [{ number: 10 }] },
+      }),
+    );
+    expect(res.statusCode).toBe(200);
+    expect(verifyRepairPrMock).not.toHaveBeenCalled();
+    expect(pr('pr-1').verified).toBe(false);
+  });
+
+  it('routes a known installation by its tenant mapping', async () => {
+    const res = await postWorkflow(workflowPayload({ action: 'requested', installation: { id: 166689576 } }));
+    expect(res.statusCode).toBe(200);
+    expect(db.webhookEvents.at(-1)?.integrationId).toBe('github-demo');
+  });
+
+  it('rejects an unknown installation instead of using another tenant fallback', async () => {
+    const res = await postWorkflow(workflowPayload({ installation: { id: 999999999 } }));
+    expect(res.statusCode).toBe(503);
+    expect(res.json()).toMatchObject({ error: 'GitHub App integration is not configured unambiguously' });
+    expect(db.webhookEvents).toHaveLength(0);
+  });
+});
+
+describe('pull_request merge webhook lifecycle path', () => {
+  it('ignores non-lifecycle pull-request actions instead of reopening a closed PR', async () => {
+    db.prs[0].status = 'CLOSED';
+    const payload = {
+      action: 'synchronize',
+      repository: { full_name: 'acme/demo' },
+      pull_request: { number: 10, merged: false, base: { repo: { full_name: 'acme/demo' } } },
+    };
+    const res = await app.inject({
+      method: 'POST',
+      url: '/github/webhook',
+      headers: signedHeaders(payload, 'pull_request'),
+      payload,
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(pr('pr-1').status).toBe('CLOSED');
+    expect(incident('inc-1').status).toBe('REPAIRED');
+  });
+
+  it('closed+merged sets PR MERGED, incident RESOLVED, resolvedAt', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/github/webhook',
+      headers: signedHeaders({
+        action: 'closed',
+        repository: { full_name: 'acme/demo' },
+        pull_request: { number: 10, merged: true, base: { repo: { full_name: 'acme/demo' } } },
+      }, 'pull_request'),
+      payload: {
+        action: 'closed',
+        repository: { full_name: 'acme/demo' },
+        pull_request: { number: 10, merged: true, base: { repo: { full_name: 'acme/demo' } } },
+      },
+    });
+    expect(res.statusCode).toBe(200);
+
+    expect(pr('pr-1').status).toBe('MERGED');
+    expect(incident('inc-1').status).toBe('RESOLVED');
+    expect(incident('inc-1').resolvedAt).not.toBeNull();
+
+    // The sibling PR/incident are untouched.
+    expect(pr('pr-2').status).toBe('OPEN');
+    expect(incident('inc-2').status).toBe('REPAIRED');
+  });
+});
+
+describe('GitHub webhook delivery recording', () => {
+  it('records a completed delivery and acknowledges a retry without reprocessing it', async () => {
+    verifyRepairPrMock.mockResolvedValue(passingCi);
+    const payload = {
+      action: 'completed',
+      repository: { full_name: 'acme/demo' },
+      workflow_run: { conclusion: 'success', pull_requests: [{ number: 10 }] },
+    };
+
+    const first = await app.inject({
+      method: 'POST',
+      url: '/github/webhook',
+      headers: signedHeadersWithDelivery(payload, 'workflow_run', 'delivery-1'),
+      payload,
+    });
+    const retry = await app.inject({
+      method: 'POST',
+      url: '/github/webhook',
+      headers: signedHeadersWithDelivery(payload, 'workflow_run', 'delivery-1'),
+      payload,
+    });
+
+    expect(first.statusCode).toBe(200);
+    expect(first.json()).toMatchObject({ received: true, eventId: 'delivery-1' });
+    expect(retry.statusCode).toBe(200);
+    expect(retry.json()).toMatchObject({ received: true, eventId: 'delivery-1', duplicate: true });
+    expect(verifyRepairPrMock).toHaveBeenCalledTimes(1);
+    expect(db.webhookEvents).toHaveLength(1);
+    expect(db.webhookEvents[0]).toMatchObject({
+      providerEventId: 'delivery-1',
+      eventType: 'workflow_run',
+      status: 'COMPLETED',
+    });
+  });
+});

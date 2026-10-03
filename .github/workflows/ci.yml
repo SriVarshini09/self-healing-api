@@ -1,0 +1,116 @@
+name: ci
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9.0.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Test secret-safe GitHub key encoder
+        shell: pwsh
+        run: |
+          $fixture = Join-Path $env:RUNNER_TEMP 'shapi-test-private-key.pem'
+          $output = Join-Path $env:RUNNER_TEMP 'shapi-test-private-key.b64'
+          @"
+          -----BEGIN PRIVATE KEY-----
+          TEST-KEY-MATERIAL
+          -----END PRIVATE KEY-----
+          "@ | Set-Content -LiteralPath $fixture -Encoding utf8
+
+          & pwsh -NoLogo -NoProfile -File ./scripts/encode-github-app-private-key.ps1 `
+            -PemFile $fixture -OutputFile $output
+          if ($LASTEXITCODE -ne 0) { throw 'The encoder failed for a valid synthetic PEM.' }
+
+          $encoded = (Get-Content -LiteralPath $output -Raw).Trim()
+          if ($encoded -notmatch '^[A-Za-z0-9+/]+=*$') {
+            throw 'The encoder did not produce a single Base64 value.'
+          }
+          $decoded = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($encoded))
+          $expected = (Get-Content -LiteralPath $fixture -Raw).Trim()
+          if ($decoded -ne $expected) { throw 'The encoded PEM did not round-trip.' }
+
+          $invalidRejected = $false
+          try {
+            & ./scripts/encode-github-app-private-key.ps1 -PemFile ./README.md -OutputFile $output
+          } catch {
+            if ($_.Exception.Message -notlike '*complete PEM private key*') { throw }
+            $invalidRejected = $true
+          }
+          if (-not $invalidRejected) { throw 'The encoder accepted malformed PEM input.' }
+
+      - name: Generate Prisma Client
+        run: pnpm --filter @shapi/backend db:generate
+
+      - name: Typecheck (all workspaces)
+        run: pnpm -r typecheck
+
+      - name: Backend lint
+        run: pnpm --filter @shapi/backend lint
+
+      - name: Build all workspaces
+        run: |
+          pnpm -r build
+          pnpm --filter @shapi/backend exec node -e "require('@shapi/github-integration')"
+
+      - name: Unit tests (all workspaces)
+        run: pnpm -r test
+
+      - name: Build dashboard
+        run: pnpm --filter @shapi/dashboard build
+
+      - name: Build production dashboard
+        run: |
+          pnpm --dir dashboard install --frozen-lockfile --ignore-workspace
+          pnpm --dir dashboard build
+
+      - name: Prisma validate
+        run: pnpm --filter @shapi/backend exec prisma validate
+        env:
+          DATABASE_URL: postgresql://shapi:shapi@localhost:5432/shapi?schema=public
+
+  business-outcome:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9.0.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Run business-outcome regression
+        run: |
+          pnpm --filter @shapi/demo-saas e2e
+          pnpm --filter @shapi/demo-saas test -- src/index.test.ts
+          pnpm --filter @shapi/repair-generation test -- src/business-outcome-proof.test.ts src/demo-saas-adapter.test.ts
