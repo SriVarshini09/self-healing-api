@@ -5,6 +5,7 @@ import { serializeJson } from '../utils/json.js';
 import { incrementCounter, isMetricsTokenValid, renderPrometheus } from '../utils/metrics.js';
 import { logger } from '../utils/logger.js';
 import { rateLimitKey } from '../utils/rate-limit.js';
+import { apiDocsCss, apiDocsJs } from '../docs-theme.js';
 
 export async function registerPlugins(app: FastifyInstance) {
   // Prisma models carry BigInt columns (e.g. GitHubInstallation.githubInstallationId)
@@ -54,8 +55,8 @@ export async function registerPlugins(app: FastifyInstance) {
   await app.register(import('@fastify/swagger'), {
     openapi: {
       info: {
-        title: 'SHAPI API',
-        description: 'Behavioral Dependency Assurance Platform API',
+        title: 'SHAPI API Console',
+        description: 'Behavioral dependency assurance and recovery API. Use the console to inspect live health, readiness, incidents, integrations, invariants, and repair workflows.',
         version: '0.0.1'
       },
       servers: [
@@ -75,6 +76,11 @@ export async function registerPlugins(app: FastifyInstance) {
 
   await app.register(import('@fastify/swagger-ui'), {
     routePrefix: '/docs',
+    theme: {
+      title: 'SHAPI API Console',
+      css: [{ filename: 'shapi-api-console.css', content: apiDocsCss }],
+      js: [{ filename: 'shapi-api-console.js', content: apiDocsJs }]
+    },
     uiConfig: {
       docExpansion: 'list',
       deepLinking: true
