@@ -1665,12 +1665,6 @@ function HealingDashboardContent({
               Run diagnosis
             </Button>
           </div>
-          <AssuranceHero
-            liveSnapshot={liveSnapshot}
-            activeIncidentCount={activeIncidentCount}
-            onNavigate={navigateFromObservatory}
-            onOpenDiagnosis={openDiagnosis}
-          />
           <CommandCenterRail
             liveSnapshot={liveSnapshot}
             activeIncidents={activeIncidents}

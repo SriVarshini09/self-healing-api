@@ -445,7 +445,7 @@ html.theme-light .product-command-center .product-hero-proof > div + div { borde
 html.theme-light .product-command-center .product-hero-proof strong { color:#334155; }
 
 /* Product narrative rail: next action, live activity, and trust evidence stay visible together. */
-.command-center-rail { display:grid; grid-template-columns:minmax(250px,1.12fr) minmax(240px,.92fr) minmax(250px,1fr); gap:10px; margin:-6px 0 18px; }
+.command-center-rail { display:grid; grid-template-columns:minmax(250px,1.12fr) minmax(240px,.92fr) minmax(250px,1fr); gap:10px; margin:0 0 18px; }
 .command-next-action,.command-activity-stream,.command-trust-panel { min-height:166px; border:1px solid rgba(148,163,184,.17); border-radius:12px; background:rgba(17,24,33,.72); box-shadow:0 12px 30px rgba(0,0,0,.1),inset 0 1px 0 rgba(255,255,255,.035); }
 .command-next-action { padding:17px 18px 16px; border-left:2px solid rgba(167,139,250,.68); }
 .command-next-action-attention { border-left-color:rgba(251,191,36,.8); }.command-next-action-healthy { border-left-color:rgba(134,239,172,.72); }.command-next-action-waiting { border-left-color:rgba(103,232,249,.7); }
