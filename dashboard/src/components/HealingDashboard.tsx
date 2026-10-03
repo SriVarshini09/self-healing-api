@@ -2054,13 +2054,13 @@ function HealingDashboardContent({
       )}
       {diagnosisOpen && (
         <div
-          className="fixed inset-0 z-50 grid place-items-center bg-overlay p-4"
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-overlay p-4 sm:items-center"
           onClick={() => setDiagnosisOpen(false)}
         >
           <div
             role="dialog"
             aria-label="Fleet diagnosis"
-            className="w-full max-w-md rounded-md border border-border bg-popover p-5"
+            className="my-4 max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-md border border-border bg-popover p-5 shadow-2xl"
             onClick={event => event.stopPropagation()}
           >
             <div className="flex items-center justify-between">
