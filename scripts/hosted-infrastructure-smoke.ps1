@@ -10,6 +10,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+. (Join-Path $PSScriptRoot 'http-request-compat.ps1')
+
 if ($StartupTimeoutSec -lt 1) { throw 'StartupTimeoutSec must be positive' }
 if ($RetryDelaySec -lt 1) { throw 'RetryDelaySec must be positive' }
 
@@ -37,13 +39,14 @@ function Invoke-ExpectedResponse(
   $lastResult = 'no response'
   do {
     try {
-      $response = Invoke-WebRequest `
-        -Method $Method `
-        -Uri $Uri `
-        -Headers $Headers `
-        -UseBasicParsing `
-        -SkipHttpErrorCheck `
-        -TimeoutSec 15
+      $response = Invoke-HttpRequestCompat -Parameters @{
+        Method = $Method
+        Uri = $Uri
+        Headers = $Headers
+        UseBasicParsing = $true
+        SkipHttpErrorCheck = $true
+        TimeoutSec = 15
+      }
       if ([int]$response.StatusCode -eq $ExpectedStatus) {
         Write-Host "PASS $Name (HTTP $ExpectedStatus)"
         return $response

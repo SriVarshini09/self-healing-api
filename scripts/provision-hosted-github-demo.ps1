@@ -12,6 +12,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+. (Join-Path $PSScriptRoot 'http-request-compat.ps1')
+
 function Read-EnvValue([string]$Path, [string]$Name) {
   if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
     throw "Environment file not found: $Path"
@@ -48,7 +50,7 @@ function Invoke-Json([string]$Method, [string]$Uri, [hashtable]$Headers, [object
     $params.ContentType = 'application/json'
     $params.Body = $Body | ConvertTo-Json -Depth 10 -Compress
   }
-  $response = Invoke-WebRequest @params
+  $response = Invoke-HttpRequestCompat -Parameters $params
   $parsed = $null
   if ($response.Content) {
     try { $parsed = $response.Content | ConvertFrom-Json } catch { $parsed = $null }

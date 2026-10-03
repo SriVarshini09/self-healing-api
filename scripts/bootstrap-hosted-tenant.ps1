@@ -17,6 +17,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+. (Join-Path $PSScriptRoot 'http-request-compat.ps1')
+
 function Read-EnvValue([string]$Path, [string]$Name) {
   if (-not (Test-Path -LiteralPath $Path)) { throw "Environment file not found: $Path" }
   $line = Get-Content -LiteralPath $Path |
@@ -93,14 +95,15 @@ if ($DryRun) {
   exit 0
 }
 
-$response = Invoke-WebRequest `
-  -Method Post `
-  -Uri "$($ApiUrl.TrimEnd('/'))/api/v1/bootstrap/tenant" `
-  -Headers @{ 'x-bootstrap-token' = $bootstrapToken } `
-  -ContentType 'application/json' `
-  -Body ($body | ConvertTo-Json -Compress) `
-  -UseBasicParsing `
-  -SkipHttpErrorCheck
+$response = Invoke-HttpRequestCompat -Parameters @{
+  Method = 'Post'
+  Uri = "$($ApiUrl.TrimEnd('/'))/api/v1/bootstrap/tenant"
+  Headers = @{ 'x-bootstrap-token' = $bootstrapToken }
+  ContentType = 'application/json'
+  Body = ($body | ConvertTo-Json -Compress)
+  UseBasicParsing = $true
+  SkipHttpErrorCheck = $true
+}
 
 if ([int]$response.StatusCode -ne 201) {
   throw "Hosted tenant bootstrap failed with HTTP $($response.StatusCode): $($response.Content)"
@@ -125,14 +128,15 @@ if ($ApiKeyOutputFile) {
       permissions = @('read', 'write')
       role = 'OPERATOR'
     } | ConvertTo-Json -Compress
-    $dashboardResponse = Invoke-WebRequest `
-      -Method Post `
-      -Uri "$($ApiUrl.TrimEnd('/'))/api/v1/api-keys" `
-      -Headers @{ 'x-api-key' = $result.key } `
-      -ContentType 'application/json' `
-      -Body $dashboardBody `
-      -UseBasicParsing `
-      -SkipHttpErrorCheck
+    $dashboardResponse = Invoke-HttpRequestCompat -Parameters @{
+      Method = 'Post'
+      Uri = "$($ApiUrl.TrimEnd('/'))/api/v1/api-keys"
+      Headers = @{ 'x-api-key' = $result.key }
+      ContentType = 'application/json'
+      Body = $dashboardBody
+      UseBasicParsing = $true
+      SkipHttpErrorCheck = $true
+    }
     if ([int]$dashboardResponse.StatusCode -ne 201) {
       throw "Dashboard API-key creation failed with HTTP $($dashboardResponse.StatusCode). The owner key is already stored at $ownerOutputPath."
     }

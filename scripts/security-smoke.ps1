@@ -6,6 +6,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+. (Join-Path $PSScriptRoot 'http-request-compat.ps1')
+
 function Read-EnvValue([string]$Path, [string]$Name) {
   if (-not (Test-Path -LiteralPath $Path)) { return $null }
   $line = Get-Content -LiteralPath $Path |
@@ -16,7 +18,12 @@ function Read-EnvValue([string]$Path, [string]$Name) {
 }
 
 function Assert-Status([string]$Name, [string]$Uri, [int]$Expected, [hashtable]$Headers = @{}) {
-  $response = Invoke-WebRequest -Uri $Uri -Headers $Headers -UseBasicParsing -SkipHttpErrorCheck
+  $response = Invoke-HttpRequestCompat -Parameters @{
+    Uri = $Uri
+    Headers = $Headers
+    UseBasicParsing = $true
+    SkipHttpErrorCheck = $true
+  }
   if ([int]$response.StatusCode -ne $Expected) {
     throw "FAIL ${Name}: expected HTTP $Expected, received HTTP $($response.StatusCode)"
   }

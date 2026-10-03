@@ -25,6 +25,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+. (Join-Path $PSScriptRoot 'http-request-compat.ps1')
+
 if (-not (Test-Path -LiteralPath $EnvFile)) { throw "Environment file not found: $EnvFile" }
 if (-not (Test-Path -LiteralPath $ComposeFile)) { throw "Compose file not found: $ComposeFile" }
 & "$PSScriptRoot\validate-env.ps1" -EnvFile $EnvFile
@@ -42,7 +44,12 @@ function Invoke-Compose([string[]]$Arguments) {
 
 function Test-Endpoint([string]$Uri) {
   try {
-    $response = Invoke-WebRequest -Uri $Uri -UseBasicParsing -SkipHttpErrorCheck -TimeoutSec 5
+    $response = Invoke-HttpRequestCompat -Parameters @{
+      Uri = $Uri
+      UseBasicParsing = $true
+      SkipHttpErrorCheck = $true
+      TimeoutSec = 5
+    }
     return [int]$response.StatusCode -ge 200 -and [int]$response.StatusCode -lt 300
   } catch {
     return $false

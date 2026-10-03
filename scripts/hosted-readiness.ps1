@@ -28,6 +28,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+. (Join-Path $PSScriptRoot 'http-request-compat.ps1')
+
 function Assert-PublicHttpsUrl([string]$Name, [string]$Value) {
   $parsed = $null
   if (-not [Uri]::TryCreate($Value, [UriKind]::Absolute, [ref]$parsed) -or $parsed.Scheme -ne 'https') {
@@ -48,12 +50,13 @@ Write-Host 'Running credential-free hosted infrastructure checks...'
   -DashboardUrl $DashboardUrl
 
 if ($RequireDashboardAuthentication) {
-  $runtimeConfigResponse = Invoke-WebRequest `
-    -Method GET `
-    -Uri "$($DashboardUrl.TrimEnd('/'))/config.js" `
-    -UseBasicParsing `
-    -SkipHttpErrorCheck `
-    -TimeoutSec 15
+  $runtimeConfigResponse = Invoke-HttpRequestCompat -Parameters @{
+    Method = 'GET'
+    Uri = "$($DashboardUrl.TrimEnd('/'))/config.js"
+    UseBasicParsing = $true
+    SkipHttpErrorCheck = $true
+    TimeoutSec = 15
+  }
   if ([int]$runtimeConfigResponse.StatusCode -ne 200) {
     throw "Hosted dashboard runtime configuration is unavailable (HTTP $($runtimeConfigResponse.StatusCode))."
   }
@@ -67,12 +70,13 @@ if ($RequireDashboardAuthentication) {
   )
   $dashboardApiKeyConfigured = $apiKeyMatch.Success -and $apiKeyMatch.Groups['value'].Value.Length -gt 0
 
-  $authConfigResponse = Invoke-WebRequest `
-    -Method GET `
-    -Uri "$($ApiUrl.TrimEnd('/'))/api/v1/auth/config" `
-    -UseBasicParsing `
-    -SkipHttpErrorCheck `
-    -TimeoutSec 15
+  $authConfigResponse = Invoke-HttpRequestCompat -Parameters @{
+    Method = 'GET'
+    Uri = "$($ApiUrl.TrimEnd('/'))/api/v1/auth/config"
+    UseBasicParsing = $true
+    SkipHttpErrorCheck = $true
+    TimeoutSec = 15
+  }
   if ([int]$authConfigResponse.StatusCode -ne 200) {
     throw "Hosted API authentication configuration is unavailable (HTTP $($authConfigResponse.StatusCode))."
   }

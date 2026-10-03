@@ -10,6 +10,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+. (Join-Path $PSScriptRoot 'http-request-compat.ps1')
+
 if ($StartupTimeoutSec -lt 1) { throw 'StartupTimeoutSec must be positive' }
 if ($RetryDelaySec -lt 1) { throw 'RetryDelaySec must be positive' }
 
@@ -59,12 +61,13 @@ foreach ($entry in $dashboardHeaders.GetEnumerator()) {
 
 function Get-GitHubStatus([string]$Uri, [hashtable]$Headers) {
   try {
-    $response = Invoke-WebRequest `
-      -Uri $Uri `
-      -Headers $Headers `
-      -UseBasicParsing `
-      -SkipHttpErrorCheck `
-      -TimeoutSec 15
+    $response = Invoke-HttpRequestCompat -Parameters @{
+      Uri = $Uri
+      Headers = $Headers
+      UseBasicParsing = $true
+      SkipHttpErrorCheck = $true
+      TimeoutSec = 15
+    }
   } catch {
     throw "FAIL GitHub readiness request: could not reach the API. Check the hosted API URL and network connectivity."
   }
