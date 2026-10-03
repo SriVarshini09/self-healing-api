@@ -42,4 +42,12 @@ server {
   location / {
     try_files $uri $uri/ /index.html;
   }
+
+  location = /landing {
+    return 308 /landing/$is_args$args;
+  }
+
+  location /landing/ {
+    try_files $uri $uri/ =404;
+  }
 }
