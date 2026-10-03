@@ -735,13 +735,28 @@ function RecoveryObservatory({
       </div>
 
       <div className="observatory-scene-wrap">
-        <div className="observatory-scene" role="group" aria-label="Interactive three dimensional SHAPI service map">
+        <div
+          className={`observatory-scene ${stable ? 'scene-stable' : 'scene-watch'}`}
+          role="group"
+          aria-label="Interactive three dimensional SHAPI service map"
+        >
           <div className="scene-stars" aria-hidden="true" />
           <div className="scene-grid" aria-hidden="true" />
           <div className="scene-ring scene-ring-wide" aria-hidden="true" />
           <div className="scene-ring scene-ring-tilt" aria-hidden="true" />
           <div className="scene-orbit-line scene-orbit-line-a" aria-hidden="true" />
           <div className="scene-orbit-line scene-orbit-line-b" aria-hidden="true" />
+          <svg className="scene-signal-routes" viewBox="0 0 800 340" preserveAspectRatio="none" aria-hidden="true">
+            <path className="scene-route scene-route-primary" d="M70 170 C190 42 278 54 400 170 S610 298 730 170" />
+            <path className="scene-route scene-route-secondary" d="M118 286 C236 224 274 118 400 170 S562 258 682 62" />
+            <circle className="scene-route-tracer scene-route-tracer-primary" r="4">
+              <animateMotion dur="5.8s" repeatCount="indefinite" path="M70 170 C190 42 278 54 400 170 S610 298 730 170" />
+            </circle>
+            <circle className="scene-route-tracer scene-route-tracer-secondary" r="3.5">
+              <animateMotion dur="7.2s" begin="1.8s" repeatCount="indefinite" path="M118 286 C236 224 274 118 400 170 S562 258 682 62" />
+            </circle>
+          </svg>
+          <div className="scene-scanline" aria-hidden="true" />
           <div className="scene-signal scene-signal-a" aria-hidden="true" />
           <div className="scene-signal scene-signal-b" aria-hidden="true" />
           <div className="scene-signal scene-signal-c" aria-hidden="true" />
