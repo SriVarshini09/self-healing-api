@@ -5,30 +5,32 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Current hosted state (2026-10-02)
 
-- The Render Blueprint has now been applied in the intended workspace. The
-  hosted API is live at `https://shapi-api.onrender.com` and the hosted
-  dashboard is live at `https://shapi-dashboard.onrender.com`. The API
-  `/health` and `/ready` endpoints and the dashboard root all return 200.
-  The dashboard operator key is configured, the command center authenticates,
-  and live telemetry refreshes successfully.
-- The secret-free hosted infrastructure workflow passed on commit `61d8b10`
-  in [run 37056500056](https://github.com/SriVarshini09/self-healing-api/actions/runs/37056500056).
-  The exact commit also passed the complete Docker production workflow in
-  [run 37056715418](https://github.com/SriVarshini09/self-healing-api/actions/runs/37056715418),
-  including authenticated security/load behavior, backup/restore, dashboard
-  browser behavior, signed webhook replay protection, and repair-readiness.
-- The hosted dashboard is no longer at its authentication gate: it reports
-  `Live SHAPI API`, `SHAPI systems online`, and live incident telemetry. The
-  hosted tenant now has one GitHub integration record, two reviewed GitHub
-  invariants, and zero active incidents; both invariants report
-  `READY_FOR_TARGET_REVIEW`. It still has no synced GitHub installation.
-- Hosted GitHub App onboarding is the remaining production configuration gap.
-  The live API reports `mode=unconfigured`, zero real installations, and zero
-  repositories. The tenant-scoped GitHub integration record exists, but the
-  live diagnostic reports `appIdConfigured=true` and
-  `appPrivateKeyConfigured=false`; the Render value for
-  `GITHUB_APP_PRIVATE_KEY_B64` must be corrected before installation
-  `166689576` can be synced to the hosted tenant.
+- The Render Blueprint is applied in the intended workspace. The hosted API is
+  live at `https://shapi-api.onrender.com` and the hosted dashboard is live at
+  `https://shapi-dashboard.onrender.com`; `/health`, `/ready`, and the
+  dashboard root currently return 200.
+- The live GitHub App path is connected: the API reports `mode=app`, one real
+  installation, and one accessible repository. Installation `166689576` is
+  synced to the hosted tenant.
+- The hosted tenant has one GitHub integration, two reviewed GitHub invariants,
+  zero active incidents, and both invariants report
+  `READY_FOR_TARGET_REVIEW` with the exact `verify` check configured.
+- The latest `ci` and `docker-production` workflows passed on commit `ff5ac92`:
+  [CI run 37086932919](https://github.com/SriVarshini09/self-healing-api/actions/runs/37086932919)
+  and [Docker production run 37086932914](https://github.com/SriVarshini09/self-healing-api/actions/runs/37086932914).
+- The real repair-PR proof remains available as open GitHub PR
+  [#4](https://github.com/SriVarshini09/self-healing-api/pull/4). Its exact
+  head SHA has a completed, successful `verify` check. The current hosted
+  tenant has no active incident because the proof incident is historical.
+- The last complete hosted readiness gate passed all infrastructure, security,
+  load, signed-webhook deduplication, GitHub App, and repair-target checks.
+  The optional hosted dashboard browser smoke was omitted from that operator
+  run because the local OneDrive dependency tree is damaged; the same browser
+  coverage passes in Docker production CI.
+- The next local verification attempt stopped before making public requests
+  because `C:\Users\ptula\AppData\Local\SHAPI\shapi-owner.env` currently
+  contains only `SHAPI_API_KEY`. Add `GITHUB_WEBHOOK_SECRET_APP` there from
+  the Render/GitHub App secret without printing it, then rerun the hosted gate.
 - Hosted GitHub tenant provisioning is now repeatable with
   `scripts/provision-hosted-github-demo.ps1`. It is idempotent, secret-safe,
   and creates only the reviewed integration/invariant records that are missing;
@@ -45,21 +47,17 @@ product is production-ready. See [README.md](README.md) for setup and API detail
 
 ## Latest repository verification
 
-- The current `master` head is `0523c1a`, which corrects the documented hosted
-  onboarding order: bootstrap the owner key before running the authenticated
-  smoke, then install or explicitly sync the GitHub App. CI passed on that head
-  in [run 37078060970](https://github.com/SriVarshini09/self-healing-api/actions/runs/37078060970),
-  including the business-outcome regression and secret-safe key-encoder test.
-- The latest runtime-affecting hardening commit is `f7b3fcf`. Its complete
-  Docker production validation passed in
-  [run 37076537280](https://github.com/SriVarshini09/self-healing-api/actions/runs/37076537280),
-  covering Compose validation, production readiness, authenticated load,
-  backup/restore, dashboard browser behavior, signed webhook replay protection,
-  and repair-readiness.
-- The only unresolved hosted gate remains external to the repository:
-  `GITHUB_APP_PRIVATE_KEY_B64` is not usable in the running Render API, so the
-  hosted GitHub installation and real repair-PR proof are intentionally not
-  marked complete.
+- The current `master` head is `ff5ac92`. It makes the hosted PowerShell
+  readiness gate ignore stale child-process exit status after a successful
+  preflight. The latest CI and Docker production runs are both green.
+- The latest runtime-affecting hardening remains covered by the Docker
+  production workflow, including Compose validation, production readiness,
+  authenticated load, backup/restore, dashboard browser behavior, signed
+  webhook replay protection, and repair-readiness.
+- No repository code blocker remains for the hosted GitHub App path. The only
+  outstanding release follow-up is to restore the missing local operator-file
+  webhook secret and rerun the complete hosted gate without disabling its
+  optional checks.
 
 ## Verified in this repository
 
