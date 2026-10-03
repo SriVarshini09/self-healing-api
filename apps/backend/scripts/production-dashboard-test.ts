@@ -101,11 +101,11 @@ async function runDashboardSmoke(mode: {
 
   try {
     await page.goto(`${dashboardUrl}/`, { waitUntil: 'domcontentloaded' });
-    await page.getByRole('heading', { name: 'Command center' }).waitFor({ timeout: 15000 });
+    await page.getByRole('heading', { name: 'Overview', exact: true }).waitFor({ timeout: 15000 });
     await page.getByText(/Live SHAPI telemetry/u).first().waitFor({ timeout: 15000 });
-    await page.getByText('Incident signals', { exact: true }).waitFor({ timeout: 15000 });
-    await page.getByRole('heading', { name: 'Incident activity', exact: true }).waitFor({ timeout: 15000 });
-    await page.getByRole('heading', { name: 'Recent incidents', exact: true }).waitFor({ timeout: 15000 });
+    await page.getByRole('heading', { name: 'Protection signals', exact: true }).waitFor({ timeout: 15000 });
+    await page.getByRole('heading', { name: 'Repair activity', exact: true }).waitFor({ timeout: 15000 });
+    await page.getByRole('heading', { name: 'Recent protection signals', exact: true }).waitFor({ timeout: 15000 });
     await page.getByRole('heading', { name: 'GitHub repair connection', exact: true }).waitFor({ timeout: 15000 });
     await page.getByRole('heading', { name: 'Connected integrations', exact: true }).waitFor({ timeout: 15000 });
     const setupButtons = page.getByRole('button', { name: 'Setup', exact: true });
@@ -120,7 +120,7 @@ async function runDashboardSmoke(mode: {
       await deliveryButtons.first().click();
       await page.getByText('Recent deliveries', { exact: true }).waitFor({ timeout: 15000 });
     }
-    await page.getByRole('heading', { name: 'Repair targets', exact: true }).waitFor({ timeout: 15000 });
+    await page.getByRole('heading', { name: 'Outcome coverage setup', exact: true }).waitFor({ timeout: 15000 });
     await page.getByLabel('Repair readiness summary').getByText(/ready for target review/u).waitFor({ timeout: 15000 });
     // A fresh tenant may have all targets ready after reviewed mappings are
     // seeded, while an older tenant may still contain manual-review targets.
