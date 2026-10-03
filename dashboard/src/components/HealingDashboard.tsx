@@ -776,7 +776,7 @@ function RecoveryObservatory({
           </button>
           {selectedKey === 'core' && (
             <button type="button" className="observatory-detail-link observatory-detail-link-secondary" onClick={onOpenDiagnosis}>
-              Run diagnosis <span aria-hidden="true">✦</span>
+              Diagnose selected system <span aria-hidden="true">✦</span>
             </button>
           )}
         </div>
