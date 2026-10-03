@@ -240,6 +240,31 @@ manual-review and missing-check states. Add `-RequireRepairTargets` when a
 hosted release must fail unless every invariant has a reviewed repository target
 and exact required checks.
 
+On Windows, keep the operator file in one known location instead of using a
+placeholder path. The following commands show the path and verify only the
+variable names; they never print secret values:
+
+```powershell
+$operatorEnv = Join-Path $env:LOCALAPPDATA 'SHAPI\shapi-owner.env'
+Test-Path -LiteralPath $operatorEnv
+Get-Content -LiteralPath $operatorEnv |
+  Where-Object { $_ -match '^(SHAPI_API_KEY|GITHUB_WEBHOOK_SECRET_APP)=' } |
+  ForEach-Object { (($_ -split '=', 2)[0]) + '=PRESENT' }
+```
+
+The file must contain the owner API key and the GitHub App webhook secret:
+`SHAPI_API_KEY=...` and `GITHUB_WEBHOOK_SECRET_APP=...`. Do not paste either
+value into chat or commit the file. Use the same resolved path when running the
+hosted gate:
+
+```powershell
+./scripts/hosted-readiness.ps1 `
+  -ApiUrl https://<api-host> `
+  -DashboardUrl https://<dashboard-host> `
+  -EnvFile $operatorEnv `
+  -RequireRepairTargets
+```
+
 To create the first hosted tenant without putting the bootstrap token in shell
 history, store `SHAPI_BOOTSTRAP_TOKEN` in a separate operator env file and run:
 
