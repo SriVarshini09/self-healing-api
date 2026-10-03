@@ -836,6 +836,9 @@ function AssuranceHero({
     : liveSnapshot
       ? `${activeIncidentCount} live exception${activeIncidentCount === 1 ? '' : 's'} need attention.`
       : 'The control plane is waiting for its first signal.';
+  const signalState = liveSnapshot ? 'is-complete' : 'is-waiting';
+  const verifyState = liveSnapshot && liveSnapshot.summary.totalInvariants > 0 ? 'is-complete' : 'is-waiting';
+  const repairState = stable ? 'is-clear' : liveSnapshot ? 'is-attention' : 'is-waiting';
 
   return (
     <section className="product-hero product-command-center" aria-labelledby="product-hero-title">
@@ -911,10 +914,25 @@ function AssuranceHero({
         </div>
       </div>
 
-      <div className="product-hero-proof">
-        <div><span>01</span><strong>Signal</strong><small>Services send live events into SHAPI.</small></div>
-        <div><span>02</span><strong>Verify</strong><small>Business outcomes are checked continuously.</small></div>
-        <div><span>03</span><strong>Repair</strong><small>Every change stays reviewable by your team.</small></div>
+      <div className="product-hero-proof" aria-label="SHAPI protection loop">
+        <button type="button" className={`product-hero-proof-step ${signalState}`} onClick={onOpenDiagnosis} aria-label="Open the live signal feed">
+          <span>01</span>
+          <strong>Signal <ArrowUpRight className="product-proof-arrow" /></strong>
+          <small>Services send live events into SHAPI.</small>
+          <i className="product-proof-progress" aria-hidden="true" />
+        </button>
+        <button type="button" className={`product-hero-proof-step ${verifyState}`} onClick={() => onNavigate('repair-targets')} aria-label="View outcome checks">
+          <span>02</span>
+          <strong>Verify <ArrowUpRight className="product-proof-arrow" /></strong>
+          <small>Business outcomes are checked continuously.</small>
+          <i className="product-proof-progress" aria-hidden="true" />
+        </button>
+        <button type="button" className={`product-hero-proof-step ${repairState}`} onClick={() => onNavigate('healing')} aria-label="Review repair activity">
+          <span>03</span>
+          <strong>Repair <ArrowUpRight className="product-proof-arrow" /></strong>
+          <small>Every change stays reviewable by your team.</small>
+          <i className="product-proof-progress" aria-hidden="true" />
+        </button>
       </div>
     </section>
   );
