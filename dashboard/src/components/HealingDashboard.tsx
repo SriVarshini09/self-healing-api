@@ -11,12 +11,14 @@ import {
   Globe2,
   HeartPulse,
   Network,
+  Moon,
   Pause,
   Play,
   Search,
   Settings2,
   ShieldCheck,
   Sparkles,
+  Sun,
   TriangleAlert,
   X,
 } from 'lucide-react';
@@ -35,6 +37,17 @@ const SHAPI_KEY =
   runtimeConfig.apiKey ||
   import.meta.env.VITE_SHAPI_API_KEY ||
   (isLocalhost ? 'shapi_demo_local_d3v_k3y_9f2c' : '');
+
+type DashboardTheme = 'dark' | 'light';
+
+function readThemePreference(): DashboardTheme {
+  if (typeof window === 'undefined') return 'dark';
+  try {
+    return window.localStorage.getItem('shapi-theme') === 'light' ? 'light' : 'dark';
+  } catch {
+    return 'dark';
+  }
+}
 
 type LiveSnapshot = {
   summary: { totalInvariants: number; monitoredIntegrations: number; activeAlerts: number };
@@ -785,7 +798,13 @@ function RecoveryObservatory({
   );
 }
 
-function HealingDashboardContent() {
+function HealingDashboardContent({
+  theme,
+  onToggleTheme,
+}: {
+  theme: DashboardTheme;
+  onToggleTheme: () => void;
+}) {
   const [paused, setPaused] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -1356,6 +1375,15 @@ function HealingDashboardContent() {
               title="View alerts"
             >
               <Bell className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggleTheme}
+              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            >
+              {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
             </Button>
             {!SHAPI_KEY && (
               <Button variant="outline" size="sm" onClick={() => void signOut()}>
@@ -2204,8 +2232,20 @@ function DashboardAccessScreen({
 }
 
 export function HealingDashboard() {
+  const [theme, setTheme] = useState<DashboardTheme>(readThemePreference);
   const [authState, setAuthState] = useState<DashboardAuthState>(SHAPI_KEY ? 'ready' : 'checking');
   const [authMessage, setAuthMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('theme-light', theme === 'light');
+    try {
+      window.localStorage.setItem('shapi-theme', theme);
+    } catch {
+      // Theme persistence is best effort when storage is unavailable.
+    }
+    const themeColor = document.querySelector('meta[name="theme-color"]');
+    themeColor?.setAttribute('content', theme === 'light' ? '#f4f8fb' : '#07111f');
+  }, [theme]);
 
   useEffect(() => {
     if (SHAPI_KEY) return;
@@ -2237,5 +2277,5 @@ export function HealingDashboard() {
   if (authState !== 'ready') {
     return <DashboardAccessScreen state={authState} message={authMessage} />;
   }
-  return <HealingDashboardContent />;
+  return <HealingDashboardContent theme={theme} onToggleTheme={() => setTheme(current => current === 'dark' ? 'light' : 'dark')} />;
 }
