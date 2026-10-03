@@ -461,6 +461,78 @@ html.theme-light .command-rail-heading { color:#64748b; }.theme-light .command-n
 @media (max-width:980px) { .command-center-rail { grid-template-columns:1fr 1fr; }.command-next-action { grid-row:span 2; }.command-trust-panel { grid-column:2; } }
 @media (max-width:640px) { .command-center-rail { grid-template-columns:1fr; }.command-next-action { grid-row:auto; }.command-trust-panel { grid-column:auto; }.command-next-action,.command-activity-stream,.command-trust-panel { min-height:0; } }
 
+/* Daylight observatory: a distinct light workspace, not a washed-out dark theme. */
+html.theme-light {
+  --background: oklch(0.965 0.014 250);
+  --foreground: oklch(0.205 0.035 258);
+  --card: oklch(0.995 0.006 250);
+  --card-foreground: oklch(0.205 0.035 258);
+  --popover: oklch(0.995 0.006 250);
+  --popover-foreground: oklch(0.205 0.035 258);
+  --primary: oklch(0.52 0.19 265);
+  --primary-foreground: oklch(0.99 0.004 250);
+  --secondary: oklch(0.93 0.024 250);
+  --secondary-foreground: oklch(0.27 0.05 258);
+  --muted: oklch(0.93 0.018 250);
+  --muted-foreground: oklch(0.465 0.04 255);
+  --accent: oklch(0.925 0.045 205);
+  --accent-foreground: oklch(0.24 0.055 250);
+  --border: oklch(0.84 0.032 250 / 92%);
+  --input: oklch(0.79 0.04 250);
+  --ring: oklch(0.55 0.19 265);
+  --sidebar: oklch(0.985 0.009 250);
+  --sidebar-foreground: oklch(0.205 0.035 258);
+  --sidebar-primary: oklch(0.52 0.19 265);
+  --sidebar-primary-foreground: oklch(0.99 0.004 250);
+  --sidebar-accent: oklch(0.93 0.024 250);
+  --sidebar-accent-foreground: oklch(0.24 0.05 258);
+  --sidebar-border: oklch(0.84 0.032 250 / 92%);
+  --sidebar-ring: oklch(0.55 0.19 265);
+}
+html.theme-light body { background:radial-gradient(900px 420px at 0% 0%,rgba(125,211,252,.13),transparent 68%),radial-gradient(760px 520px at 100% 16%,rgba(196,181,253,.12),transparent 70%),#eef2f8; }
+html.theme-light main.min-h-screen { background:linear-gradient(135deg,rgba(255,255,255,.28),transparent 38%),transparent; }
+html.theme-light aside { background:linear-gradient(180deg,rgba(255,255,255,.94),rgba(242,246,253,.94)); box-shadow:10px 0 34px rgba(51,65,85,.05); }
+html.theme-light aside .nav-item { color:#5b6b80; }
+html.theme-light aside .nav-item:hover { background:rgba(139,92,246,.07); color:#293653; }
+html.theme-light aside .nav-item-active { color:#382080; background:linear-gradient(100deg,rgba(139,92,246,.13),rgba(34,211,238,.07)); box-shadow:inset 3px 0 0 #7c3aed; }
+html.theme-light aside .nav-item-active svg { color:#6d28d9; }
+html.theme-light header.sticky { background:rgba(248,250,253,.82); box-shadow:0 1px 0 rgba(71,85,105,.04); }
+html.theme-light .product-command-center { border-color:rgba(79,70,229,.22); background:radial-gradient(440px 300px at 87% 42%,rgba(34,211,238,.15),transparent 72%),radial-gradient(520px 340px at 18% 100%,rgba(167,139,250,.14),transparent 74%),linear-gradient(135deg,#ffffff 0%,#f4f7fd 54%,#f5f1ff 100%); box-shadow:0 24px 64px rgba(51,65,85,.14),inset 0 1px 0 rgba(255,255,255,.96); }
+html.theme-light .product-command-center::after { opacity:.72; border-color:rgba(79,70,229,.16); box-shadow:0 0 0 24px rgba(129,140,248,.035),0 0 0 48px rgba(56,189,248,.025); }
+html.theme-light .product-command-center .product-hero-grid { opacity:.14; background-image:linear-gradient(rgba(14,116,144,.09) 1px,transparent 1px),linear-gradient(90deg,rgba(109,40,217,.08) 1px,transparent 1px); }
+html.theme-light .product-command-center .product-hero-header { border-bottom-color:rgba(71,85,105,.14); }
+html.theme-light .product-command-center .product-brand-mark { color:#fff; background:linear-gradient(135deg,#6366f1,#7c3aed); border-color:rgba(79,70,229,.42); box-shadow:0 7px 18px rgba(99,102,241,.24); }
+html.theme-light .product-command-center .product-eyebrow { color:#5b21b6; }
+html.theme-light .product-command-center .product-eyebrow-dot { background:#7c3aed; box-shadow:0 0 0 5px rgba(124,58,237,.1),0 0 16px rgba(124,58,237,.5); }
+html.theme-light .product-command-center .product-hero-copy h2 { color:#172033; }
+html.theme-light .product-command-center .product-hero-copy h2 em { color:#5b21b6; text-shadow:0 5px 22px rgba(124,58,237,.12); }
+html.theme-light .product-command-center .product-primary-action { color:#fff; border-color:rgba(79,70,229,.55); background:linear-gradient(135deg,#6366f1,#7c3aed); box-shadow:0 10px 24px rgba(99,102,241,.24); }
+html.theme-light .product-command-center .product-primary-action:hover,html.theme-light .product-command-center .product-primary-action:focus-visible { box-shadow:0 13px 30px rgba(99,102,241,.32); }
+html.theme-light .product-command-center .product-secondary-action { color:#39456a; border-color:rgba(79,70,229,.22); background:rgba(99,102,241,.06); }
+html.theme-light .product-command-center .product-secondary-action:hover,html.theme-light .product-command-center .product-secondary-action:focus-visible { border-color:rgba(79,70,229,.48); background:rgba(99,102,241,.11); }
+html.theme-light .product-command-center .product-hero-status strong { color:#22304a; }
+html.theme-light .product-command-center .product-hero-status small { color:#5f7089; }
+html.theme-light .product-command-center .product-protection-panel::before { background:radial-gradient(circle,rgba(99,102,241,.15),transparent 70%); }
+html.theme-light .product-command-center .product-protection-ring { border-color:rgba(79,70,229,.34); box-shadow:0 0 34px rgba(99,102,241,.13),inset 0 0 24px rgba(99,102,241,.06); }
+html.theme-light .product-command-center .product-protection-ring-inner { border-color:rgba(99,102,241,.5); background:radial-gradient(circle at 35% 25%,rgba(165,180,252,.3),rgba(255,255,255,.98) 66%); box-shadow:0 0 0 8px rgba(99,102,241,.06),0 0 42px rgba(99,102,241,.16),inset 0 0 20px rgba(99,102,241,.08); }
+html.theme-light .product-command-center .product-protection-ring-inner span { color:#6d28d9; }
+html.theme-light .product-command-center .product-protection-ring-inner strong { color:#211c4d; }
+html.theme-light .product-command-center .product-protection-ring-inner em { color:#64748b; }
+html.theme-light .product-command-center .product-signal-chip { background:rgba(255,255,255,.72); border-color:rgba(79,70,229,.2); box-shadow:0 12px 24px rgba(51,65,85,.11),0 0 18px rgba(99,102,241,.05); }
+html.theme-light .product-command-center .product-signal-chip-icon { border-color:rgba(79,70,229,.22); color:#6d28d9; background:rgba(99,102,241,.08); }
+html.theme-light .product-command-center .product-signal-chip strong { color:#263452; }
+html.theme-light .product-command-center .product-signal-chip small { color:#63758b; }
+html.theme-light .product-command-center .product-hero-proof-step:hover,html.theme-light .product-command-center .product-hero-proof-step:focus-visible { background:rgba(99,102,241,.07); }
+html.theme-light .command-next-action,html.theme-light .command-activity-stream,html.theme-light .command-trust-panel { background:rgba(255,255,255,.88); border-color:rgba(79,70,229,.14); box-shadow:0 14px 32px rgba(51,65,85,.08),inset 0 1px 0 rgba(255,255,255,.98); }
+html.theme-light .command-next-action { border-left-color:rgba(124,58,237,.62); }
+html.theme-light .command-next-action h2 { color:#1d2941; }
+html.theme-light .command-next-action p { color:#60728a; }
+html.theme-light .command-next-action button { color:#5b21b6; border-color:rgba(109,40,217,.26); background:rgba(139,92,246,.09); }
+html.theme-light .command-next-action button:hover,html.theme-light .command-next-action button:focus-visible { border-color:rgba(109,40,217,.5); background:rgba(139,92,246,.15); }
+html.theme-light .command-activity-item > span { color:#64748b; }
+html.theme-light .command-activity-item strong { color:#334155; }
+html.theme-light .command-trust-list div { color:#475569; }
+
 /* Investor narrative layer: make the protection loop actionable, not decorative. */
 .product-command-center .product-hero-proof-step { position:relative; display:grid; grid-template-columns:auto 1fr; gap:3px 9px; align-items:center; width:100%; min-width:0; padding:11px 16px 12px 0; border:0; border-radius:8px; color:inherit; background:transparent; text-align:left; cursor:pointer; transition:background .2s ease,transform .2s ease,box-shadow .2s ease; }
 .product-command-center .product-hero-proof-step + .product-hero-proof-step { padding-left:18px; border-left:1px solid rgba(148,163,184,.12); border-radius:0 8px 8px 0; }
