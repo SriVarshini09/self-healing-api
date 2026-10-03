@@ -3,10 +3,10 @@ import { HealingDashboard } from "@/components/HealingDashboard";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [
-    { title: "Pulseguard — Self-Healing API Control Plane" },
-    { name: "description", content: "An animated operational dashboard preview for monitoring and healing API services." },
-    { property: "og:title", content: "Pulseguard — Self-Healing API Control Plane" },
-    { property: "og:description", content: "Monitor live incidents, review repair targets, and verify SHAPI outcomes." },
+    { title: "SHAPI — Outcome Protection" },
+    { name: "description", content: "Protect connected services by monitoring business outcomes and reviewing safe repairs." },
+    { property: "og:title", content: "SHAPI — Outcome Protection" },
+    { property: "og:description", content: "Monitor business outcomes, review drift, and verify safe repairs." },
     { property: "og:type", content: "website" },
     { name: "twitter:card", content: "summary_large_image" },
   ] }),
