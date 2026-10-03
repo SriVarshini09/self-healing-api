@@ -577,9 +577,9 @@ function RepairTargetPanel() {
     <section id="repair-targets" className="mt-4 rounded-md border border-border bg-card">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
         <div>
-          <h2 className="text-sm font-semibold">Repair targets</h2>
+          <h2 className="text-sm font-semibold">Outcome coverage setup</h2>
           <p className="text-[11px] text-muted-foreground">
-            Map an invariant to the exact GitHub file where a safe predicate repair may be proposed.
+            Tell SHAPI where a safe, reviewable repair may be proposed when an outcome drifts.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
@@ -685,11 +685,11 @@ function RecoveryObservatory({
   const alertCount = summary?.activeAlerts ?? '—';
   const [selectedKey, setSelectedKey] = useState<ObservatoryNodeKey>('core');
   const nodes = [
-    { key: 'api' as const, label: 'API gateway', value: liveSnapshot ? 'LIVE' : 'WAITING', tone: liveSnapshot ? 'stable' : 'watch', target: 'overview', targetLabel: 'Open command center', description: 'The API gateway is the live heartbeat for SHAPI. It confirms that telemetry can reach the dashboard and powers every downstream recovery signal.' },
+    { key: 'api' as const, label: 'API gateway', value: liveSnapshot ? 'LIVE' : 'WAITING', tone: liveSnapshot ? 'stable' : 'watch', target: 'overview', targetLabel: 'Back to overview', description: 'The API gateway is the live heartbeat for SHAPI. It confirms that telemetry can reach the dashboard and powers every downstream protection signal.' },
     { key: 'events' as const, label: 'Event mesh', value: `${summary?.monitoredIntegrations ?? '—'} streams`, tone: 'stable', target: 'connections', targetLabel: 'View connections', description: 'The event mesh carries provider signals into SHAPI. Connected integrations and webhook readiness are visible in the connections panel.' },
-    { key: 'outcomes' as const, label: 'Outcome engine', value: `${summary?.totalInvariants ?? '—'} checks`, tone: 'stable', target: 'repair-targets', targetLabel: 'View invariants', description: 'The outcome engine evaluates the business invariants that matter. Each check can be mapped to a precise repair target for human review.' },
-    { key: 'repair' as const, label: 'Repair queue', value: stable ? 'CLEAR' : `${activeIncidentCount || '—'} open`, tone: stable ? 'stable' : 'watch', target: 'repair-targets', targetLabel: 'Review repair targets', description: stable ? 'No active incidents are waiting for repair review. SHAPI is monitoring normally.' : `${activeIncidentCount} active incident${activeIncidentCount === 1 ? '' : 's'} may need diagnosis and a repair review.` },
-    { key: 'drift' as const, label: 'Drift monitor', value: `${alertCount} alerts`, tone: Number(alertCount) > 0 ? 'watch' : 'stable', target: 'traffic', targetLabel: 'View incident signals', description: Number(alertCount) > 0 ? 'Drift alerts are being reported by SHAPI. Open the incident signal field to inspect the current state.' : 'No drift alerts are currently reported. The signal field continues watching for changes.' },
+    { key: 'outcomes' as const, label: 'Outcome engine', value: `${summary?.totalInvariants ?? '—'} checks`, tone: 'stable', target: 'repair-targets', targetLabel: 'View outcomes', description: 'The outcome engine evaluates the business invariants that matter. Each check can be mapped to a precise, reviewable repair path.' },
+    { key: 'repair' as const, label: 'Repair queue', value: stable ? 'CLEAR' : `${activeIncidentCount || '—'} open`, tone: stable ? 'stable' : 'watch', target: 'repair-targets', targetLabel: 'Review next steps', description: stable ? 'No active incidents are waiting for repair review. SHAPI is monitoring normally.' : `${activeIncidentCount} active incident${activeIncidentCount === 1 ? '' : 's'} may need diagnosis and a repair review.` },
+    { key: 'drift' as const, label: 'Drift monitor', value: `${alertCount} alerts`, tone: Number(alertCount) > 0 ? 'watch' : 'stable', target: 'traffic', targetLabel: 'View protection signals', description: Number(alertCount) > 0 ? 'Drift alerts are being reported by SHAPI. Open protection signals to inspect the current state.' : 'No drift alerts are currently reported. The signal field continues watching for changes.' },
   ];
   const selectedNode = selectedKey === 'core'
     ? {
@@ -697,7 +697,7 @@ function RecoveryObservatory({
         label: 'SHAPI Core',
         value: stable ? 'STABLE' : liveSnapshot ? `${activeIncidentCount} ACTIVE` : 'SYNC',
         target: 'overview',
-        targetLabel: 'Open command center',
+        targetLabel: 'Back to overview',
         description: stable
           ? 'SHAPI Core is stable and watching for drift across every connected service.'
           : apiError
@@ -709,13 +709,13 @@ function RecoveryObservatory({
   const selectNode = (key: ObservatoryNodeKey) => setSelectedKey(key);
 
   return (
-    <section className="recovery-observatory" aria-labelledby="recovery-observatory-title">
+    <section id="protection-map" className="recovery-observatory" aria-labelledby="recovery-observatory-title">
       <div className="observatory-copy">
-        <div className="observatory-eyebrow"><span className="observatory-eyebrow-dot" /> RECOVERY OBSERVATORY</div>
-        <h2 id="recovery-observatory-title">See the system<br /><span>recover in motion.</span></h2>
+        <div className="observatory-eyebrow"><span className="observatory-eyebrow-dot" /> LIVE PROTECTION MAP</div>
+        <h2 id="recovery-observatory-title">See what SHAPI<br /><span>is watching.</span></h2>
         <p>
-          A living map of business outcomes across every connected service. SHAPI watches the
-          signal, finds the break, and keeps the repair path visible.
+          Explore the live loop from service signal to verified outcome. Select any node to see
+          what is healthy, what needs attention, and where the next action belongs.
         </p>
         <div className={`observatory-state ${stable ? 'state-stable' : 'state-watch'}`}>
           <span className="observatory-state-lamp" />
@@ -810,89 +810,91 @@ function AssuranceHero({
   onOpenDiagnosis: () => void;
 }) {
   const stable = Boolean(liveSnapshot) && activeIncidentCount === 0;
-  const connectionLabel = liveSnapshot ? 'Live telemetry flowing' : 'Connecting to telemetry';
-  const connectionDetail = liveSnapshot
-    ? `${liveSnapshot.summary.monitoredIntegrations} integration${liveSnapshot.summary.monitoredIntegrations === 1 ? '' : 's'} reporting in`
-    : 'The control plane is waiting for its first signal';
+  const statusLabel = stable ? 'Protected' : liveSnapshot ? 'Review needed' : 'Connecting';
+  const statusDetail = stable
+    ? 'No active exceptions are waiting for you.'
+    : liveSnapshot
+      ? `${activeIncidentCount} live exception${activeIncidentCount === 1 ? '' : 's'} need attention.`
+      : 'The control plane is waiting for its first signal.';
 
   return (
-    <section className="assurance-hero" aria-labelledby="assurance-hero-title">
-      <div className="assurance-hero-grid" aria-hidden="true" />
-      <div className="assurance-hero-orb assurance-hero-orb-one" aria-hidden="true" />
-      <div className="assurance-hero-orb assurance-hero-orb-two" aria-hidden="true" />
-      <div className="assurance-hero-copy">
-        <div className="assurance-eyebrow">
-          <span className="assurance-eyebrow-dot" /> BUSINESS OUTCOME CONTROL PLANE
+    <section className="product-hero" aria-labelledby="product-hero-title">
+      <div className="product-hero-grid" aria-hidden="true" />
+      <div className="product-hero-orb product-hero-orb-one" aria-hidden="true" />
+      <div className="product-hero-orb product-hero-orb-two" aria-hidden="true" />
+      <div className="product-hero-header">
+        <div className="product-hero-breadcrumb">
+          <span className="product-brand-mark">S</span>
+          <strong>SHAPI</strong>
+          <span aria-hidden="true">/</span>
+          <span>Production workspace</span>
         </div>
-        <h2 id="assurance-hero-title">
-          Make every integration
-          <span> answer for the outcome.</span>
-        </h2>
-        <p>
-          SHAPI turns noisy service signals into verified business outcomes, repair context,
-          and an evidence trail your team can trust.
-        </p>
-        <div className="assurance-hero-actions">
-          <button type="button" className="assurance-primary-action" onClick={onOpenDiagnosis}>
-            <Sparkles className="size-3.5" />
-            Run live diagnosis
-          </button>
-          <button type="button" className="assurance-secondary-action" onClick={() => onNavigate('connections')}>
-            Explore connections <span aria-hidden="true">↗</span>
-          </button>
+        <div className="product-hero-live">
+          <span className={liveSnapshot ? 'is-live' : ''} />
+          {liveSnapshot ? 'LIVE' : 'SYNCING'}
+          <small>10s refresh</small>
         </div>
-        <div className="assurance-connection-state">
-          <span className={`assurance-connection-dot ${stable ? 'is-stable' : ''}`} />
-          <strong>{connectionLabel}</strong>
-          <span>{connectionDetail}</span>
+      </div>
+      <div className="product-hero-main">
+        <div className="product-hero-copy">
+          <div className="product-eyebrow">
+            <span className="product-eyebrow-dot" /> OUTCOME PROTECTION
+          </div>
+          <h2 id="product-hero-title">
+            {stable ? <>Everything is <em>under control.</em></> : liveSnapshot ? <>A signal needs your <em>attention.</em></> : <>Your protection layer is <em>connecting.</em></>}
+          </h2>
+          <p>
+            SHAPI watches the outcomes your customers depend on, then gives your team a clear
+            path from signal to safe repair.
+          </p>
+          <div className="product-hero-actions">
+            <button type="button" className="product-primary-action" onClick={onOpenDiagnosis}>
+              <Sparkles className="size-3.5" />
+              Run a diagnosis
+            </button>
+            <button type="button" className="product-secondary-action" onClick={() => onNavigate('traffic')}>
+              View protection signals <span aria-hidden="true">↗</span>
+            </button>
+          </div>
+          <div className="product-hero-status">
+            <span className={`product-status-icon ${stable ? 'is-stable' : ''}`}>
+              {stable ? <Check className="size-4" /> : <CircleAlert className="size-4" />}
+            </span>
+            <span>
+              <strong>{statusLabel}</strong>
+              <small>{statusDetail}</small>
+            </span>
+          </div>
+        </div>
+
+        <div className="product-protection-panel" aria-label="SHAPI protection status">
+          <div className="product-protection-caption">PROTECTION STATUS</div>
+          <div className="product-protection-ring">
+            <div className="product-protection-ring-inner">
+              <span>{stable ? 'GOOD' : liveSnapshot ? 'WATCH' : 'SYNC'}</span>
+              <strong>{stable ? 'OK' : liveSnapshot ? String(activeIncidentCount).padStart(2, '0') : '—'}</strong>
+              <em>{stable ? 'all outcomes clear' : liveSnapshot ? 'open exceptions' : 'waiting for telemetry'}</em>
+            </div>
+          </div>
+          <div className="product-signal-chip product-signal-chip-one">
+            <span className="product-signal-chip-icon"><Globe2 className="size-3" /></span>
+            <span><strong>{liveSnapshot?.summary.monitoredIntegrations ?? '—'}</strong><small>connected source{liveSnapshot?.summary.monitoredIntegrations === 1 ? '' : 's'}</small></span>
+          </div>
+          <div className="product-signal-chip product-signal-chip-two">
+            <span className="product-signal-chip-icon"><ShieldCheck className="size-3" /></span>
+            <span><strong>{liveSnapshot?.summary.totalInvariants ?? '—'}</strong><small>outcome checks</small></span>
+          </div>
+          <div className="product-signal-chip product-signal-chip-three">
+            <span className="product-signal-chip-icon"><CircleAlert className="size-3" /></span>
+            <span><strong>{activeIncidentCount}</strong><small>open exceptions</small></span>
+          </div>
         </div>
       </div>
 
-      <div className="assurance-hero-visual" aria-label="SHAPI outcome assurance loop">
-        <div className="assurance-visual-caption">THE ASSURANCE LOOP</div>
-        <div className="assurance-loop-line assurance-loop-line-one" aria-hidden="true" />
-        <div className="assurance-loop-line assurance-loop-line-two" aria-hidden="true" />
-        <div className="assurance-loop-ring assurance-loop-ring-one" aria-hidden="true" />
-        <div className="assurance-loop-ring assurance-loop-ring-two" aria-hidden="true" />
-        <div className="assurance-loop-core">
-          <span className="assurance-loop-core-dot" />
-          <span className="assurance-loop-core-label">SHAPI CORE</span>
-          <strong>{stable ? 'STABLE' : liveSnapshot ? `${activeIncidentCount} ACTIVE` : 'SYNC'}</strong>
-          <small>{stable ? 'watching for drift' : 'reviewing signal'}</small>
-        </div>
-        <div className="assurance-loop-step assurance-loop-step-observe">
-          <span>01</span>
-          <strong>Observe</strong>
-          <small>events arrive</small>
-        </div>
-        <div className="assurance-loop-step assurance-loop-step-prove">
-          <span>02</span>
-          <strong>Prove</strong>
-          <small>{liveSnapshot?.summary.totalInvariants ?? '—'} invariants</small>
-        </div>
-        <div className="assurance-loop-step assurance-loop-step-repair">
-          <span>03</span>
-          <strong>Repair</strong>
-          <small>{activeIncidentCount ? `${activeIncidentCount} to review` : 'queue clear'}</small>
-        </div>
-      </div>
-
-      <div className="assurance-hero-stats">
-        <div>
-          <span>CONNECTED</span>
-          <strong>{liveSnapshot?.summary.monitoredIntegrations ?? '—'}</strong>
-          <small>integrations</small>
-        </div>
-        <div>
-          <span>PROTECTED</span>
-          <strong>{liveSnapshot?.summary.totalInvariants ?? '—'}</strong>
-          <small>outcome checks</small>
-        </div>
-        <div>
-          <span>EXCEPTIONS</span>
-          <strong>{String(activeIncidentCount).padStart(2, '0')}</strong>
-          <small>open incidents</small>
-        </div>
+      <div className="product-hero-proof">
+        <div><span>01</span><strong>Observe</strong><small>Events arrive from your connected services.</small></div>
+        <div><span>02</span><strong>Prove</strong><small>Business outcomes are checked continuously.</small></div>
+        <div><span>03</span><strong>Repair</strong><small>Every change stays reviewable and safe.</small></div>
       </div>
     </section>
   );
@@ -1316,7 +1318,7 @@ function HealingDashboardContent({
   const affectedIntegrations = new Set(activeIncidents.map(incident => incident.integrationId)).size;
   const metrics = [
     {
-      label: 'SHAPI connection',
+      label: 'Protection status',
       value: liveSnapshot ? 'LIVE' : '—',
       suffix: '',
       badge: liveSnapshot ? '10s refresh' : apiError ? 'unavailable' : 'connecting',
@@ -1324,7 +1326,7 @@ function HealingDashboardContent({
       tone: 'success',
     },
     {
-      label: 'Active incidents',
+      label: 'Open exceptions',
       value: String(activeIncidentCount).padStart(2, '0'),
       suffix: '',
       badge: liveSnapshot ? `${activeIncidentCount} live` : 'connecting',
@@ -1332,7 +1334,7 @@ function HealingDashboardContent({
       tone: 'critical',
     },
     {
-      label: 'Monitored integrations',
+      label: 'Connected sources',
       value: String(liveSnapshot?.summary.monitoredIntegrations ?? '—'),
       suffix: '',
       badge: liveSnapshot ? 'live SHAPI' : 'connecting',
@@ -1340,7 +1342,7 @@ function HealingDashboardContent({
       tone: 'observed',
     },
     {
-      label: 'Invariants monitored',
+      label: 'Outcomes covered',
       value: String(liveSnapshot?.summary.totalInvariants ?? '—'),
       suffix: '',
       badge: liveSnapshot ? 'behavioral checks' : 'connecting',
@@ -1357,9 +1359,9 @@ function HealingDashboardContent({
             <HeartPulse className="size-[18px]" />
           </span>
           <div className="leading-tight">
-            <div className="text-[13px] font-bold uppercase">Pulseguard</div>
+            <div className="text-[13px] font-bold uppercase">SHAPI</div>
             <div className="font-mono text-[9px] uppercase text-muted-foreground">
-              API assurance platform
+              Outcome protection
             </div>
           </div>
         </div>
@@ -1377,40 +1379,40 @@ function HealingDashboardContent({
         <nav aria-label="Main navigation" className="mt-4 space-y-1 px-3">
           <a className="nav-item nav-item-active" href="#overview">
             <CircleGauge />
-            Command center
+            Overview
           </a>
-          <a className="nav-item" href="#incidents">
+          <a className="nav-item" href="#traffic">
             <CircleAlert />
-            Incidents & triage
+            Protection signals
             <span className="ml-auto rounded bg-critical/15 px-1.5 text-[10px] text-critical">
               {activeIncidentCount}
             </span>
           </a>
           <a className="nav-item" href="#traffic">
             <Globe2 />
-            Incident signals
+            Signal field
           </a>
           <a className="nav-item" href="#healing">
             <GitBranch />
-            Incident activity
+            Repair activity
             <span className="ml-auto rounded bg-warning/15 px-1.5 text-[10px] text-warning">
               {activeIncidentCount}
             </span>
           </a>
           <a className="nav-item" href="#repair-targets">
             <Settings2 />
-            Repair targets
+            Protected outcomes
             <span className="ml-auto rounded bg-critical/15 px-1.5 text-[10px] text-critical">
               {manualReviewCount}
             </span>
           </a>
           <a className="nav-item" href="#connections">
             <GitBranch />
-            Connections
+            Integrations
           </a>
           <a className="nav-item" href="#incidents">
             <Network />
-            Service events
+            Event history
           </a>
         </nav>
         <div className="mt-auto px-3 pb-3">
@@ -1429,11 +1431,11 @@ function HealingDashboardContent({
         </div>
         <div className="flex items-center gap-2 border-t border-border px-4 py-3">
           <div className="grid size-7 place-items-center rounded bg-secondary text-[10px] font-semibold">
-            PG
+            S
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-medium">Pulseguard</p>
-            <p className="text-[10px] text-muted-foreground">Dashboard preview</p>
+            <p className="text-xs font-medium">SHAPI</p>
+            <p className="text-[10px] text-muted-foreground">Production workspace</p>
           </div>
           <Settings2 className="ml-auto size-4 text-muted-foreground" />
         </div>
@@ -1442,10 +1444,10 @@ function HealingDashboardContent({
       <div className="min-w-0 lg:ml-[212px]">
         <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border bg-background/95 px-4 backdrop-blur md:px-5">
           <div className="flex min-w-0 items-center gap-2 text-xs">
-            <span className="font-semibold lg:hidden">Pulseguard</span>
-            <span className="hidden text-muted-foreground lg:inline">PULSEGUARD</span>
+            <span className="font-semibold lg:hidden">SHAPI</span>
+            <span className="hidden text-muted-foreground lg:inline">SHAPI</span>
             <span className="hidden text-muted-foreground lg:inline">›</span>
-            <span className="truncate">Command center</span>
+            <span className="truncate">Overview</span>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <Button
@@ -1495,10 +1497,10 @@ function HealingDashboardContent({
         <section id="overview" className="mx-auto max-w-[1600px] px-4 pb-12 pt-5 md:px-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h1 className="text-lg font-semibold">Command center</h1>
+              <h1 className="text-lg font-semibold">Overview</h1>
               <p className="text-xs text-muted-foreground">
                 {liveSnapshot
-                  ? `Live SHAPI telemetry · ${liveSnapshot.summary.monitoredIntegrations} integrations · refreshes every 10s`
+                  ? `Your protection layer is live · ${liveSnapshot.summary.monitoredIntegrations} integration${liveSnapshot.summary.monitoredIntegrations === 1 ? '' : 's'} · checks every 10s`
                   : apiError
                     ? `SHAPI API connection failed · ${apiError}`
                     : 'Connecting to live SHAPI telemetry…'}
@@ -1557,7 +1559,7 @@ function HealingDashboardContent({
               <div>
                 <h2 className="flex items-center gap-2 text-sm font-semibold">
                   <Globe2 className="size-4 text-observed" />
-                  Live incident signal field
+                  Protection signals
                 </h2>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
                   {liveSnapshot
@@ -1697,7 +1699,7 @@ function HealingDashboardContent({
           <section id="healing" className="mt-4 grid gap-4 xl:grid-cols-[1fr_1fr]">
             <div className="rounded-md border border-border bg-card">
               <div className="border-b border-border px-4 py-3">
-                <h2 className="text-sm font-semibold">Incident activity</h2>
+                <h2 className="text-sm font-semibold">Repair activity</h2>
                 <p className="text-[11px] text-muted-foreground">
                   {liveSnapshot
                     ? 'Live incident states from SHAPI'
@@ -1732,7 +1734,7 @@ function HealingDashboardContent({
             </div>
             <div className="rounded-md border border-border bg-card">
               <div className="border-b border-border px-4 py-3">
-                <h2 className="text-sm font-semibold">System posture</h2>
+                <h2 className="text-sm font-semibold">Protection coverage</h2>
                 <p className="text-[11px] text-muted-foreground">
                   {liveSnapshot
                     ? `${liveSnapshot.summary.monitoredIntegrations} monitored integrations`
@@ -1816,7 +1818,7 @@ function HealingDashboardContent({
             className="mt-4 overflow-hidden rounded-md border border-border bg-card"
           >
             <div className="border-b border-border px-4 py-3">
-              <h2 className="text-sm font-semibold">Recent incidents</h2>
+              <h2 className="text-sm font-semibold">Recent protection signals</h2>
               <p className="text-[11px] text-muted-foreground">
                 {liveSnapshot ? 'Live incidents from SHAPI' : 'Waiting for live SHAPI data'}
               </p>
@@ -2302,7 +2304,7 @@ function DashboardAccessScreen({
             <HeartPulse className="size-5" />
           </span>
           <div>
-            <h1 className="text-lg font-semibold">Pulseguard</h1>
+            <h1 className="text-lg font-semibold">SHAPI</h1>
             <p className="text-xs text-muted-foreground">SHAPI command center</p>
           </div>
         </div>
