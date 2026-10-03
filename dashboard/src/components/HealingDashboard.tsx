@@ -892,6 +892,14 @@ function AssuranceHero({
 
         <div className="product-protection-panel" aria-label="SHAPI protection status">
           <div className="product-protection-caption">OUTCOME COVERAGE</div>
+          <svg
+            className={`product-protection-sweep ${stable ? 'is-stable' : liveSnapshot ? 'is-attention' : 'is-waiting'}`}
+            viewBox="0 0 240 240"
+            aria-hidden="true"
+          >
+            <circle className="product-protection-sweep-orbit" cx="120" cy="120" r="94" />
+            <circle className="product-protection-sweep-orbit product-protection-sweep-orbit-secondary" cx="120" cy="120" r="82" />
+          </svg>
           <div className="product-protection-ring">
             <div className="product-protection-ring-inner">
               <span>{stable ? 'PASS' : liveSnapshot ? 'OPEN' : 'WAIT'}</span>
