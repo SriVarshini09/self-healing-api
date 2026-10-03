@@ -85,7 +85,7 @@ if ($IncludeCapacitySmoke) {
 
 if ($IncludeDashboardSmoke) {
   Invoke-Check 'Production dashboard smoke' {
-    & pnpm --filter @shapi/backend exec tsx "$PSScriptRoot/../apps/backend/scripts/production-dashboard-test.ts" --dashboard-url $DashboardUrl --api-url $ApiUrl --env-file $EnvFile
+    & pnpm --filter @shapi/backend exec -- tsx "$PSScriptRoot/../apps/backend/scripts/production-dashboard-test.ts" --dashboard-url $DashboardUrl --api-url $ApiUrl --env-file $EnvFile
   }
 }
 
