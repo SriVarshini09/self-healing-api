@@ -98,7 +98,10 @@ if ($RequireDashboardAuthentication) {
 }
 
 $envValidationParams = @{ EnvFile = $EnvFile }
-if ($RequireGitHubApp) { $envValidationParams.RequireGitHubApp = $true }
+# The GitHub App id, slug, and private key belong to the hosted API service,
+# not to this operator file. The live stack/production checks below validate
+# the running API's App mode and credentials without copying private material
+# onto the operator machine.
 if ($RequireOidc) { $envValidationParams.RequireOidc = $true }
 & "$PSScriptRoot\validate-hosted-env.ps1" @envValidationParams
 if ($LASTEXITCODE -ne 0) { throw "Hosted environment preflight failed with exit code $LASTEXITCODE" }

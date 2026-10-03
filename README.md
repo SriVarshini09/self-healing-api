@@ -224,6 +224,9 @@ deduplication:
 
 The operator env file must contain the hosted readiness credentials, including
 `SHAPI_API_KEY` and `GITHUB_WEBHOOK_SECRET_APP`; keep it outside the repository.
+The hosted GitHub App id, slug, and private-key source stay on the Render API
+service and are checked remotely by the live App-readiness check; they do not
+need to be copied into the operator file.
 The gate first verifies that the hosted dashboard has either a non-empty
 runtime API key or enabled OIDC; otherwise it stops with a clear
 authentication-configuration error instead of treating the locked dashboard as
