@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
+  Activity,
+  ArrowUpRight,
   Bell,
   Check,
   ChevronDown,
@@ -10,6 +12,8 @@ import {
   GitBranch,
   Globe2,
   HeartPulse,
+  ListChecks,
+  LockKeyhole,
   Network,
   Moon,
   Pause,
@@ -21,6 +25,7 @@ import {
   Sun,
   TriangleAlert,
   X,
+  Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -878,7 +883,7 @@ function AssuranceHero({
           </div>
           <div className="product-signal-chip product-signal-chip-one">
             <span className="product-signal-chip-icon"><Globe2 className="size-3" /></span>
-            <span><strong>{liveSnapshot?.summary.monitoredIntegrations ?? '—'}</strong><small>connected source{liveSnapshot?.summary.monitoredIntegrations === 1 ? '' : 's'}</small></span>
+            <span><strong>{liveSnapshot?.summary.monitoredIntegrations ?? '—'}</strong><small>{liveSnapshot?.summary.monitoredIntegrations === 1 ? 'connected source' : 'connected sources'}</small></span>
           </div>
           <div className="product-signal-chip product-signal-chip-two">
             <span className="product-signal-chip-icon"><ShieldCheck className="size-3" /></span>
@@ -895,6 +900,112 @@ function AssuranceHero({
         <div><span>01</span><strong>Signal</strong><small>Services send live events into SHAPI.</small></div>
         <div><span>02</span><strong>Verify</strong><small>Business outcomes are checked continuously.</small></div>
         <div><span>03</span><strong>Repair</strong><small>Every change stays reviewable by your team.</small></div>
+      </div>
+    </section>
+  );
+}
+
+function CommandCenterRail({
+  liveSnapshot,
+  activeIncidents,
+  activeIncidentCount,
+  lastSyncAt,
+  onNavigate,
+  onOpenDiagnosis,
+}: {
+  liveSnapshot: LiveSnapshot | null;
+  activeIncidents: LiveSnapshot['incidents'];
+  activeIncidentCount: number;
+  lastSyncAt: number | null;
+  onNavigate: (target: string) => void;
+  onOpenDiagnosis: () => void;
+}) {
+  const nextIncident = activeIncidents[0];
+  const lastSyncLabel = lastSyncAt
+    ? `${Math.max(0, Math.floor((Date.now() - lastSyncAt) / 1000))}s ago`
+    : 'waiting';
+  const action = activeIncidentCount
+    ? {
+        eyebrow: 'NEXT BEST ACTION',
+        title: `Review ${activeIncidentCount} active exception${activeIncidentCount === 1 ? '' : 's'}`,
+        detail: nextIncident?.title ?? 'Open the signal feed to inspect the current incident state.',
+        button: 'Open diagnosis',
+        tone: 'attention',
+        icon: TriangleAlert,
+        onClick: onOpenDiagnosis,
+      }
+    : liveSnapshot
+      ? {
+          eyebrow: 'NEXT BEST ACTION',
+          title: 'Protection is running normally',
+          detail: 'Review coverage or connect another source to expand the protection boundary.',
+          button: 'Review coverage',
+          tone: 'healthy',
+          icon: ShieldCheck,
+          onClick: () => onNavigate('repair-targets'),
+        }
+      : {
+          eyebrow: 'NEXT BEST ACTION',
+          title: 'Connect SHAPI to begin',
+          detail: 'The command center will populate as soon as the first live signal arrives.',
+          button: 'View integrations',
+          tone: 'waiting',
+          icon: Zap,
+          onClick: () => onNavigate('connections'),
+        };
+
+  const ActionIcon = action.icon;
+  const activityItems = activeIncidentCount
+    ? [
+        { label: 'Live exception', value: nextIncident?.title ?? 'Incident detected', tone: 'attention' },
+        { label: 'Signal field', value: `${activeIncidentCount} open incident${activeIncidentCount === 1 ? '' : 's'}`, tone: 'attention' },
+        { label: 'Last sync', value: lastSyncLabel, tone: 'live' },
+      ]
+    : [
+        { label: 'Control plane', value: 'Monitoring normally', tone: 'healthy' },
+        { label: 'Outcome checks', value: `${liveSnapshot?.summary.totalInvariants ?? '—'} active checks`, tone: 'live' },
+        { label: 'Last sync', value: lastSyncLabel, tone: 'live' },
+      ];
+
+  return (
+    <section className="command-center-rail" aria-label="SHAPI command center">
+      <div className={`command-next-action command-next-action-${action.tone}`}>
+        <div className="command-rail-heading">
+          <span>{action.eyebrow}</span>
+          <ActionIcon className="size-4" />
+        </div>
+        <h2>{action.title}</h2>
+        <p>{action.detail}</p>
+        <button type="button" onClick={action.onClick}>
+          {action.button}
+          <ArrowUpRight className="size-3.5" />
+        </button>
+      </div>
+      <div className="command-activity-stream">
+        <div className="command-rail-heading">
+          <span><Activity className="mr-1.5 inline-block size-3.5" /> LIVE ACTIVITY</span>
+          <span className="command-live-pill"><i /> 10s</span>
+        </div>
+        <div className="command-activity-list">
+          {activityItems.map(item => (
+            <div key={item.label} className="command-activity-item">
+              <i className={`command-activity-dot command-activity-dot-${item.tone}`} />
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="command-trust-panel">
+        <div className="command-rail-heading">
+          <span><LockKeyhole className="mr-1.5 inline-block size-3.5" /> TRUST LAYER</span>
+          <ShieldCheck className="size-4 text-success" />
+        </div>
+        <div className="command-trust-list">
+          <div><ListChecks className="size-3.5" /><span>Human review before repair PRs</span></div>
+          <div><ShieldCheck className="size-3.5" /><span>Outcome checks stay evidence-backed</span></div>
+          <div><LockKeyhole className="size-3.5" /><span>No location telemetry collected</span></div>
+        </div>
       </div>
     </section>
   );
@@ -935,6 +1046,7 @@ function HealingDashboardContent({
   const [githubLoading, setGithubLoading] = useState(false);
   const [githubLoadError, setGithubLoadError] = useState<string | null>(null);
   const [liveSnapshot, setLiveSnapshot] = useState<LiveSnapshot | null>(null);
+  const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
   const [alertStatus, setAlertStatus] = useState<AlertStatus | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
 
@@ -1240,6 +1352,7 @@ function HealingDashboardContent({
         ]);
         if (active) {
           setLiveSnapshot({ summary, incidents: incidentsResponse.data ?? [] });
+          setLastSyncAt(Date.now());
           setApiError(null);
         }
       } catch (error) {
@@ -1514,6 +1627,14 @@ function HealingDashboardContent({
           <AssuranceHero
             liveSnapshot={liveSnapshot}
             activeIncidentCount={activeIncidentCount}
+            onNavigate={navigateFromObservatory}
+            onOpenDiagnosis={openDiagnosis}
+          />
+          <CommandCenterRail
+            liveSnapshot={liveSnapshot}
+            activeIncidents={activeIncidents}
+            activeIncidentCount={activeIncidentCount}
+            lastSyncAt={lastSyncAt}
             onNavigate={navigateFromObservatory}
             onOpenDiagnosis={openDiagnosis}
           />
