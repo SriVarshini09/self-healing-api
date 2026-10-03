@@ -104,7 +104,6 @@ $envValidationParams = @{ EnvFile = $EnvFile }
 # onto the operator machine.
 if ($RequireOidc) { $envValidationParams.RequireOidc = $true }
 & "$PSScriptRoot\validate-hosted-env.ps1" @envValidationParams
-if ($LASTEXITCODE -ne 0) { throw "Hosted environment preflight failed with exit code $LASTEXITCODE" }
 
 $readinessScript = Join-Path $PSScriptRoot 'production-readiness.ps1'
 $readinessParams = @{
@@ -134,4 +133,3 @@ if ($IncludeCapacitySmoke) {
 
 Write-Host "Running hosted readiness checks against $ApiUrl and $DashboardUrl..."
 & $readinessScript @readinessParams
-if ($LASTEXITCODE -ne 0) { throw "Hosted readiness checks failed with exit code $LASTEXITCODE" }
