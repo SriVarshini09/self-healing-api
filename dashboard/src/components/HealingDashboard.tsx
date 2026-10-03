@@ -812,7 +812,7 @@ function AssuranceHero({
   const stable = Boolean(liveSnapshot) && activeIncidentCount === 0;
   const statusLabel = stable ? 'Protected' : liveSnapshot ? 'Review needed' : 'Connecting';
   const statusDetail = stable
-    ? 'No active exceptions are waiting for you.'
+    ? `${liveSnapshot?.summary.totalInvariants ?? '—'} outcomes checked · no open exceptions.`
     : liveSnapshot
       ? `${activeIncidentCount} live exception${activeIncidentCount === 1 ? '' : 's'} need attention.`
       : 'The control plane is waiting for its first signal.';
@@ -827,7 +827,7 @@ function AssuranceHero({
           <span className="product-brand-mark">S</span>
           <strong>SHAPI</strong>
           <span aria-hidden="true">/</span>
-          <span>Production workspace</span>
+          <span>Production</span>
         </div>
         <div className="product-hero-live">
           <span className={liveSnapshot ? 'is-live' : ''} />
@@ -841,11 +841,11 @@ function AssuranceHero({
             <span className="product-eyebrow-dot" /> OUTCOME PROTECTION
           </div>
           <h2 id="product-hero-title">
-            {stable ? <>Everything is <em>under control.</em></> : liveSnapshot ? <>A signal needs your <em>attention.</em></> : <>Your protection layer is <em>connecting.</em></>}
+            {stable ? <>Your operations are <em>protected.</em></> : liveSnapshot ? <>One outcome needs your <em>attention.</em></> : <>Connect SHAPI to <em>start protecting.</em></>}
           </h2>
           <p>
-            SHAPI watches the outcomes your customers depend on, then gives your team a clear
-            path from signal to safe repair.
+            Monitor the business outcomes behind your integrations, see drift early, and move
+            from diagnosis to a reviewable repair.
           </p>
           <div className="product-hero-actions">
             <button type="button" className="product-primary-action" onClick={onOpenDiagnosis}>
@@ -868,7 +868,7 @@ function AssuranceHero({
         </div>
 
         <div className="product-protection-panel" aria-label="SHAPI protection status">
-          <div className="product-protection-caption">PROTECTION STATUS</div>
+          <div className="product-protection-caption">WORKSPACE HEALTH</div>
           <div className="product-protection-ring">
             <div className="product-protection-ring-inner">
               <span>{stable ? 'GOOD' : liveSnapshot ? 'WATCH' : 'SYNC'}</span>
@@ -892,9 +892,9 @@ function AssuranceHero({
       </div>
 
       <div className="product-hero-proof">
-        <div><span>01</span><strong>Observe</strong><small>Events arrive from your connected services.</small></div>
-        <div><span>02</span><strong>Prove</strong><small>Business outcomes are checked continuously.</small></div>
-        <div><span>03</span><strong>Repair</strong><small>Every change stays reviewable and safe.</small></div>
+        <div><span>01</span><strong>Live signal</strong><small>Events arrive from your connected services.</small></div>
+        <div><span>02</span><strong>Verified outcome</strong><small>Business behavior is checked continuously.</small></div>
+        <div><span>03</span><strong>Safe repair</strong><small>Every change stays reviewable by your team.</small></div>
       </div>
     </section>
   );
