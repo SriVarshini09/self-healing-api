@@ -70,13 +70,14 @@ async function runDashboardSmoke(mode: {
   }, { configuredApiUrl: mode.configuredApiUrl, configuredApiKey: apiKey });
 
   const page = await context.newPage();
-  if (mode.requireSameOrigin) {
-    await page.route('**/config.js', route => route.fulfill({
-      status: 200,
-      contentType: 'application/javascript',
-      body: `window.__SHAPI_CONFIG__ = ${JSON.stringify({ apiUrl: mode.configuredApiUrl, apiKey })};`,
-    }));
-  }
+  // The deployed dashboard loads config.js after the document starts. Route it
+  // in both modes so the direct-API test cannot be overwritten by the default
+  // same-origin runtime configuration before React mounts.
+  await page.route('**/config.js', route => route.fulfill({
+    status: 200,
+    contentType: 'application/javascript',
+    body: `window.__SHAPI_CONFIG__ = ${JSON.stringify({ apiUrl: mode.configuredApiUrl, apiKey })};`,
+  }));
   const pageErrors: string[] = [];
   const failedRequests: string[] = [];
   const apiRequests: string[] = [];
