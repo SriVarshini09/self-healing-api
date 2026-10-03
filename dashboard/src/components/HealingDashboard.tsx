@@ -656,21 +656,44 @@ function RecoveryObservatory({
   liveSnapshot,
   activeIncidentCount,
   apiError,
+  onNavigate,
+  onOpenDiagnosis,
 }: {
   liveSnapshot: LiveSnapshot | null;
   activeIncidentCount: number;
   apiError: string | null;
+  onNavigate: (target: string) => void;
+  onOpenDiagnosis: () => void;
 }) {
+  type ObservatoryNodeKey = 'core' | 'api' | 'events' | 'outcomes' | 'repair' | 'drift';
+
   const summary = liveSnapshot?.summary;
   const stable = Boolean(liveSnapshot) && activeIncidentCount === 0;
   const alertCount = summary?.activeAlerts ?? '—';
+  const [selectedKey, setSelectedKey] = useState<ObservatoryNodeKey>('core');
   const nodes = [
-    { key: 'api', label: 'API gateway', value: liveSnapshot ? 'LIVE' : 'WAITING', tone: liveSnapshot ? 'stable' : 'watch' },
-    { key: 'events', label: 'Event mesh', value: `${summary?.monitoredIntegrations ?? '—'} streams`, tone: 'stable' },
-    { key: 'outcomes', label: 'Outcome engine', value: `${summary?.totalInvariants ?? '—'} checks`, tone: 'stable' },
-    { key: 'repair', label: 'Repair queue', value: stable ? 'CLEAR' : `${activeIncidentCount || '—'} open`, tone: stable ? 'stable' : 'watch' },
-    { key: 'drift', label: 'Drift monitor', value: `${alertCount} alerts`, tone: Number(alertCount) > 0 ? 'watch' : 'stable' },
+    { key: 'api' as const, label: 'API gateway', value: liveSnapshot ? 'LIVE' : 'WAITING', tone: liveSnapshot ? 'stable' : 'watch', target: 'overview', targetLabel: 'Open command center', description: 'The API gateway is the live heartbeat for SHAPI. It confirms that telemetry can reach the dashboard and powers every downstream recovery signal.' },
+    { key: 'events' as const, label: 'Event mesh', value: `${summary?.monitoredIntegrations ?? '—'} streams`, tone: 'stable', target: 'connections', targetLabel: 'View connections', description: 'The event mesh carries provider signals into SHAPI. Connected integrations and webhook readiness are visible in the connections panel.' },
+    { key: 'outcomes' as const, label: 'Outcome engine', value: `${summary?.totalInvariants ?? '—'} checks`, tone: 'stable', target: 'repair-targets', targetLabel: 'View invariants', description: 'The outcome engine evaluates the business invariants that matter. Each check can be mapped to a precise repair target for human review.' },
+    { key: 'repair' as const, label: 'Repair queue', value: stable ? 'CLEAR' : `${activeIncidentCount || '—'} open`, tone: stable ? 'stable' : 'watch', target: 'repair-targets', targetLabel: 'Review repair targets', description: stable ? 'No active incidents are waiting for repair review. SHAPI is monitoring normally.' : `${activeIncidentCount} active incident${activeIncidentCount === 1 ? '' : 's'} may need diagnosis and a repair review.` },
+    { key: 'drift' as const, label: 'Drift monitor', value: `${alertCount} alerts`, tone: Number(alertCount) > 0 ? 'watch' : 'stable', target: 'traffic', targetLabel: 'View incident signals', description: Number(alertCount) > 0 ? 'Drift alerts are being reported by SHAPI. Open the incident signal field to inspect the current state.' : 'No drift alerts are currently reported. The signal field continues watching for changes.' },
   ];
+  const selectedNode = selectedKey === 'core'
+    ? {
+        key: 'core' as const,
+        label: 'SHAPI Core',
+        value: stable ? 'STABLE' : liveSnapshot ? `${activeIncidentCount} ACTIVE` : 'SYNC',
+        target: 'overview',
+        targetLabel: 'Open command center',
+        description: stable
+          ? 'SHAPI Core is stable and watching for drift across every connected service.'
+          : apiError
+            ? 'SHAPI Core is waiting for a healthy telemetry connection.'
+            : 'SHAPI Core is coordinating live incident and recovery signals.',
+      }
+    : nodes.find(node => node.key === selectedKey) ?? nodes[0];
+
+  const selectNode = (key: ObservatoryNodeKey) => setSelectedKey(key);
 
   return (
     <section className="recovery-observatory" aria-labelledby="recovery-observatory-title">
@@ -694,7 +717,7 @@ function RecoveryObservatory({
       </div>
 
       <div className="observatory-scene-wrap">
-        <div className="observatory-scene" role="img" aria-label="Three dimensional SHAPI service map">
+        <div className="observatory-scene" role="group" aria-label="Interactive three dimensional SHAPI service map">
           <div className="scene-stars" aria-hidden="true" />
           <div className="scene-grid" aria-hidden="true" />
           <div className="scene-ring scene-ring-wide" aria-hidden="true" />
@@ -704,20 +727,32 @@ function RecoveryObservatory({
           <div className="scene-signal scene-signal-a" aria-hidden="true" />
           <div className="scene-signal scene-signal-b" aria-hidden="true" />
           <div className="scene-signal scene-signal-c" aria-hidden="true" />
-          <div className="observatory-core">
+          <button
+            type="button"
+            className={`observatory-core observatory-core-trigger ${selectedKey === 'core' ? 'is-selected' : ''}`}
+            onClick={() => selectNode('core')}
+            aria-label="Select SHAPI Core system status"
+            aria-pressed={selectedKey === 'core'}
+          >
             <span className="core-pulse" aria-hidden="true" />
             <span className="core-kicker"><span className="core-dot" /> SHAPI CORE</span>
             <strong>{stable ? 'STABLE' : liveSnapshot ? activeIncidentCount : 'SYNC'}</strong>
             <small>{stable ? 'watching for drift' : liveSnapshot ? 'active incidents' : 'connecting'}</small>
-          </div>
+          </button>
           {nodes.map(node => (
-            <div key={node.key} className={`observatory-node observatory-node-${node.key} node-${node.tone}`}>
+            <div key={node.key} className={`observatory-node observatory-node-${node.key} node-${node.tone} ${selectedKey === node.key ? 'is-selected' : ''}`}>
               <span className="node-connector" aria-hidden="true" />
-              <div className="node-card">
+              <button
+                type="button"
+                className="node-card node-card-trigger"
+                onClick={() => selectNode(node.key)}
+                aria-label={`Select ${node.label}`}
+                aria-pressed={selectedKey === node.key}
+              >
                 <span className="node-status"><i /> {node.tone === 'stable' ? 'ONLINE' : 'WATCH'}</span>
                 <strong>{node.label}</strong>
                 <small>{node.value}</small>
-              </div>
+              </button>
             </div>
           ))}
         </div>
@@ -727,6 +762,24 @@ function RecoveryObservatory({
         <div><span>INTEGRATIONS</span><strong>{summary?.monitoredIntegrations ?? '—'}</strong><small>event streams</small></div>
         <div><span>INVARIANTS</span><strong>{summary?.totalInvariants ?? '—'}</strong><small>outcome checks</small></div>
         <div><span>DRIFT ALERTS</span><strong>{alertCount}</strong><small>last 24 hours</small></div>
+      </div>
+      <div className="observatory-detail" aria-live="polite">
+        <div className="observatory-detail-copy">
+          <span className="observatory-detail-kicker">SELECTED SYSTEM</span>
+          <strong>{selectedNode.label}</strong>
+          <p>{selectedNode.description}</p>
+        </div>
+        <div className="observatory-detail-actions">
+          <span className="observatory-detail-value">{selectedNode.value}</span>
+          <button type="button" className="observatory-detail-link" onClick={() => onNavigate(selectedNode.target)}>
+            {selectedNode.targetLabel} <span aria-hidden="true">↗</span>
+          </button>
+          {selectedKey === 'core' && (
+            <button type="button" className="observatory-detail-link observatory-detail-link-secondary" onClick={onOpenDiagnosis}>
+              Run diagnosis <span aria-hidden="true">✦</span>
+            </button>
+          )}
+        </div>
       </div>
     </section>
   );
@@ -841,6 +894,10 @@ function HealingDashboardContent() {
         setGithubPrLoading(false);
       });
     setDiagnosisOpen(true);
+  };
+
+  const navigateFromObservatory = (target: string) => {
+    document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const runLiveDiagnosis = async () => {
@@ -1328,6 +1385,8 @@ function HealingDashboardContent() {
             liveSnapshot={liveSnapshot}
             activeIncidentCount={activeIncidentCount}
             apiError={apiError}
+            onNavigate={navigateFromObservatory}
+            onOpenDiagnosis={openDiagnosis}
           />
           <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
             {metrics.map(metric => (
