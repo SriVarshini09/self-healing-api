@@ -652,6 +652,86 @@ function RepairTargetPanel() {
   );
 }
 
+function RecoveryObservatory({
+  liveSnapshot,
+  activeIncidentCount,
+  apiError,
+}: {
+  liveSnapshot: LiveSnapshot | null;
+  activeIncidentCount: number;
+  apiError: string | null;
+}) {
+  const summary = liveSnapshot?.summary;
+  const stable = Boolean(liveSnapshot) && activeIncidentCount === 0;
+  const alertCount = summary?.activeAlerts ?? '—';
+  const nodes = [
+    { key: 'api', label: 'API gateway', value: liveSnapshot ? 'LIVE' : 'WAITING', tone: liveSnapshot ? 'stable' : 'watch' },
+    { key: 'events', label: 'Event mesh', value: `${summary?.monitoredIntegrations ?? '—'} streams`, tone: 'stable' },
+    { key: 'outcomes', label: 'Outcome engine', value: `${summary?.totalInvariants ?? '—'} checks`, tone: 'stable' },
+    { key: 'repair', label: 'Repair queue', value: stable ? 'CLEAR' : `${activeIncidentCount || '—'} open`, tone: stable ? 'stable' : 'watch' },
+    { key: 'drift', label: 'Drift monitor', value: `${alertCount} alerts`, tone: Number(alertCount) > 0 ? 'watch' : 'stable' },
+  ];
+
+  return (
+    <section className="recovery-observatory" aria-labelledby="recovery-observatory-title">
+      <div className="observatory-copy">
+        <div className="observatory-eyebrow"><span className="observatory-eyebrow-dot" /> RECOVERY OBSERVATORY</div>
+        <h2 id="recovery-observatory-title">See the system<br /><span>recover in motion.</span></h2>
+        <p>
+          A living map of business outcomes across every connected service. SHAPI watches the
+          signal, finds the break, and keeps the repair path visible.
+        </p>
+        <div className={`observatory-state ${stable ? 'state-stable' : 'state-watch'}`}>
+          <span className="observatory-state-lamp" />
+          <strong>{stable ? 'All systems stable' : apiError ? 'Connection attention' : 'Attention required'}</strong>
+          <span>{stable ? 'monitoring normally' : apiError ? 'waiting for live data' : `${activeIncidentCount} active incident${activeIncidentCount === 1 ? '' : 's'}`}</span>
+        </div>
+        <div className="observatory-legend" aria-label="System map legend">
+          <span><i className="legend-dot legend-stable" />Healthy</span>
+          <span><i className="legend-dot legend-watch" />Needs attention</span>
+          <span><i className="legend-line" />Live signal</span>
+        </div>
+      </div>
+
+      <div className="observatory-scene-wrap">
+        <div className="observatory-scene" role="img" aria-label="Three dimensional SHAPI service map">
+          <div className="scene-stars" aria-hidden="true" />
+          <div className="scene-grid" aria-hidden="true" />
+          <div className="scene-ring scene-ring-wide" aria-hidden="true" />
+          <div className="scene-ring scene-ring-tilt" aria-hidden="true" />
+          <div className="scene-orbit-line scene-orbit-line-a" aria-hidden="true" />
+          <div className="scene-orbit-line scene-orbit-line-b" aria-hidden="true" />
+          <div className="scene-signal scene-signal-a" aria-hidden="true" />
+          <div className="scene-signal scene-signal-b" aria-hidden="true" />
+          <div className="scene-signal scene-signal-c" aria-hidden="true" />
+          <div className="observatory-core">
+            <span className="core-pulse" aria-hidden="true" />
+            <span className="core-kicker"><span className="core-dot" /> SHAPI CORE</span>
+            <strong>{stable ? 'STABLE' : liveSnapshot ? activeIncidentCount : 'SYNC'}</strong>
+            <small>{stable ? 'watching for drift' : liveSnapshot ? 'active incidents' : 'connecting'}</small>
+          </div>
+          {nodes.map(node => (
+            <div key={node.key} className={`observatory-node observatory-node-${node.key} node-${node.tone}`}>
+              <span className="node-connector" aria-hidden="true" />
+              <div className="node-card">
+                <span className="node-status"><i /> {node.tone === 'stable' ? 'ONLINE' : 'WATCH'}</span>
+                <strong>{node.label}</strong>
+                <small>{node.value}</small>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="observatory-readout">
+        <div><span>INTEGRATIONS</span><strong>{summary?.monitoredIntegrations ?? '—'}</strong><small>event streams</small></div>
+        <div><span>INVARIANTS</span><strong>{summary?.totalInvariants ?? '—'}</strong><small>outcome checks</small></div>
+        <div><span>DRIFT ALERTS</span><strong>{alertCount}</strong><small>last 24 hours</small></div>
+      </div>
+    </section>
+  );
+}
+
 function HealingDashboardContent() {
   const [paused, setPaused] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
@@ -1244,6 +1324,11 @@ function HealingDashboardContent() {
               Run diagnosis
             </Button>
           </div>
+          <RecoveryObservatory
+            liveSnapshot={liveSnapshot}
+            activeIncidentCount={activeIncidentCount}
+            apiError={apiError}
+          />
           <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
             {metrics.map(metric => (
               <article
