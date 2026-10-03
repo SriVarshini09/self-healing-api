@@ -798,6 +798,106 @@ function RecoveryObservatory({
   );
 }
 
+function AssuranceHero({
+  liveSnapshot,
+  activeIncidentCount,
+  onNavigate,
+  onOpenDiagnosis,
+}: {
+  liveSnapshot: LiveSnapshot | null;
+  activeIncidentCount: number;
+  onNavigate: (target: string) => void;
+  onOpenDiagnosis: () => void;
+}) {
+  const stable = Boolean(liveSnapshot) && activeIncidentCount === 0;
+  const connectionLabel = liveSnapshot ? 'Live telemetry flowing' : 'Connecting to telemetry';
+  const connectionDetail = liveSnapshot
+    ? `${liveSnapshot.summary.monitoredIntegrations} integration${liveSnapshot.summary.monitoredIntegrations === 1 ? '' : 's'} reporting in`
+    : 'The control plane is waiting for its first signal';
+
+  return (
+    <section className="assurance-hero" aria-labelledby="assurance-hero-title">
+      <div className="assurance-hero-grid" aria-hidden="true" />
+      <div className="assurance-hero-orb assurance-hero-orb-one" aria-hidden="true" />
+      <div className="assurance-hero-orb assurance-hero-orb-two" aria-hidden="true" />
+      <div className="assurance-hero-copy">
+        <div className="assurance-eyebrow">
+          <span className="assurance-eyebrow-dot" /> BUSINESS OUTCOME CONTROL PLANE
+        </div>
+        <h2 id="assurance-hero-title">
+          Make every integration
+          <span> answer for the outcome.</span>
+        </h2>
+        <p>
+          SHAPI turns noisy service signals into verified business outcomes, repair context,
+          and an evidence trail your team can trust.
+        </p>
+        <div className="assurance-hero-actions">
+          <button type="button" className="assurance-primary-action" onClick={onOpenDiagnosis}>
+            <Sparkles className="size-3.5" />
+            Run live diagnosis
+          </button>
+          <button type="button" className="assurance-secondary-action" onClick={() => onNavigate('connections')}>
+            Explore connections <span aria-hidden="true">↗</span>
+          </button>
+        </div>
+        <div className="assurance-connection-state">
+          <span className={`assurance-connection-dot ${stable ? 'is-stable' : ''}`} />
+          <strong>{connectionLabel}</strong>
+          <span>{connectionDetail}</span>
+        </div>
+      </div>
+
+      <div className="assurance-hero-visual" aria-label="SHAPI outcome assurance loop">
+        <div className="assurance-visual-caption">THE ASSURANCE LOOP</div>
+        <div className="assurance-loop-line assurance-loop-line-one" aria-hidden="true" />
+        <div className="assurance-loop-line assurance-loop-line-two" aria-hidden="true" />
+        <div className="assurance-loop-ring assurance-loop-ring-one" aria-hidden="true" />
+        <div className="assurance-loop-ring assurance-loop-ring-two" aria-hidden="true" />
+        <div className="assurance-loop-core">
+          <span className="assurance-loop-core-dot" />
+          <span className="assurance-loop-core-label">SHAPI CORE</span>
+          <strong>{stable ? 'STABLE' : liveSnapshot ? `${activeIncidentCount} ACTIVE` : 'SYNC'}</strong>
+          <small>{stable ? 'watching for drift' : 'reviewing signal'}</small>
+        </div>
+        <div className="assurance-loop-step assurance-loop-step-observe">
+          <span>01</span>
+          <strong>Observe</strong>
+          <small>events arrive</small>
+        </div>
+        <div className="assurance-loop-step assurance-loop-step-prove">
+          <span>02</span>
+          <strong>Prove</strong>
+          <small>{liveSnapshot?.summary.totalInvariants ?? '—'} invariants</small>
+        </div>
+        <div className="assurance-loop-step assurance-loop-step-repair">
+          <span>03</span>
+          <strong>Repair</strong>
+          <small>{activeIncidentCount ? `${activeIncidentCount} to review` : 'queue clear'}</small>
+        </div>
+      </div>
+
+      <div className="assurance-hero-stats">
+        <div>
+          <span>CONNECTED</span>
+          <strong>{liveSnapshot?.summary.monitoredIntegrations ?? '—'}</strong>
+          <small>integrations</small>
+        </div>
+        <div>
+          <span>PROTECTED</span>
+          <strong>{liveSnapshot?.summary.totalInvariants ?? '—'}</strong>
+          <small>outcome checks</small>
+        </div>
+        <div>
+          <span>EXCEPTIONS</span>
+          <strong>{String(activeIncidentCount).padStart(2, '0')}</strong>
+          <small>open incidents</small>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function HealingDashboardContent({
   theme,
   onToggleTheme,
@@ -1409,6 +1509,12 @@ function HealingDashboardContent({
               Run diagnosis
             </Button>
           </div>
+          <AssuranceHero
+            liveSnapshot={liveSnapshot}
+            activeIncidentCount={activeIncidentCount}
+            onNavigate={navigateFromObservatory}
+            onOpenDiagnosis={openDiagnosis}
+          />
           <RecoveryObservatory
             liveSnapshot={liveSnapshot}
             activeIncidentCount={activeIncidentCount}
