@@ -1045,7 +1045,7 @@ function CommandCenterRail({
         <div className="command-trust-list">
           <div><ListChecks className="size-3.5" /><span>Human review before repair PRs</span></div>
           <div><ShieldCheck className="size-3.5" /><span>Outcome checks stay evidence-backed</span></div>
-          <div><LockKeyhole className="size-3.5" /><span>No location telemetry collected</span></div>
+          <div><LockKeyhole className="size-3.5" /><span>Every repair leaves an audit trail</span></div>
         </div>
       </div>
     </section>
@@ -1601,7 +1601,7 @@ function HealingDashboardContent({
             <span className="font-semibold lg:hidden">SHAPI</span>
             <span className="hidden text-muted-foreground lg:inline">SHAPI</span>
             <span className="hidden text-muted-foreground lg:inline">›</span>
-            <span className="truncate">Overview</span>
+            <span className="truncate">Outcome protection</span>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <Button
@@ -1651,7 +1651,7 @@ function HealingDashboardContent({
         <section id="overview" className="mx-auto max-w-[1600px] px-4 pb-12 pt-5 md:px-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h1 className="text-lg font-semibold">Overview</h1>
+              <h1 className="text-lg font-semibold">Outcome protection</h1>
               <p className="text-xs text-muted-foreground">
                 {liveSnapshot
                   ? `Your protection layer is live · ${liveSnapshot.summary.monitoredIntegrations} integration${liveSnapshot.summary.monitoredIntegrations === 1 ? '' : 's'} · checks every 10s`
@@ -1665,18 +1665,17 @@ function HealingDashboardContent({
               Run diagnosis
             </Button>
           </div>
+          <AssuranceHero
+            liveSnapshot={liveSnapshot}
+            activeIncidentCount={activeIncidentCount}
+            onNavigate={navigateFromObservatory}
+            onOpenDiagnosis={openDiagnosis}
+          />
           <CommandCenterRail
             liveSnapshot={liveSnapshot}
             activeIncidents={activeIncidents}
             activeIncidentCount={activeIncidentCount}
             lastSyncAt={lastSyncAt}
-            onNavigate={navigateFromObservatory}
-            onOpenDiagnosis={openDiagnosis}
-          />
-          <RecoveryObservatory
-            liveSnapshot={liveSnapshot}
-            activeIncidentCount={activeIncidentCount}
-            apiError={apiError}
             onNavigate={navigateFromObservatory}
             onOpenDiagnosis={openDiagnosis}
           />
@@ -1703,6 +1702,16 @@ function HealingDashboardContent({
                 </div>
               </article>
             ))}
+          </div>
+
+          <div className="mt-3.5">
+            <RecoveryObservatory
+              liveSnapshot={liveSnapshot}
+              activeIncidentCount={activeIncidentCount}
+              apiError={apiError}
+              onNavigate={navigateFromObservatory}
+              onOpenDiagnosis={openDiagnosis}
+            />
           </div>
 
           <ConnectionsPanel />
