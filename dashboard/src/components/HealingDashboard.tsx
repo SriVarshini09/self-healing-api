@@ -2316,15 +2316,18 @@ function HealingDashboardContent({
             <div className="border-b border-border px-4 py-3">
               <h2 className="text-sm font-semibold">Recent protection signals</h2>
               <p className="text-[11px] text-muted-foreground">
-                {liveSnapshot ? 'Live incidents from SHAPI' : 'Waiting for live SHAPI data'}
+                {liveSnapshot
+                  ? `${customerExposureCount} outcome${customerExposureCount === 1 ? '' : 's'} at risk · ${repairPendingCount} repair${repairPendingCount === 1 ? '' : 's'} pending validation`
+                  : 'Waiting for live SHAPI data'}
               </p>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[700px] text-left text-xs">
+              <table className="w-full min-w-[860px] text-left text-xs">
                 <thead className="bg-secondary/40 font-mono text-[10px] uppercase text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3 font-medium">Integration</th>
                     <th className="px-4 py-3 font-medium">Detection</th>
+                    <th className="px-4 py-3 font-medium">Impact</th>
                     <th className="px-4 py-3 font-medium">Severity</th>
                     <th className="px-4 py-3 font-medium">State</th>
                   </tr>
@@ -2334,6 +2337,7 @@ function HealingDashboardContent({
                     ? activeIncidents.map(item => ({
                         integration: item.integrationId,
                         issue: item.title,
+                        impact: item.status === 'REPAIRED' ? 'REPAIR PENDING' : 'CUSTOMER EXPOSURE',
                         severity: item.severity,
                         state: item.status,
                       }))
@@ -2345,6 +2349,7 @@ function HealingDashboardContent({
                             : apiError
                               ? 'Live incident data unavailable'
                               : 'Waiting for live SHAPI data',
+                          impact: liveSnapshot ? 'NO ACTIVE EXPOSURE' : 'WAITING',
                           severity: liveSnapshot ? '—' : '—',
                           state: liveSnapshot ? 'HEALTHY' : 'WAITING',
                         },
@@ -2353,6 +2358,19 @@ function HealingDashboardContent({
                     <tr key={`${item.integration}-${item.issue}`}>
                       <td className="px-4 py-3 font-mono">{item.integration}</td>
                       <td className="px-4 py-3 text-muted-foreground">{item.issue}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={
+                            item.impact === 'REPAIR PENDING'
+                              ? 'rounded border border-warning/25 bg-warning/10 px-2 py-0.5 font-mono text-[10px] text-warning'
+                              : item.impact === 'CUSTOMER EXPOSURE'
+                                ? 'rounded border border-critical/25 bg-critical/10 px-2 py-0.5 font-mono text-[10px] text-critical'
+                                : 'rounded border border-success/25 bg-success/10 px-2 py-0.5 font-mono text-[10px] text-success'
+                          }
+                        >
+                          {item.impact}
+                        </span>
+                      </td>
                       <td className="px-4 py-3">{item.severity}</td>
                       <td className="px-4 py-3">
                         <span
