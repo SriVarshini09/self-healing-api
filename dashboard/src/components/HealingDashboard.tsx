@@ -1470,41 +1470,6 @@ function HealingDashboardContent({
     { critical: 0, elevated: 0, observed: 0 }
   );
   const affectedIntegrations = new Set(activeIncidents.map(incident => incident.integrationId)).size;
-  const metrics = [
-    {
-      label: 'Protection status',
-      value: liveSnapshot ? 'LIVE' : '—',
-      suffix: '',
-      badge: liveSnapshot ? '10s refresh' : apiError ? 'unavailable' : 'connecting',
-      icon: HeartPulse,
-      tone: 'success',
-    },
-    {
-      label: 'Open exceptions',
-      value: String(activeIncidentCount).padStart(2, '0'),
-      suffix: '',
-      badge: liveSnapshot ? `${activeIncidentCount} live` : 'connecting',
-      icon: CircleAlert,
-      tone: 'critical',
-    },
-    {
-      label: 'Connected sources',
-      value: String(liveSnapshot?.summary.monitoredIntegrations ?? '—'),
-      suffix: '',
-      badge: liveSnapshot ? 'live SHAPI' : 'connecting',
-      icon: Network,
-      tone: 'observed',
-    },
-    {
-      label: 'Outcomes covered',
-      value: String(liveSnapshot?.summary.totalInvariants ?? '—'),
-      suffix: '',
-      badge: liveSnapshot ? 'behavioral checks' : 'connecting',
-      icon: ShieldCheck,
-      tone: 'success',
-    },
-  ];
-
   return (
     <main className="min-h-screen bg-background text-foreground">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[212px] flex-col border-r border-border bg-sidebar lg:flex">
@@ -1542,7 +1507,7 @@ function HealingDashboardContent({
               {activeIncidentCount}
             </span>
           </a>
-          <a className="nav-item" href="#traffic">
+          <a className="nav-item" href="#protection-map">
             <Globe2 />
             Signal field
           </a>
@@ -1679,31 +1644,6 @@ function HealingDashboardContent({
             onNavigate={navigateFromObservatory}
             onOpenDiagnosis={openDiagnosis}
           />
-          <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
-            {metrics.map(metric => (
-              <article
-                key={metric.label}
-                className="min-w-0 rounded-md border border-border bg-card p-3.5 md:p-4"
-              >
-                <div className="flex items-start justify-between gap-1">
-                  <span className="grid size-7 place-items-center rounded border border-border bg-secondary/50 text-muted-foreground">
-                    <metric.icon className="size-3.5" />
-                  </span>
-                  <span className={`metric-badge metric-${metric.tone}`}>● {metric.badge}</span>
-                </div>
-                <p className="mt-4 text-[10px] font-semibold uppercase text-muted-foreground">
-                  {metric.label}
-                </p>
-                <div className="mt-1 flex items-end justify-between gap-1">
-                  <p className="min-w-0 text-xl font-bold tabular-nums md:text-2xl">
-                    {metric.value}
-                    <span className="ml-0.5 text-sm">{metric.suffix}</span>
-                  </p>
-                </div>
-              </article>
-            ))}
-          </div>
-
           <div className="mt-3.5">
             <RecoveryObservatory
               liveSnapshot={liveSnapshot}
@@ -1713,8 +1653,6 @@ function HealingDashboardContent({
               onOpenDiagnosis={openDiagnosis}
             />
           </div>
-
-          <ConnectionsPanel />
 
           <section
             id="traffic"
@@ -2040,6 +1978,7 @@ function HealingDashboardContent({
               </table>
             </div>
           </section>
+          <ConnectionsPanel />
         </section>
         <div className="mx-auto max-w-[1600px] px-4 pb-12 md:px-5">
           <RepairTargetPanel />
