@@ -976,13 +976,15 @@ function BusinessImpactPanel({
 
 function RecoveryObservatory({
   liveSnapshot,
-  activeIncidentCount,
+  customerExposureCount,
+  repairPendingCount,
   apiError,
   onNavigate,
   onOpenDiagnosis,
 }: {
   liveSnapshot: LiveSnapshot | null;
-  activeIncidentCount: number;
+  customerExposureCount: number;
+  repairPendingCount: number;
   apiError: string | null;
   onNavigate: (target: string) => void;
   onOpenDiagnosis: () => void;
@@ -990,28 +992,33 @@ function RecoveryObservatory({
   type ObservatoryNodeKey = 'core' | 'api' | 'events' | 'outcomes' | 'repair' | 'drift';
 
   const summary = liveSnapshot?.summary;
-  const stable = Boolean(liveSnapshot) && activeIncidentCount === 0;
+  const stable = Boolean(liveSnapshot) && customerExposureCount === 0 && repairPendingCount === 0;
+  const needsAttention = customerExposureCount > 0;
   const alertCount = summary?.activeAlerts ?? '—';
   const [selectedKey, setSelectedKey] = useState<ObservatoryNodeKey>('core');
   const nodes = [
     { key: 'api' as const, label: 'API gateway', value: liveSnapshot ? 'LIVE' : 'WAITING', tone: liveSnapshot ? 'stable' : 'watch', target: 'overview', targetLabel: 'Back to overview', description: 'The API gateway is the live heartbeat for SHAPI. It confirms that telemetry can reach the dashboard and powers every downstream protection signal.' },
     { key: 'events' as const, label: 'Event mesh', value: `${summary?.monitoredIntegrations ?? '—'} streams`, tone: 'stable', target: 'connections', targetLabel: 'View connections', description: 'The event mesh carries provider signals into SHAPI. Connected integrations and webhook readiness are visible in the connections panel.' },
     { key: 'outcomes' as const, label: 'Outcome engine', value: `${summary?.totalInvariants ?? '—'} checks`, tone: 'stable', target: 'coverage-summary', targetLabel: 'View coverage', description: 'The outcome engine evaluates the business invariants that matter. Each check can be mapped to a precise, reviewable repair path.' },
-    { key: 'repair' as const, label: 'Repair queue', value: stable ? 'CLEAR' : `${activeIncidentCount || '—'} open`, tone: stable ? 'stable' : 'watch', target: 'repair-targets', targetLabel: 'Review next steps', description: stable ? 'No active incidents are waiting for repair review. SHAPI is monitoring normally.' : `${activeIncidentCount} active incident${activeIncidentCount === 1 ? '' : 's'} may need diagnosis and a repair review.` },
+    { key: 'repair' as const, label: 'Repair queue', value: stable ? 'CLEAR' : repairPendingCount ? `${repairPendingCount} pending` : `${customerExposureCount || '—'} at risk`, tone: stable ? 'stable' : 'watch', target: 'repair-targets', targetLabel: 'Review next steps', description: stable ? 'No active incidents are waiting for repair review. SHAPI is monitoring normally.' : repairPendingCount ? `${repairPendingCount} repair${repairPendingCount === 1 ? '' : 's'} still need${repairPendingCount === 1 ? 's' : ''} validation before closure.` : `${customerExposureCount} customer outcome${customerExposureCount === 1 ? '' : 's'} may need diagnosis and a repair review.` },
     { key: 'drift' as const, label: 'Drift monitor', value: `${alertCount} alerts`, tone: Number(alertCount) > 0 ? 'watch' : 'stable', target: 'traffic', targetLabel: 'View protection signals', description: Number(alertCount) > 0 ? 'Drift alerts are being reported by SHAPI. Open protection signals to inspect the current state.' : 'No drift alerts are currently reported. The signal field continues watching for changes.' },
   ];
   const selectedNode = selectedKey === 'core'
     ? {
         key: 'core' as const,
         label: 'SHAPI Core',
-        value: stable ? 'STABLE' : liveSnapshot ? `${activeIncidentCount} ACTIVE` : 'SYNC',
+        value: stable ? 'STABLE' : liveSnapshot ? customerExposureCount ? `${customerExposureCount} EXPOSED` : repairPendingCount ? `${repairPendingCount} PENDING` : 'STABLE' : 'SYNC',
         target: 'overview',
         targetLabel: 'Back to overview',
         description: stable
           ? 'SHAPI Core is stable and watching for drift across every connected service.'
           : apiError
             ? 'SHAPI Core is waiting for a healthy telemetry connection.'
-            : 'SHAPI Core is coordinating live incident and recovery signals.',
+          : needsAttention
+            ? `SHAPI Core is coordinating ${customerExposureCount} customer outcome${customerExposureCount === 1 ? '' : 's'} that need attention.`
+            : repairPendingCount
+              ? `SHAPI Core has ${repairPendingCount} repair${repairPendingCount === 1 ? '' : 's'} waiting for validation.`
+              : 'SHAPI Core is coordinating live incident and recovery signals.',
       }
     : nodes.find(node => node.key === selectedKey) ?? nodes[0];
 
@@ -1029,7 +1036,7 @@ function RecoveryObservatory({
         <div className={`observatory-state ${stable ? 'state-stable' : 'state-watch'}`}>
           <span className="observatory-state-lamp" />
           <strong>{stable ? 'All systems stable' : apiError ? 'Connection attention' : 'Attention required'}</strong>
-          <span>{stable ? 'monitoring normally' : apiError ? 'waiting for live data' : `${activeIncidentCount} active incident${activeIncidentCount === 1 ? '' : 's'}`}</span>
+          <span>{stable ? 'monitoring normally' : apiError ? 'waiting for live data' : needsAttention ? `${customerExposureCount} customer outcome${customerExposureCount === 1 ? '' : 's'} at risk` : `${repairPendingCount} repair${repairPendingCount === 1 ? '' : 's'} pending validation`}</span>
         </div>
         <div className="observatory-legend" aria-label="System map legend">
           <span><i className="legend-dot legend-stable" />Healthy</span>
@@ -1073,8 +1080,8 @@ function RecoveryObservatory({
           >
             <span className="core-pulse" aria-hidden="true" />
             <span className="core-kicker"><span className="core-dot" /> SHAPI CORE</span>
-            <strong>{stable ? 'STABLE' : liveSnapshot ? activeIncidentCount : 'SYNC'}</strong>
-            <small>{stable ? 'watching for drift' : liveSnapshot ? 'active incidents' : 'connecting'}</small>
+            <strong>{stable ? 'STABLE' : liveSnapshot ? needsAttention ? customerExposureCount : repairPendingCount : 'SYNC'}</strong>
+            <small>{stable ? 'watching for drift' : liveSnapshot ? needsAttention ? 'customer exposure' : 'repair pending' : 'connecting'}</small>
           </button>
           {nodes.map(node => (
             <div key={node.key} className={`observatory-node observatory-node-${node.key} node-${node.tone} ${selectedKey === node.key ? 'is-selected' : ''}`}>
@@ -1124,21 +1131,26 @@ function RecoveryObservatory({
 
 function AssuranceHero({
   liveSnapshot,
-  activeIncidentCount,
+  customerExposureCount,
+  repairPendingCount,
   onNavigate,
   onOpenDiagnosis,
 }: {
   liveSnapshot: LiveSnapshot | null;
-  activeIncidentCount: number;
+  customerExposureCount: number;
+  repairPendingCount: number;
   onNavigate: (target: string) => void;
   onOpenDiagnosis: () => void;
 }) {
-  const stable = Boolean(liveSnapshot) && activeIncidentCount === 0;
+  const stable = Boolean(liveSnapshot) && customerExposureCount === 0 && repairPendingCount === 0;
+  const needsAttention = customerExposureCount > 0;
   const statusLabel = stable ? 'Protected' : liveSnapshot ? 'Review needed' : 'Connecting';
   const statusDetail = stable
     ? `${liveSnapshot?.summary.totalInvariants ?? '—'} outcomes checked · no open exceptions.`
     : liveSnapshot
-      ? `${activeIncidentCount} live exception${activeIncidentCount === 1 ? '' : 's'} need attention.`
+      ? needsAttention
+        ? `${customerExposureCount} customer outcome${customerExposureCount === 1 ? '' : 's'} at risk${repairPendingCount ? ` · ${repairPendingCount} repair pending validation` : ''}.`
+        : `${repairPendingCount} repair${repairPendingCount === 1 ? '' : 's'} pending validation before closure.`
       : 'The control plane is waiting for its first signal.';
   const signalState = liveSnapshot ? 'is-complete' : 'is-waiting';
   const verifyState = liveSnapshot && liveSnapshot.summary.totalInvariants > 0 ? 'is-complete' : 'is-waiting';
@@ -1168,7 +1180,13 @@ function AssuranceHero({
             <span className="product-eyebrow-dot" /> PROTECTION COMMAND CENTER
           </div>
           <h2 id="product-hero-title">
-            {stable ? <>Protection is active <em>across your outcomes.</em></> : liveSnapshot ? <>One outcome needs <em>your review.</em></> : <>Connect SHAPI to <em>start protecting.</em> </>}
+            {stable
+              ? <>Protection is active <em>across your outcomes.</em></>
+              : liveSnapshot
+                ? needsAttention
+                  ? <>{customerExposureCount === 1 ? 'One outcome needs' : `${customerExposureCount} outcomes need`} <em>your review.</em></>
+                  : <>Repair validation <em>is still pending.</em></>
+                : <>Connect SHAPI to <em>start protecting.</em> </>}
           </h2>
           <p>
             A live view of the outcomes SHAPI is checking, the signals it sees, and the repairs
@@ -1207,8 +1225,8 @@ function AssuranceHero({
           <div className="product-protection-ring">
             <div className="product-protection-ring-inner">
               <span>{stable ? 'PASS' : liveSnapshot ? 'OPEN' : 'WAIT'}</span>
-              <strong>{stable ? `${liveSnapshot?.summary.totalInvariants ?? 0}/${liveSnapshot?.summary.totalInvariants ?? 0}` : liveSnapshot ? String(activeIncidentCount).padStart(2, '0') : '—'}</strong>
-              <em>{stable ? 'checks passing' : liveSnapshot ? 'needs review' : 'waiting for telemetry'}</em>
+              <strong>{stable ? `${liveSnapshot?.summary.totalInvariants ?? 0}/${liveSnapshot?.summary.totalInvariants ?? 0}` : liveSnapshot ? String(needsAttention ? customerExposureCount : repairPendingCount).padStart(2, '0') : '—'}</strong>
+              <em>{stable ? 'checks passing' : liveSnapshot ? needsAttention ? 'customer exposure' : 'repair pending' : 'waiting for telemetry'}</em>
             </div>
           </div>
           <div className="product-signal-chip product-signal-chip-one">
@@ -1221,7 +1239,7 @@ function AssuranceHero({
           </div>
           <div className="product-signal-chip product-signal-chip-three">
             <span className="product-signal-chip-icon"><CircleAlert className="size-3" /></span>
-            <span><strong>{activeIncidentCount}</strong><small>open exceptions</small></span>
+            <span><strong>{customerExposureCount}</strong><small>customer exposure</small></span>
           </div>
         </div>
       </div>
@@ -1253,32 +1271,44 @@ function AssuranceHero({
 function CommandCenterRail({
   liveSnapshot,
   activeIncidents,
-  activeIncidentCount,
+  customerExposureCount,
+  repairPendingCount,
   lastSyncAt,
   onNavigate,
   onOpenDiagnosis,
 }: {
   liveSnapshot: LiveSnapshot | null;
   activeIncidents: LiveSnapshot['incidents'];
-  activeIncidentCount: number;
+  customerExposureCount: number;
+  repairPendingCount: number;
   lastSyncAt: number | null;
   onNavigate: (target: string) => void;
   onOpenDiagnosis: () => void;
 }) {
-  const nextIncident = activeIncidents[0];
+  const nextIncident = activeIncidents.find(incident => incident.status !== 'REPAIRED') ?? activeIncidents[0];
   const lastSyncLabel = lastSyncAt
     ? `${Math.max(0, Math.floor((Date.now() - lastSyncAt) / 1000))}s ago`
     : 'waiting';
-  const action = activeIncidentCount
+  const action = customerExposureCount
     ? {
         eyebrow: 'NEXT BEST ACTION',
-        title: `Review ${activeIncidentCount} active exception${activeIncidentCount === 1 ? '' : 's'}`,
+        title: `Review ${customerExposureCount} customer outcome${customerExposureCount === 1 ? '' : 's'}`,
         detail: nextIncident?.title ?? 'Open the signal feed to inspect the current incident state.',
         button: 'Open diagnosis',
         tone: 'attention',
         icon: TriangleAlert,
         onClick: onOpenDiagnosis,
       }
+    : repairPendingCount
+      ? {
+          eyebrow: 'NEXT BEST ACTION',
+          title: `Validate ${repairPendingCount} repair${repairPendingCount === 1 ? '' : 's'}`,
+          detail: 'A generated repair is waiting for validation before the incident can close.',
+          button: 'Review repair',
+          tone: 'attention',
+          icon: Clock3,
+          onClick: onOpenDiagnosis,
+        }
     : liveSnapshot
       ? {
           eyebrow: 'NEXT BEST ACTION',
@@ -1300,10 +1330,10 @@ function CommandCenterRail({
         };
 
   const ActionIcon = action.icon;
-  const activityItems = activeIncidentCount
+  const activityItems = customerExposureCount || repairPendingCount
     ? [
-        { label: 'Live exception', value: nextIncident?.title ?? 'Incident detected', tone: 'attention' },
-        { label: 'Signal field', value: `${activeIncidentCount} open incident${activeIncidentCount === 1 ? '' : 's'}`, tone: 'attention' },
+        { label: 'Customer exposure', value: customerExposureCount ? `${customerExposureCount} outcome${customerExposureCount === 1 ? '' : 's'} at risk` : 'None detected', tone: customerExposureCount ? 'attention' : 'healthy' },
+        { label: 'Repair pending', value: repairPendingCount ? `${repairPendingCount} awaiting validation` : 'None', tone: repairPendingCount ? 'attention' : 'healthy' },
         { label: 'Last sync', value: lastSyncLabel, tone: 'live' },
       ]
     : [
@@ -1752,6 +1782,9 @@ function HealingDashboardContent({
       incident => incident.status !== 'RESOLVED' && incident.status !== 'DISMISSED'
     ) ?? [];
   const activeIncidentCount = activeIncidents.length;
+  const customerExposureIncidents = activeIncidents.filter(incident => incident.status !== 'REPAIRED');
+  const customerExposureCount = customerExposureIncidents.length;
+  const repairPendingCount = activeIncidents.filter(incident => incident.status === 'REPAIRED').length;
   const activeRepairCandidates = activeIncidents.flatMap(incident => incident.repairCandidates ?? []);
   const prReadyCandidateCount = activeRepairCandidates.filter(
     candidate =>
@@ -1762,8 +1795,8 @@ function HealingDashboardContent({
   const manualReviewCount = activeRepairCandidates.filter(
     candidate => !(candidate.reviewStatus === 'PR_READY_AFTER_REVIEW' && candidate.automationEligible === true)
   ).length;
-  const visibleReports = activeIncidents.length
-    ? activeIncidents.map(incident => ({
+  const visibleReports = customerExposureIncidents.length
+    ? customerExposureIncidents.map(incident => ({
         service: incident.integrationId,
         issue: incident.title,
         source: incident.integrationId,
@@ -1771,7 +1804,7 @@ function HealingDashboardContent({
         tone: incidentTone(incident.severity),
       }))
     : [];
-  const severityCounts = activeIncidents.reduce(
+  const severityCounts = customerExposureIncidents.reduce(
     (counts, incident) => {
       const severity = incident.severity.toUpperCase();
       if (severity === 'CRITICAL' || severity === 'HIGH') counts.critical += 1;
@@ -1781,7 +1814,7 @@ function HealingDashboardContent({
     },
     { critical: 0, elevated: 0, observed: 0 }
   );
-  const affectedIntegrations = new Set(activeIncidents.map(incident => incident.integrationId)).size;
+  const affectedIntegrations = new Set(customerExposureIncidents.map(incident => incident.integrationId)).size;
   return (
     <main className="min-h-screen bg-background text-foreground">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[212px] flex-col border-r border-border bg-sidebar lg:flex">
@@ -1816,7 +1849,7 @@ function HealingDashboardContent({
             <CircleAlert />
             Protection signals
             <span className="ml-auto rounded bg-critical/15 px-1.5 text-[10px] text-critical">
-              {activeIncidentCount}
+              {customerExposureCount}
             </span>
           </a>
           <a className="nav-item" href="#protection-map">
@@ -1825,9 +1858,9 @@ function HealingDashboardContent({
           </a>
           <a className="nav-item" href="#healing">
             <GitBranch />
-            Repair activity
+            Repair queue
             <span className="ml-auto rounded bg-warning/15 px-1.5 text-[10px] text-warning">
-              {activeIncidentCount}
+              {repairPendingCount}
             </span>
           </a>
            <a className="nav-item" href="#coverage-summary">
@@ -1944,14 +1977,16 @@ function HealingDashboardContent({
           </div>
           <AssuranceHero
             liveSnapshot={liveSnapshot}
-            activeIncidentCount={activeIncidentCount}
+            customerExposureCount={customerExposureCount}
+            repairPendingCount={repairPendingCount}
             onNavigate={navigateFromObservatory}
             onOpenDiagnosis={openDiagnosis}
           />
           <CommandCenterRail
             liveSnapshot={liveSnapshot}
             activeIncidents={activeIncidents}
-            activeIncidentCount={activeIncidentCount}
+            customerExposureCount={customerExposureCount}
+            repairPendingCount={repairPendingCount}
             lastSyncAt={lastSyncAt}
             onNavigate={navigateFromObservatory}
             onOpenDiagnosis={openDiagnosis}
@@ -1959,7 +1994,8 @@ function HealingDashboardContent({
           <div className="mt-3.5">
             <RecoveryObservatory
               liveSnapshot={liveSnapshot}
-              activeIncidentCount={activeIncidentCount}
+              customerExposureCount={customerExposureCount}
+              repairPendingCount={repairPendingCount}
               apiError={apiError}
               onNavigate={navigateFromObservatory}
               onOpenDiagnosis={openDiagnosis}
@@ -1995,7 +2031,7 @@ function HealingDashboardContent({
                 <span className="rounded bg-critical/15 px-2 py-1 text-[10px] text-critical">
                   ●{' '}
                   {liveSnapshot
-                    ? `${activeIncidentCount} active incident${activeIncidentCount === 1 ? '' : 's'}`
+                    ? `${customerExposureCount} outcome${customerExposureCount === 1 ? '' : 's'} at risk${repairPendingCount ? ` · ${repairPendingCount} repair pending` : ''}`
                     : 'Waiting for live data'}
                 </span>
                 <Button variant="outline" size="sm" onClick={() => setPaused(!paused)}>
@@ -2015,10 +2051,10 @@ function HealingDashboardContent({
                       </div>
                       <div className="mt-8 flex items-end gap-3">
                         <span className="text-7xl font-bold tabular-nums text-foreground">
-                          {activeIncidentCount}
+                          {customerExposureCount}
                         </span>
                         <span className="pb-2 text-sm text-muted-foreground">
-                          active incident{activeIncidentCount === 1 ? '' : 's'}
+                          customer outcome{customerExposureCount === 1 ? '' : 's'} at risk
                         </span>
                       </div>
                       <p className="mt-2 max-w-md text-xs leading-relaxed text-muted-foreground">
@@ -2043,9 +2079,9 @@ function HealingDashboardContent({
                           <p className="mt-1 text-[10px] text-muted-foreground">Affected integrations</p>
                         </div>
                       </div>
-                      {!activeIncidentCount && (
+                      {!customerExposureCount && (
                         <div className="mt-5 flex items-center gap-2 rounded border border-success/30 bg-success/5 px-3 py-2 text-xs text-success">
-                          <Check className="size-4" /> No active incidents. SHAPI is monitoring normally.
+                          <Check className="size-4" /> No customer exposure. SHAPI is monitoring normally{repairPendingCount ? ` · ${repairPendingCount} repair pending validation.` : '.'}
                         </div>
                       )}
                     </div>
@@ -2124,7 +2160,7 @@ function HealingDashboardContent({
                 <h2 className="text-sm font-semibold">Repair activity</h2>
                 <p className="text-[11px] text-muted-foreground">
                   {liveSnapshot
-                    ? 'Live incident states from SHAPI'
+                    ? `${customerExposureCount} outcome${customerExposureCount === 1 ? '' : 's'} at risk · ${repairPendingCount} repair${repairPendingCount === 1 ? '' : 's'} pending validation`
                     : 'Waiting for SHAPI telemetry'}
                 </p>
               </div>
@@ -2172,9 +2208,9 @@ function HealingDashboardContent({
                 </div>
                 <div>
                   <p className="text-xl font-semibold text-warning">
-                    {liveSnapshot ? activeIncidentCount : '—'}
+                    {liveSnapshot ? customerExposureCount : '—'}
                   </p>
-                  <p className="text-[10px] text-muted-foreground">Active</p>
+                  <p className="text-[10px] text-muted-foreground">At risk</p>
                 </div>
                 <div>
                   <p className="text-xl font-semibold text-observed">
