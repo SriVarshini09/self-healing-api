@@ -1395,6 +1395,7 @@ function HealingDashboardContent({
 }) {
   const [paused, setPaused] = useState(false);
   const [repairQueueFilter, setRepairQueueFilter] = useState<'all' | 'exposure' | 'pending'>('all');
+  const [signalFilter, setSignalFilter] = useState<'all' | 'exposure' | 'pending'>('all');
   const [commandOpen, setCommandOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [diagnosisOpen, setDiagnosisOpen] = useState(false);
@@ -1791,6 +1792,11 @@ function HealingDashboardContent({
     : repairQueueFilter === 'exposure'
       ? customerExposureIncidents
       : activeIncidents;
+  const signalItems = signalFilter === 'pending'
+    ? activeIncidents.filter(incident => incident.status === 'REPAIRED')
+    : signalFilter === 'exposure'
+      ? customerExposureIncidents
+      : activeIncidents;
   const activeRepairCandidates = activeIncidents.flatMap(incident => incident.repairCandidates ?? []);
   const prReadyCandidateCount = activeRepairCandidates.filter(
     candidate =>
@@ -1880,7 +1886,7 @@ function HealingDashboardContent({
             <GitBranch />
             Integrations
           </a>
-          <a className="nav-item" href="#incidents">
+          <a className="nav-item" href="#incidents" onClick={() => setSignalFilter('all')}>
             <Network />
             Event history
           </a>
@@ -2314,12 +2320,34 @@ function HealingDashboardContent({
             className="mt-4 overflow-hidden rounded-md border border-border bg-card"
           >
             <div className="border-b border-border px-4 py-3">
-              <h2 className="text-sm font-semibold">Recent protection signals</h2>
-              <p className="text-[11px] text-muted-foreground">
-                {liveSnapshot
-                  ? `${customerExposureCount} outcome${customerExposureCount === 1 ? '' : 's'} at risk · ${repairPendingCount} repair${repairPendingCount === 1 ? '' : 's'} pending validation`
-                  : 'Waiting for live SHAPI data'}
-              </p>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-semibold">Recent protection signals</h2>
+                  <p className="text-[11px] text-muted-foreground">
+                    {liveSnapshot
+                      ? `${customerExposureCount} outcome${customerExposureCount === 1 ? '' : 's'} at risk · ${repairPendingCount} repair${repairPendingCount === 1 ? '' : 's'} pending validation`
+                      : 'Waiting for live SHAPI data'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 rounded border border-border bg-secondary/30 p-1" role="tablist" aria-label="Protection signal filter">
+                  {[
+                    { key: 'all' as const, label: 'All', count: activeIncidents.length },
+                    { key: 'exposure' as const, label: 'Customer exposure', count: customerExposureCount },
+                    { key: 'pending' as const, label: 'Repair pending', count: repairPendingCount },
+                  ].map(filter => (
+                    <button
+                      key={filter.key}
+                      type="button"
+                      role="tab"
+                      aria-selected={signalFilter === filter.key}
+                      onClick={() => setSignalFilter(filter.key)}
+                      className={`rounded px-2 py-1 font-mono text-[9px] transition-colors ${signalFilter === filter.key ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                      {filter.label} {filter.count}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[860px] text-left text-xs">
@@ -2333,8 +2361,9 @@ function HealingDashboardContent({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {(activeIncidents.length
-                    ? activeIncidents.map(item => ({
+                  {(signalItems.length
+                    ? signalItems.map(item => ({
+                        id: item.id,
                         integration: item.integrationId,
                         issue: item.title,
                         impact: item.status === 'REPAIRED' ? 'REPAIR PENDING' : 'CUSTOMER EXPOSURE',
@@ -2343,19 +2372,28 @@ function HealingDashboardContent({
                       }))
                     : [
                         {
+                          id: `signal-empty-${signalFilter}`,
                           integration: liveSnapshot ? 'SHAPI' : '—',
                           issue: liveSnapshot
-                            ? 'No active incidents'
+                            ? signalFilter === 'pending'
+                              ? 'No repairs pending validation'
+                              : signalFilter === 'exposure'
+                                ? 'No customer exposure'
+                                : 'No active incidents'
                             : apiError
                               ? 'Live incident data unavailable'
                               : 'Waiting for live SHAPI data',
-                          impact: liveSnapshot ? 'NO ACTIVE EXPOSURE' : 'WAITING',
+                          impact: liveSnapshot
+                            ? signalFilter === 'pending'
+                              ? 'NO REPAIR PENDING'
+                              : 'NO ACTIVE EXPOSURE'
+                            : 'WAITING',
                           severity: liveSnapshot ? '—' : '—',
                           state: liveSnapshot ? 'HEALTHY' : 'WAITING',
                         },
                       ]
                   ).map(item => (
-                    <tr key={`${item.integration}-${item.issue}`}>
+                    <tr key={item.id}>
                       <td className="px-4 py-3 font-mono">{item.integration}</td>
                       <td className="px-4 py-3 text-muted-foreground">{item.issue}</td>
                       <td className="px-4 py-3">
