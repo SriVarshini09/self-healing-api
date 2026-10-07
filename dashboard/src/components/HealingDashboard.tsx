@@ -71,6 +71,36 @@ type LiveSnapshot = {
   }>;
 };
 
+type IncidentDetail = {
+  id: string;
+  title: string;
+  description: string;
+  status: string;
+  severity: string;
+  integrationId: string;
+  detectedAt: string;
+  triagedAt?: string | null;
+  resolvedAt?: string | null;
+  rootCause?: string | null;
+  suggestedFix?: string | null;
+  integration?: { id: string; name: string; type: string; webhookEnabled: boolean };
+  invariant?: {
+    name: string;
+    description: string;
+    predicateDescription: string;
+    expectedSuccessRate: number;
+    repairRequiredChecks: string[];
+  } | null;
+  repairCandidates?: LiveDiagnosis['candidates'];
+};
+
+type IncidentTimelineItem = {
+  type: string;
+  timestamp: string;
+  message: string;
+  data?: Record<string, unknown>;
+};
+
 type AlertStatus = {
   webhookConfigured: boolean;
   pending: number;
@@ -1064,6 +1094,9 @@ function HealingDashboardContent({
   const [query, setQuery] = useState('');
   const [diagnosisOpen, setDiagnosisOpen] = useState(false);
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
+  const [incidentDetail, setIncidentDetail] = useState<IncidentDetail | null>(null);
+  const [incidentTimeline, setIncidentTimeline] = useState<IncidentTimelineItem[]>([]);
+  const [incidentLoading, setIncidentLoading] = useState(false);
   const [diagnosing, setDiagnosing] = useState(false);
   const [diagnosisResult, setDiagnosisResult] = useState<LiveDiagnosis | null>(null);
   const [diagnosisError, setDiagnosisError] = useState<string | null>(null);
@@ -1107,6 +1140,9 @@ function HealingDashboardContent({
     setSelectedIncidentId(incidentId);
     setDiagnosisResult(null);
     setDiagnosisError(null);
+    setIncidentDetail(null);
+    setIncidentTimeline([]);
+    setIncidentLoading(Boolean(incidentId));
     setReplayCandidate('');
     setReplayMessage(null);
     setPrMessage(null);
@@ -1116,31 +1152,31 @@ function HealingDashboardContent({
     setGithubLoadError(null);
     setGithubPrLoading(Boolean(incidentId));
     setGithubPrError(null);
-    if (selected && selected.status !== 'DETECTED') {
-      setDiagnosing(true);
-      void fetchShapi<{
-        rootCause: string | null;
-        suggestedFix: string | null;
-        repairCandidates: LiveDiagnosis['candidates'];
-      }>(`incidents/${incidentId}`)
-        .then(detail =>
-          setDiagnosisResult({
-            rootCause: detail.rootCause ?? 'Diagnosis not recorded',
-            suggestedFix: detail.suggestedFix ?? 'Review this incident manually',
-            confidence: Math.max(
-              0,
-              ...detail.repairCandidates.map(candidate => candidate.confidence)
-            ),
-            evidence: [],
-            candidates: detail.repairCandidates,
-          })
-        )
+    if (incidentId) {
+      void Promise.all([
+        fetchShapi<IncidentDetail>(`incidents/${incidentId}`),
+        fetchShapi<{ incidentId: string; timeline: IncidentTimelineItem[] }>(
+          `incidents/${incidentId}/timeline`
+        ),
+      ])
+        .then(([detail, timeline]) => {
+          setIncidentDetail(detail);
+          setIncidentTimeline(timeline.timeline ?? []);
+          if (selected && selected.status !== 'DETECTED') {
+            const candidates = detail.repairCandidates ?? [];
+            setDiagnosisResult({
+              rootCause: detail.rootCause ?? 'Diagnosis not recorded',
+              suggestedFix: detail.suggestedFix ?? 'Review this incident manually',
+              confidence: Math.max(0, ...candidates.map(candidate => candidate.confidence)),
+              evidence: [],
+              candidates,
+            });
+          }
+        })
         .catch(error =>
-          setDiagnosisError(
-            error instanceof Error ? error.message : 'Could not load saved diagnosis'
-          )
+          setDiagnosisError(error instanceof Error ? error.message : 'Could not load incident detail')
         )
-        .finally(() => setDiagnosing(false));
+        .finally(() => setIncidentLoading(false));
     }
     void Promise.all([
       fetchShapi<GitHubInstallation[]>('github/installations'),
@@ -2043,7 +2079,7 @@ function HealingDashboardContent({
           <div
             role="dialog"
             aria-label="Fleet diagnosis"
-            className="my-4 max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-md border border-border bg-popover p-5 shadow-2xl"
+            className="my-4 max-h-[calc(100vh-2rem)] w-full max-w-5xl overflow-y-auto rounded-md border border-border bg-popover p-5 shadow-2xl"
             onClick={event => event.stopPropagation()}
           >
             <div className="flex items-center justify-between">
@@ -2057,6 +2093,99 @@ function HealingDashboardContent({
                 <X />
               </Button>
             </div>
+            {selectedIncidentId && (
+              <div className="mt-4 rounded-lg border border-border bg-background/60 p-4">
+                {incidentLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading incident evidence…</p>
+                ) : incidentDetail ? (
+                  <>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-primary">
+                          Incident detail
+                        </p>
+                        <h2 className="mt-1 text-xl font-semibold">{incidentDetail.title}</h2>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {incidentDetail.integration?.name ?? incidentDetail.integrationId} ·{' '}
+                          {incidentDetail.integration?.type ?? 'integration'}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2 font-mono text-[10px] uppercase">
+                        <span className="rounded border border-warning/40 bg-warning/10 px-2 py-1 text-warning">
+                          {incidentDetail.severity}
+                        </span>
+                        <span className="rounded border border-border bg-secondary/40 px-2 py-1 text-muted-foreground">
+                          {incidentDetail.status}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                      <div className="rounded border border-border bg-secondary/25 p-3">
+                        <p className="font-mono text-[9px] uppercase text-muted-foreground">Detected</p>
+                        <p className="mt-1 text-xs font-medium">{new Date(incidentDetail.detectedAt).toLocaleString()}</p>
+                      </div>
+                      <div className="rounded border border-border bg-secondary/25 p-3">
+                        <p className="font-mono text-[9px] uppercase text-muted-foreground">Expected success</p>
+                        <p className="mt-1 text-xs font-medium">
+                          {incidentDetail.invariant ? `${Math.round(incidentDetail.invariant.expectedSuccessRate * 100)}%` : 'Not configured'}
+                        </p>
+                      </div>
+                      <div className="rounded border border-border bg-secondary/25 p-3">
+                        <p className="font-mono text-[9px] uppercase text-muted-foreground">Repair checks</p>
+                        <p className="mt-1 text-xs font-medium">
+                          {incidentDetail.invariant?.repairRequiredChecks.length
+                            ? incidentDetail.invariant.repairRequiredChecks.join(', ')
+                            : 'Manual review'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                      <div className="rounded border border-border bg-secondary/20 p-3">
+                        <p className="font-mono text-[10px] uppercase text-muted-foreground">Outcome contract</p>
+                        <p className="mt-2 text-sm leading-relaxed">
+                          {incidentDetail.invariant?.predicateDescription ?? incidentDetail.invariant?.description ?? 'No outcome contract is attached to this incident.'}
+                        </p>
+                        <p className="mt-4 font-mono text-[10px] uppercase text-muted-foreground">Observed signal</p>
+                        <p className="mt-2 text-sm leading-relaxed text-warning">{incidentDetail.description}</p>
+                      </div>
+                      <div className="rounded border border-border bg-secondary/20 p-3">
+                        <p className="font-mono text-[10px] uppercase text-muted-foreground">Evidence timeline</p>
+                        {incidentTimeline.length ? (
+                          <div className="mt-3 space-y-3">
+                            {incidentTimeline.map((item, index) => (
+                              <div key={`${item.type}-${item.timestamp}-${index}`} className="relative flex gap-3">
+                                <div className="mt-1.5 flex flex-col items-center">
+                                  <span className="size-2 rounded-full bg-primary" />
+                                  {index < incidentTimeline.length - 1 && <span className="mt-1 h-full w-px bg-border" />}
+                                </div>
+                                <div className="min-w-0 flex-1 pb-1">
+                                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                                    <p className="text-xs font-medium">{item.message}</p>
+                                    <time className="font-mono text-[9px] text-muted-foreground">
+                                      {new Date(item.timestamp).toLocaleString()}
+                                    </time>
+                                  </div>
+                                  {item.data && Object.keys(item.data).length > 0 && (
+                                    <p className="mt-1 break-words font-mono text-[9px] leading-relaxed text-muted-foreground">
+                                      {Object.entries(item.data)
+                                        .filter(([, value]) => value !== null && value !== undefined && value !== '')
+                                        .map(([key, value]) => `${key}: ${typeof value === 'string' ? value : JSON.stringify(value)}`)
+                                        .join(' · ')}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="mt-3 text-xs text-muted-foreground">No timeline events recorded yet.</p>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            )}
             {diagnosisResult ? (
               <>
                 <h2 className="mt-3 text-lg font-semibold">Live diagnosis complete</h2>
