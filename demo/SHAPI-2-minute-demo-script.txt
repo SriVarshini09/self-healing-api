@@ -1,0 +1,15 @@
+SHAPI is an outcome protection layer for modern software.
+
+Here is the problem. A webhook or API request can return HTTP 200 and still fail to complete the real business action. A payment may be accepted but never activate an account. A deployment may report success while the production outcome is broken. Traditional monitoring sees the response. SHAPI watches the outcome.
+
+This is the SHAPI command center. It connects to providers such as Stripe and GitHub, receives live signals, and checks them against business invariants: simple rules that describe what success must look like.
+
+The overview gives the team one clear answer: what is healthy, what needs attention, and what should happen next. Here we can see two connected sources, seven outcome checks, and three open exceptions.
+
+The protection loop is simple. First, SHAPI receives a signal. Next, it verifies the event against the expected business outcome. When behavior drifts, SHAPI creates a reviewable incident with the integration, severity, evidence, and current state.
+
+The live protection map shows how the system is connected: the API gateway, event mesh, outcome engine, repair queue, and drift monitor. Each node is selectable so a team can move from a high-level status to the exact area that needs review.
+
+SHAPI does not silently change production. It prepares a repair target and a reviewable pull request, while keeping the evidence and required checks visible to the team. That gives operators speed without giving up control.
+
+In one sentence: SHAPI turns invisible business failures into visible, explainable, and safely reviewable repairs.

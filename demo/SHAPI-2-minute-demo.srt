@@ -1,0 +1,35 @@
+1
+00:00:00,000 --> 00:00:08,000
+SHAPI: outcome protection for modern software
+
+2
+00:00:08,000 --> 00:00:25,000
+An HTTP 200 response can still hide a failed business outcome.
+
+3
+00:00:25,000 --> 00:00:40,000
+SHAPI watches the outcome—not just the API response.
+
+4
+00:00:40,000 --> 00:00:55,000
+Connect Stripe and GitHub. Define invariants that describe real success.
+
+5
+00:00:55,000 --> 00:01:10,000
+Live overview: sources, checks, exceptions, and the next best action.
+
+6
+00:01:10,000 --> 00:01:25,000
+Signal → Verify → Detect drift → Review the incident.
+
+7
+00:01:25,000 --> 00:01:42,000
+The protection map shows the API, event mesh, outcome engine, repair queue, and drift monitor.
+
+8
+00:01:42,000 --> 00:01:55,000
+SHAPI prepares a reviewable repair. Humans keep control of production changes.
+
+9
+00:01:55,000 --> 00:02:00,000
+Visible. Explainable. Safely reviewable.
