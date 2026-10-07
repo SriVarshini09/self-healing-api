@@ -700,6 +700,110 @@ function RepairTargetPanel() {
   );
 }
 
+function OutcomeCoverageSummary({ onNavigate }: { onNavigate: (target: string) => void }) {
+  const [items, setItems] = useState<InvariantMapping[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetchShapi<{ data: InvariantMapping[] }>('invariants?pageSize=100')
+      .then(response => {
+        if (active) setItems(response.data ?? []);
+      })
+      .catch(loadError => {
+        if (active) setError(loadError instanceof Error ? loadError.message : 'Could not load outcome coverage');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const total = items.length;
+  const ready = items.filter(item => item.repairReadiness?.state === 'READY_FOR_TARGET_REVIEW').length;
+  const manual = items.filter(item => item.repairReadiness?.state === 'MANUAL_REVIEW').length;
+  const blocked = items.filter(item => item.repairReadiness?.state.startsWith('BLOCKED')).length;
+  const coverage = total ? Math.round((ready / total) * 100) : 0;
+  const integrations = items.reduce<Record<string, { total: number; ready: number }>>((groups, item) => {
+    const name = item.integration?.name ?? 'Unassigned integration';
+    const group = groups[name] ?? { total: 0, ready: 0 };
+    group.total += 1;
+    if (item.repairReadiness?.state === 'READY_FOR_TARGET_REVIEW') group.ready += 1;
+    groups[name] = group;
+    return groups;
+  }, {});
+
+  return (
+    <section id="coverage-summary" className="mt-3.5 rounded-md border border-border bg-card p-4" aria-labelledby="coverage-summary-title">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-primary">Protection coverage</p>
+          <h2 id="coverage-summary-title" className="mt-1 text-base font-semibold">How much of the business is protected?</h2>
+          <p className="mt-1 max-w-2xl text-[11px] leading-relaxed text-muted-foreground">
+            Coverage counts outcome checks with a mapped repository target and the verification checks needed for a safe repair review.
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => onNavigate('repair-targets')}>
+          View outcome checks <ArrowUpRight className="size-3.5" />
+        </Button>
+      </div>
+      {error ? (
+        <p className="mt-4 rounded border border-critical/30 bg-critical/5 p-3 text-xs text-critical">{error}</p>
+      ) : (
+        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(260px,0.8fr)_minmax(0,1.2fr)]">
+          <div className="rounded border border-border bg-secondary/20 p-4">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <p className="font-mono text-[10px] uppercase text-muted-foreground">Reviewable coverage</p>
+                <p className="mt-1 text-4xl font-semibold tabular-nums">{loading ? '—' : `${coverage}%`}</p>
+              </div>
+              <p className="text-right font-mono text-[10px] text-muted-foreground">
+                {loading ? 'Loading outcomes…' : `${ready} of ${total} outcomes ready`}
+              </p>
+            </div>
+            <div className="mt-4 h-2 overflow-hidden rounded-full bg-border" aria-label={`${coverage}% reviewable outcome coverage`}>
+              <div className="h-full rounded-full bg-gradient-to-r from-primary to-success transition-all" style={{ width: `${coverage}%` }} />
+            </div>
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[10px]">
+              <span className="text-success">{ready} ready</span>
+              <span className="text-warning">{manual} manual review</span>
+              <span className={blocked ? 'text-critical' : 'text-muted-foreground'}>{blocked} blocked</span>
+            </div>
+          </div>
+          <div className="rounded border border-border bg-secondary/20 p-4">
+            <p className="font-mono text-[10px] uppercase text-muted-foreground">Coverage by integration</p>
+            {loading ? (
+              <p className="mt-3 text-xs text-muted-foreground">Loading integration coverage…</p>
+            ) : Object.keys(integrations).length ? (
+              <div className="mt-3 space-y-3">
+                {Object.entries(integrations).map(([name, group]) => {
+                  const percent = group.total ? Math.round((group.ready / group.total) * 100) : 0;
+                  return (
+                    <div key={name}>
+                      <div className="flex items-center justify-between gap-3 text-xs">
+                        <span className="truncate font-medium">{name}</span>
+                        <span className="shrink-0 font-mono text-[10px] text-muted-foreground">{group.ready}/{group.total} ready</span>
+                      </div>
+                      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-border">
+                        <div className="h-full rounded-full bg-success" style={{ width: `${percent}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="mt-3 text-xs text-muted-foreground">No outcome checks configured yet.</p>
+            )}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function RecoveryObservatory({
   liveSnapshot,
   activeIncidentCount,
@@ -722,7 +826,7 @@ function RecoveryObservatory({
   const nodes = [
     { key: 'api' as const, label: 'API gateway', value: liveSnapshot ? 'LIVE' : 'WAITING', tone: liveSnapshot ? 'stable' : 'watch', target: 'overview', targetLabel: 'Back to overview', description: 'The API gateway is the live heartbeat for SHAPI. It confirms that telemetry can reach the dashboard and powers every downstream protection signal.' },
     { key: 'events' as const, label: 'Event mesh', value: `${summary?.monitoredIntegrations ?? '—'} streams`, tone: 'stable', target: 'connections', targetLabel: 'View connections', description: 'The event mesh carries provider signals into SHAPI. Connected integrations and webhook readiness are visible in the connections panel.' },
-    { key: 'outcomes' as const, label: 'Outcome engine', value: `${summary?.totalInvariants ?? '—'} checks`, tone: 'stable', target: 'repair-targets', targetLabel: 'View outcomes', description: 'The outcome engine evaluates the business invariants that matter. Each check can be mapped to a precise, reviewable repair path.' },
+    { key: 'outcomes' as const, label: 'Outcome engine', value: `${summary?.totalInvariants ?? '—'} checks`, tone: 'stable', target: 'coverage-summary', targetLabel: 'View coverage', description: 'The outcome engine evaluates the business invariants that matter. Each check can be mapped to a precise, reviewable repair path.' },
     { key: 'repair' as const, label: 'Repair queue', value: stable ? 'CLEAR' : `${activeIncidentCount || '—'} open`, tone: stable ? 'stable' : 'watch', target: 'repair-targets', targetLabel: 'Review next steps', description: stable ? 'No active incidents are waiting for repair review. SHAPI is monitoring normally.' : `${activeIncidentCount} active incident${activeIncidentCount === 1 ? '' : 's'} may need diagnosis and a repair review.` },
     { key: 'drift' as const, label: 'Drift monitor', value: `${alertCount} alerts`, tone: Number(alertCount) > 0 ? 'watch' : 'stable', target: 'traffic', targetLabel: 'View protection signals', description: Number(alertCount) > 0 ? 'Drift alerts are being reported by SHAPI. Open protection signals to inspect the current state.' : 'No drift alerts are currently reported. The signal field continues watching for changes.' },
   ];
@@ -905,7 +1009,7 @@ function AssuranceHero({
               <Sparkles className="size-3.5" />
               Open signal feed
             </button>
-            <button type="button" className="product-secondary-action" onClick={() => onNavigate('traffic')}>
+            <button type="button" className="product-secondary-action" onClick={() => onNavigate('coverage-summary')}>
               Explore coverage <span aria-hidden="true">↗</span>
             </button>
           </div>
@@ -959,7 +1063,7 @@ function AssuranceHero({
           <small>Services send live events into SHAPI.</small>
           <i className="product-proof-progress" aria-hidden="true" />
         </button>
-        <button type="button" className={`product-hero-proof-step ${verifyState}`} onClick={() => onNavigate('repair-targets')} aria-label="View outcome checks">
+        <button type="button" className={`product-hero-proof-step ${verifyState}`} onClick={() => onNavigate('coverage-summary')} aria-label="View outcome checks">
           <span>02</span>
           <strong>Verify <ArrowUpRight className="product-proof-arrow" /></strong>
           <small>Business outcomes are checked continuously.</small>
@@ -1013,7 +1117,7 @@ function CommandCenterRail({
           button: 'Review coverage',
           tone: 'healthy',
           icon: ShieldCheck,
-          onClick: () => onNavigate('repair-targets'),
+          onClick: () => onNavigate('coverage-summary'),
         }
       : {
           eyebrow: 'NEXT BEST ACTION',
@@ -1554,7 +1658,7 @@ function HealingDashboardContent({
               {activeIncidentCount}
             </span>
           </a>
-          <a className="nav-item" href="#repair-targets">
+           <a className="nav-item" href="#coverage-summary">
             <Settings2 />
             Protected outcomes
             <span className="ml-auto rounded bg-critical/15 px-1.5 text-[10px] text-critical">
@@ -1689,6 +1793,7 @@ function HealingDashboardContent({
               onOpenDiagnosis={openDiagnosis}
             />
           </div>
+          <OutcomeCoverageSummary onNavigate={navigateFromObservatory} />
 
           <section
             id="traffic"
