@@ -1242,26 +1242,31 @@ function OutcomeTwin({
         </div>
       </div>
       <div className="p-4 md:p-5">
-        <div className="relative grid gap-2 md:grid-cols-5">
-          <div className="pointer-events-none absolute left-[8%] right-[8%] top-12 hidden h-px bg-gradient-to-r from-success/60 via-primary/60 to-warning/60 md:block" aria-hidden="true" />
-          {steps.map(step => (
-            <button
-              key={step.key}
-              type="button"
-              className={`relative z-10 rounded-lg border p-3 text-left transition-all ${selectedKey === step.key ? 'border-primary bg-primary/10 shadow-sm' : 'border-border bg-background/60 hover:border-primary/40 hover:bg-primary/5'}`}
-              onClick={() => setSelectedKey(step.key)}
-              aria-pressed={selectedKey === step.key}
-              aria-label={`Select ${step.label}`}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-mono text-[9px] text-muted-foreground">{step.number}</span>
-                <span className={`size-2 rounded-full ${step.state === 'healthy' ? 'bg-success' : step.state === 'attention' ? 'bg-critical' : step.state === 'pending' ? 'bg-warning' : 'bg-muted-foreground'}`} />
-              </div>
-              <p className="mt-4 text-xs font-semibold">{step.label}</p>
-              <p className={`mt-1 font-mono text-[10px] ${step.state === 'attention' ? 'text-critical' : step.state === 'pending' ? 'text-warning' : step.state === 'healthy' ? 'text-success' : 'text-muted-foreground'}`}>
-                {step.value}
-              </p>
-            </button>
+        <div className="grid gap-3 md:grid-cols-5 md:gap-4">
+          {steps.map((step, index) => (
+            <div key={step.key} className="relative">
+              {index > 0 && (
+                <span className="pointer-events-none absolute -left-3 top-1/2 z-20 hidden -translate-y-1/2 text-sm text-primary/60 md:block" aria-hidden="true">
+                  →
+                </span>
+              )}
+              <button
+                type="button"
+                className={`relative z-10 w-full rounded-lg border p-3 text-left transition-all ${selectedKey === step.key ? 'border-primary bg-primary/10 shadow-sm' : 'border-border bg-background/60 hover:border-primary/40 hover:bg-primary/5'}`}
+                onClick={() => setSelectedKey(step.key)}
+                aria-pressed={selectedKey === step.key}
+                aria-label={`Select ${step.label}`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-[9px] text-muted-foreground">{step.number}</span>
+                  <span className={`size-2 rounded-full ${step.state === 'healthy' ? 'bg-success' : step.state === 'attention' ? 'bg-critical' : step.state === 'pending' ? 'bg-warning' : 'bg-muted-foreground'}`} />
+                </div>
+                <p className="mt-4 text-xs font-semibold">{step.label}</p>
+                <p className={`mt-1 font-mono text-[10px] ${step.state === 'attention' ? 'text-critical' : step.state === 'pending' ? 'text-warning' : step.state === 'healthy' ? 'text-success' : 'text-muted-foreground'}`}>
+                  {step.value}
+                </p>
+              </button>
+            </div>
           ))}
         </div>
         <div className="mt-4 grid gap-4 rounded-lg border border-border bg-secondary/20 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
