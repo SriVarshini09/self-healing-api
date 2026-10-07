@@ -2358,12 +2358,14 @@ function HealingDashboardContent({
                     <th className="px-4 py-3 font-medium">Impact</th>
                     <th className="px-4 py-3 font-medium">Severity</th>
                     <th className="px-4 py-3 font-medium">State</th>
+                    <th className="px-4 py-3 text-right font-medium">Review</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {(signalItems.length
                     ? signalItems.map(item => ({
                         id: item.id,
+                        incidentId: item.id,
                         integration: item.integrationId,
                         issue: item.title,
                         impact: item.status === 'REPAIRED' ? 'REPAIR PENDING' : 'CUSTOMER EXPOSURE',
@@ -2373,6 +2375,7 @@ function HealingDashboardContent({
                     : [
                         {
                           id: `signal-empty-${signalFilter}`,
+                          incidentId: null,
                           integration: liveSnapshot ? 'SHAPI' : '—',
                           issue: liveSnapshot
                             ? signalFilter === 'pending'
@@ -2393,7 +2396,20 @@ function HealingDashboardContent({
                         },
                       ]
                   ).map(item => (
-                    <tr key={item.id}>
+                    <tr
+                      key={item.id}
+                      className={item.incidentId ? 'group cursor-pointer transition-colors hover:bg-primary/5 focus:bg-primary/5' : undefined}
+                      role={item.incidentId ? 'button' : undefined}
+                      tabIndex={item.incidentId ? 0 : undefined}
+                      aria-label={item.incidentId ? `Open incident ${item.issue}` : undefined}
+                      onClick={() => item.incidentId && openDiagnosis(item.incidentId)}
+                      onKeyDown={event => {
+                        if (item.incidentId && (event.key === 'Enter' || event.key === ' ')) {
+                          event.preventDefault();
+                          openDiagnosis(item.incidentId);
+                        }
+                      }}
+                    >
                       <td className="px-4 py-3 font-mono">{item.integration}</td>
                       <td className="px-4 py-3 text-muted-foreground">{item.issue}</td>
                       <td className="px-4 py-3">
@@ -2420,6 +2436,15 @@ function HealingDashboardContent({
                         >
                           {item.state}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {item.incidentId ? (
+                          <span className="inline-flex items-center gap-1 font-mono text-[10px] text-primary opacity-70 transition-opacity group-hover:opacity-100 group-focus:opacity-100">
+                            View evidence <ArrowUpRight className="size-3" />
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </td>
                     </tr>
                   ))}
