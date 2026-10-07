@@ -63,6 +63,8 @@ type LiveSnapshot = {
     severity: string;
     integrationId: string;
     detectedAt: string;
+    integration?: { id: string; name: string; type: string };
+    invariant?: { id: string; name: string; repairRequiredChecks?: string[] } | null;
     repairCandidates?: Array<{
       reviewStatus?: 'PR_READY_AFTER_REVIEW' | 'MANUAL_REVIEW';
       automationEligible?: boolean;
@@ -804,6 +806,135 @@ function OutcomeCoverageSummary({ onNavigate }: { onNavigate: (target: string) =
   );
 }
 
+function BusinessImpactPanel({
+  activeIncidents,
+  liveSnapshot,
+  onNavigate,
+  onOpenDiagnosis,
+}: {
+  activeIncidents: LiveSnapshot['incidents'];
+  liveSnapshot: LiveSnapshot | null;
+  onNavigate: (target: string) => void;
+  onOpenDiagnosis: (incidentId?: string) => void;
+}) {
+  const severityRank: Record<string, number> = { CRITICAL: 3, HIGH: 3, MEDIUM: 2, LOW: 1 };
+  const highestSeverity = activeIncidents.reduce((highest, incident) => {
+    return (severityRank[incident.severity.toUpperCase()] ?? 0) > (severityRank[highest] ?? 0)
+      ? incident.severity.toUpperCase()
+      : highest;
+  }, '—');
+  const affectedIntegrations = new Set(activeIncidents.map(incident => incident.integrationId)).size;
+  const oldestIncident = activeIncidents.reduce<LiveSnapshot['incidents'][number] | null>(
+    (oldest, incident) => (!oldest || new Date(incident.detectedAt) < new Date(oldest.detectedAt) ? incident : oldest),
+    null,
+  );
+  const exposureState = !liveSnapshot ? 'waiting' : activeIncidents.length ? 'attention' : 'healthy';
+
+  return (
+    <section
+      id="business-impact"
+      className="mt-3.5 overflow-hidden rounded-md border border-border bg-card"
+      aria-labelledby="business-impact-title"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-4">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-primary">Business impact</p>
+          <h2 id="business-impact-title" className="mt-1 text-base font-semibold">What could customers feel right now?</h2>
+          <p className="mt-1 max-w-2xl text-[11px] leading-relaxed text-muted-foreground">
+            SHAPI turns technical incidents into a clear view of the customer outcomes and workflows that may need attention.
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => onNavigate('traffic')}>
+          Open signal field <ArrowUpRight className="size-3.5" />
+        </Button>
+      </div>
+      <div className="grid gap-4 p-4 xl:grid-cols-[minmax(230px,0.72fr)_minmax(0,1.28fr)]">
+        <div className={`rounded border p-4 ${exposureState === 'attention' ? 'border-warning/35 bg-warning/5' : exposureState === 'healthy' ? 'border-success/30 bg-success/5' : 'border-border bg-secondary/20'}`}>
+          <div className="flex items-center justify-between gap-3">
+            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Current exposure</p>
+            {exposureState === 'attention' ? <TriangleAlert className="size-4 text-warning" /> : exposureState === 'healthy' ? <ShieldCheck className="size-4 text-success" /> : <Clock3 className="size-4 text-muted-foreground" />}
+          </div>
+          <p className="mt-3 text-4xl font-semibold tabular-nums">{liveSnapshot ? activeIncidents.length : '—'}</p>
+          <p className="mt-1 text-xs font-medium">
+            {!liveSnapshot ? 'waiting for live data' : activeIncidents.length ? `outcome${activeIncidents.length === 1 ? '' : 's'} need review` : 'customer outcomes at risk'}
+          </p>
+          <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+            {!liveSnapshot
+              ? 'The business view will populate when SHAPI returns its first live snapshot.'
+              : activeIncidents.length
+                ? 'These signals represent business contracts outside their expected behavior—not just infrastructure noise.'
+                : 'No active outcome violations are currently reported by SHAPI.'}
+          </p>
+          <div className="mt-5 grid grid-cols-2 gap-2 border-t border-border/70 pt-3">
+            <div>
+              <p className="font-mono text-lg font-semibold">{liveSnapshot ? affectedIntegrations : '—'}</p>
+              <p className="text-[10px] text-muted-foreground">Sources affected</p>
+            </div>
+            <div>
+              <p className={`font-mono text-lg font-semibold ${highestSeverity === '—' ? '' : highestSeverity === 'CRITICAL' || highestSeverity === 'HIGH' ? 'text-critical' : highestSeverity === 'MEDIUM' ? 'text-warning' : 'text-observed'}`}>{liveSnapshot ? highestSeverity : '—'}</p>
+              <p className="text-[10px] text-muted-foreground">Highest severity</p>
+            </div>
+          </div>
+        </div>
+        <div className="rounded border border-border bg-secondary/15">
+          <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Outcomes at risk</p>
+              <p className="mt-1 text-xs text-muted-foreground">Select an outcome to open its evidence and repair review.</p>
+            </div>
+            <span className="font-mono text-[10px] text-muted-foreground">
+              {oldestIncident ? `oldest ${incidentAge(oldestIncident.detectedAt)}` : liveSnapshot ? 'all clear' : 'waiting'}
+            </span>
+          </div>
+          {activeIncidents.length ? (
+            <div className="divide-y divide-border">
+              {activeIncidents.map(incident => {
+                const outcome = incident.invariant?.name ?? incident.title;
+                const integration = incident.integration?.name ?? incident.integrationId;
+                const severity = incident.severity.toUpperCase();
+                const severityClass = severity === 'CRITICAL' || severity === 'HIGH' ? 'text-critical' : severity === 'MEDIUM' ? 'text-warning' : 'text-observed';
+                return (
+                  <button
+                    key={incident.id}
+                    type="button"
+                    onClick={() => onOpenDiagnosis(incident.id)}
+                    className="group flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-background/70"
+                  >
+                    <span className={`mt-1.5 size-2 shrink-0 rounded-full ${severity === 'CRITICAL' || severity === 'HIGH' ? 'bg-critical' : severity === 'MEDIUM' ? 'bg-warning' : 'bg-observed'}`} />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="truncate text-xs font-semibold">{outcome}</span>
+                        <span className={`font-mono text-[9px] uppercase ${severityClass}`}>{severity}</span>
+                      </span>
+                      <span className="mt-1 block text-[10px] text-muted-foreground">
+                        {integration} · {incident.status} · detected {incidentAge(incident.detectedAt)} ago
+                      </span>
+                      <span className="mt-1 block text-[10px] leading-relaxed text-muted-foreground">
+                        This protected outcome is outside its expected contract and may affect the connected workflow.
+                      </span>
+                    </span>
+                    <ArrowUpRight className="mt-0.5 size-3.5 shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary" />
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex min-h-[150px] items-center gap-3 px-4 py-6">
+              {liveSnapshot ? <Check className="size-4 text-success" /> : <Clock3 className="size-4 text-muted-foreground" />}
+              <div>
+                <p className="text-xs font-semibold">{liveSnapshot ? 'No customer-facing outcomes need review' : 'Waiting for the first live snapshot'}</p>
+                <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+                  {liveSnapshot ? 'SHAPI is monitoring the connected workflows normally.' : 'The impact panel will become actionable when live incident data arrives.'}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function RecoveryObservatory({
   liveSnapshot,
   activeIncidentCount,
@@ -1236,10 +1367,12 @@ function HealingDashboardContent({
     }
   };
 
-  const openDiagnosis = () => {
-    const selected = liveSnapshot?.incidents.find(
-      item => item.status !== 'RESOLVED' && item.status !== 'DISMISSED'
-    );
+  const openDiagnosis = (incidentIdOverride?: string) => {
+    const selected = incidentIdOverride
+      ? liveSnapshot?.incidents.find(item => item.id === incidentIdOverride)
+      : liveSnapshot?.incidents.find(
+          item => item.status !== 'RESOLVED' && item.status !== 'DISMISSED'
+        );
     const incidentId = selected?.id ?? null;
     setSelectedIncidentId(incidentId);
     setDiagnosisResult(null);
@@ -1731,7 +1864,7 @@ function HealingDashboardContent({
             <Button
               variant="ghost"
               size="icon"
-              onClick={openDiagnosis}
+              onClick={() => openDiagnosis()}
               aria-label="View alerts"
               title="View alerts"
             >
@@ -1765,7 +1898,7 @@ function HealingDashboardContent({
                     : 'Connecting to live SHAPI telemetry…'}
               </p>
             </div>
-            <Button variant="outline" size="sm" onClick={openDiagnosis}>
+            <Button variant="outline" size="sm" onClick={() => openDiagnosis()}>
               <Sparkles className="size-3.5" />
               Run diagnosis
             </Button>
@@ -1794,6 +1927,12 @@ function HealingDashboardContent({
             />
           </div>
           <OutcomeCoverageSummary onNavigate={navigateFromObservatory} />
+          <BusinessImpactPanel
+            activeIncidents={activeIncidents}
+            liveSnapshot={liveSnapshot}
+            onNavigate={navigateFromObservatory}
+            onOpenDiagnosis={openDiagnosis}
+          />
 
           <section
             id="traffic"
