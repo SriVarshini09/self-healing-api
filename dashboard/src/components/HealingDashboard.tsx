@@ -1292,6 +1292,98 @@ function OutcomeTwin({
   );
 }
 
+function RecoveryReceipt({
+  incident,
+  timeline,
+  diagnosis,
+  pullRequests,
+}: {
+  incident: IncidentDetail;
+  timeline: IncidentTimelineItem[];
+  diagnosis: LiveDiagnosis | null;
+  pullRequests: GitHubPr[];
+}) {
+  const verifiedPr = pullRequests.find(
+    pr => pr.verified && !(pr.proof?.missingChecks?.length ?? 0)
+  );
+  const latestPr = pullRequests[0];
+  const receiptStatus = verifiedPr
+    ? 'PROOF VERIFIED'
+    : latestPr
+      ? latestPr.verified
+        ? 'REVIEW REQUIRED'
+        : 'AWAITING CI'
+      : diagnosis
+        ? 'REPAIR REVIEW'
+        : 'INVESTIGATING';
+  const receiptTone = verifiedPr
+    ? 'border-success/30 bg-success/5 text-success'
+    : latestPr || diagnosis
+      ? 'border-warning/30 bg-warning/5 text-warning'
+      : 'border-border bg-secondary/30 text-muted-foreground';
+  const repairSummary = verifiedPr
+    ? `PR #${verifiedPr.prNumber} · ${verifiedPr.repository}`
+    : latestPr
+      ? `PR #${latestPr.prNumber} · ${latestPr.status}`
+      : diagnosis?.candidates.length
+        ? `${diagnosis.candidates.length} candidate${diagnosis.candidates.length === 1 ? '' : 's'} · human review required`
+        : 'No repair proposal yet';
+  const checksSummary = verifiedPr?.proof
+    ? `${verifiedPr.proof.checksTotal} check${verifiedPr.proof.checksTotal === 1 ? '' : 's'} · ${verifiedPr.proof.missingChecks?.length ? `missing ${verifiedPr.proof.missingChecks.join(', ')}` : 'all required checks passed'}`
+    : incident.invariant?.repairRequiredChecks.length
+      ? `Required: ${incident.invariant.repairRequiredChecks.join(', ')}`
+      : 'No verification gate recorded';
+  const outcomeSummary = incident.status === 'RESOLVED'
+    ? 'Outcome recovered and incident closed'
+    : verifiedPr
+      ? 'Proof verified · closure still requires outcome validation'
+      : incident.status === 'REPAIRED'
+        ? 'Repair generated · validation pending'
+        : 'Incident open · review required';
+
+  return (
+    <section className="mt-4 rounded-lg border border-primary/25 bg-primary/5 p-4" aria-labelledby="recovery-receipt-title">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-primary">Recovery receipt</p>
+          <h3 id="recovery-receipt-title" className="mt-1 text-base font-semibold">A proof record your team can trust.</h3>
+          <p className="mt-1 text-xs text-muted-foreground">The incident, repair path, and verification gate are captured together for review.</p>
+        </div>
+        <span className={`rounded border px-2 py-1 font-mono text-[10px] uppercase ${receiptTone}`}>{receiptStatus}</span>
+      </div>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded border border-border bg-background/60 p-3">
+          <p className="font-mono text-[9px] uppercase text-muted-foreground">Business contract</p>
+          <p className="mt-1 truncate text-xs font-medium">{incident.invariant?.name ?? incident.title}</p>
+        </div>
+        <div className="rounded border border-border bg-background/60 p-3">
+          <p className="font-mono text-[9px] uppercase text-muted-foreground">Evidence chain</p>
+          <p className="mt-1 text-xs font-medium">{timeline.length} recorded event{timeline.length === 1 ? '' : 's'}</p>
+        </div>
+        <div className="rounded border border-border bg-background/60 p-3">
+          <p className="font-mono text-[9px] uppercase text-muted-foreground">Repair path</p>
+          <p className="mt-1 truncate text-xs font-medium">{repairSummary}</p>
+        </div>
+        <div className="rounded border border-border bg-background/60 p-3">
+          <p className="font-mono text-[9px] uppercase text-muted-foreground">Outcome state</p>
+          <p className="mt-1 text-xs font-medium">{outcomeSummary}</p>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+        <div className="space-y-2 text-[11px] text-muted-foreground">
+          <div className="flex items-start gap-2"><Check className="mt-0.5 size-3.5 shrink-0 text-success" /><span>Detected {new Date(incident.detectedAt).toLocaleString()} · severity {incident.severity}.</span></div>
+          <div className="flex items-start gap-2"><Check className="mt-0.5 size-3.5 shrink-0 text-success" /><span>Observed signal: {incident.description}</span></div>
+          <div className="flex items-start gap-2"><ShieldCheck className={`mt-0.5 size-3.5 shrink-0 ${verifiedPr ? 'text-success' : 'text-warning'}`} /><span>{checksSummary}</span></div>
+        </div>
+        <div className="rounded border border-border bg-background/60 px-3 py-2 font-mono text-[9px] text-muted-foreground">
+          <span className="block uppercase tracking-[0.12em]">Receipt reference</span>
+          <span className="mt-1 block text-foreground">{incident.id.slice(0, 12)}</span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function AssuranceHero({
   liveSnapshot,
   customerExposureCount,
@@ -2832,6 +2924,12 @@ function HealingDashboardContent({
                         )}
                       </div>
                     </div>
+                    <RecoveryReceipt
+                      incident={incidentDetail}
+                      timeline={incidentTimeline}
+                      diagnosis={diagnosisResult}
+                      pullRequests={githubPrs}
+                    />
                   </>
                 ) : null}
               </div>
