@@ -2486,25 +2486,39 @@ function HealingDashboardContent({
               </Button>
             </div>
             <div className="p-3">
-              {[
-                ...activeIncidents.map(
-                  item => `${item.integrationId} · ${item.title}`
-                ),
-              ]
-                .filter(item => item.toLowerCase().includes(query.toLowerCase()))
+              {activeIncidents
+                .filter(item =>
+                  `${item.integrationId} ${item.title}`.toLowerCase().includes(query.toLowerCase())
+                )
                 .map(item => (
-                  <div
-                    key={item}
-                    className="border-b border-border px-2 py-2.5 text-xs last:border-0"
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="group flex w-full items-center justify-between gap-3 border-b border-border px-2 py-2.5 text-left text-xs last:border-0 hover:bg-secondary/40"
+                    onClick={() => {
+                      setCommandOpen(false);
+                      openDiagnosis(item.id);
+                    }}
                   >
-                    {item}
-                  </div>
+                    <span className="min-w-0 truncate">
+                      <span className="font-mono text-[10px] text-muted-foreground">{item.integrationId}</span>
+                      <span className="mx-1.5 text-muted-foreground">·</span>
+                      {item.title}
+                    </span>
+                    <ArrowUpRight className="size-3 shrink-0 text-primary opacity-0 transition-opacity group-hover:opacity-100" />
+                  </button>
                 ))}
-              {!activeIncidents.length && (
+              {!activeIncidents.length ? (
                 <p className="px-2 py-2.5 text-xs text-muted-foreground">
                   {liveSnapshot ? 'No live signals match the current data.' : 'Waiting for live SHAPI data.'}
                 </p>
-              )}
+              ) : !activeIncidents.some(item =>
+                `${item.integrationId} ${item.title}`.toLowerCase().includes(query.toLowerCase())
+              ) ? (
+                <p className="px-2 py-2.5 text-xs text-muted-foreground">
+                  No signals match “{query}”.
+                </p>
+              ) : null}
             </div>
           </div>
         </div>
