@@ -1398,6 +1398,7 @@ function HealingDashboardContent({
   const [signalFilter, setSignalFilter] = useState<'all' | 'exposure' | 'pending'>('all');
   const [commandOpen, setCommandOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [commandSelection, setCommandSelection] = useState(0);
   const [diagnosisOpen, setDiagnosisOpen] = useState(false);
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
   const [incidentDetail, setIncidentDetail] = useState<IncidentDetail | null>(null);
@@ -1768,6 +1769,7 @@ function HealingDashboardContent({
     const onKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
+        setCommandSelection(0);
         setCommandOpen(true);
       }
       if (event.key === 'Escape') {
@@ -1797,6 +1799,9 @@ function HealingDashboardContent({
     : signalFilter === 'exposure'
       ? customerExposureIncidents
       : activeIncidents;
+  const commandResults = activeIncidents.filter(incident =>
+    `${incident.integrationId} ${incident.title}`.toLowerCase().includes(query.toLowerCase())
+  );
   const activeRepairCandidates = activeIncidents.flatMap(incident => incident.repairCandidates ?? []);
   const prReadyCandidateCount = activeRepairCandidates.filter(
     candidate =>
@@ -1929,7 +1934,10 @@ function HealingDashboardContent({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCommandOpen(true)}
+              onClick={() => {
+                setCommandSelection(0);
+                setCommandOpen(true);
+              }}
               className="hidden w-56 justify-start text-muted-foreground sm:inline-flex"
             >
               <Search className="size-3.5" />
@@ -1939,7 +1947,10 @@ function HealingDashboardContent({
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setCommandOpen(true)}
+              onClick={() => {
+                setCommandSelection(0);
+                setCommandOpen(true);
+              }}
               aria-label="Search"
               className="sm:hidden"
             >
@@ -2472,8 +2483,27 @@ function HealingDashboardContent({
               <input
                 autoFocus
                 value={query}
-                onChange={event => setQuery(event.target.value)}
+                onChange={event => {
+                  setQuery(event.target.value);
+                  setCommandSelection(0);
+                }}
+                onKeyDown={event => {
+                  if (event.key === 'ArrowDown' && commandResults.length) {
+                    event.preventDefault();
+                    setCommandSelection(current => (current + 1) % commandResults.length);
+                  } else if (event.key === 'ArrowUp' && commandResults.length) {
+                    event.preventDefault();
+                    setCommandSelection(current =>
+                      current === 0 ? commandResults.length - 1 : current - 1
+                    );
+                  } else if (event.key === 'Enter' && commandResults[commandSelection]) {
+                    event.preventDefault();
+                    setCommandOpen(false);
+                    openDiagnosis(commandResults[commandSelection].id);
+                  }
+                }}
                 placeholder="Search services and signals..."
+                aria-label="Search services and signals"
                 className="h-12 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               />
               <Button
@@ -2486,15 +2516,12 @@ function HealingDashboardContent({
               </Button>
             </div>
             <div className="p-3">
-              {activeIncidents
-                .filter(item =>
-                  `${item.integrationId} ${item.title}`.toLowerCase().includes(query.toLowerCase())
-                )
-                .map(item => (
+              {commandResults.map((item, index) => (
                   <button
                     key={item.id}
                     type="button"
-                    className="group flex w-full items-center justify-between gap-3 border-b border-border px-2 py-2.5 text-left text-xs last:border-0 hover:bg-secondary/40"
+                    aria-label={`Open incident ${item.integrationId} ${item.title}`}
+                    className={`group flex w-full items-center justify-between gap-3 border-b border-border px-2 py-2.5 text-left text-xs last:border-0 ${commandSelection === index ? 'bg-primary/10' : 'hover:bg-secondary/40'}`}
                     onClick={() => {
                       setCommandOpen(false);
                       openDiagnosis(item.id);
@@ -2512,9 +2539,7 @@ function HealingDashboardContent({
                 <p className="px-2 py-2.5 text-xs text-muted-foreground">
                   {liveSnapshot ? 'No live signals match the current data.' : 'Waiting for live SHAPI data.'}
                 </p>
-              ) : !activeIncidents.some(item =>
-                `${item.integrationId} ${item.title}`.toLowerCase().includes(query.toLowerCase())
-              ) ? (
+              ) : !commandResults.length ? (
                 <p className="px-2 py-2.5 text-xs text-muted-foreground">
                   No signals match “{query}”.
                 </p>
