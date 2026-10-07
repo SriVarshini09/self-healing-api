@@ -1394,6 +1394,7 @@ function HealingDashboardContent({
   onToggleTheme: () => void;
 }) {
   const [paused, setPaused] = useState(false);
+  const [repairQueueFilter, setRepairQueueFilter] = useState<'all' | 'exposure' | 'pending'>('all');
   const [commandOpen, setCommandOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [diagnosisOpen, setDiagnosisOpen] = useState(false);
@@ -1785,6 +1786,11 @@ function HealingDashboardContent({
   const customerExposureIncidents = activeIncidents.filter(incident => incident.status !== 'REPAIRED');
   const customerExposureCount = customerExposureIncidents.length;
   const repairPendingCount = activeIncidents.filter(incident => incident.status === 'REPAIRED').length;
+  const repairQueueItems = repairQueueFilter === 'pending'
+    ? activeIncidents.filter(incident => incident.status === 'REPAIRED')
+    : repairQueueFilter === 'exposure'
+      ? customerExposureIncidents
+      : activeIncidents;
   const activeRepairCandidates = activeIncidents.flatMap(incident => incident.repairCandidates ?? []);
   const prReadyCandidateCount = activeRepairCandidates.filter(
     candidate =>
@@ -1856,7 +1862,7 @@ function HealingDashboardContent({
             <Globe2 />
             Signal field
           </a>
-          <a className="nav-item" href="#healing">
+          <a className="nav-item" href="#healing" onClick={() => setRepairQueueFilter('pending')}>
             <GitBranch />
             Repair queue
             <span className="ml-auto rounded bg-warning/15 px-1.5 text-[10px] text-warning">
@@ -2157,34 +2163,66 @@ function HealingDashboardContent({
           <section id="healing" className="mt-4 grid gap-4 xl:grid-cols-[1fr_1fr]">
             <div className="rounded-md border border-border bg-card">
               <div className="border-b border-border px-4 py-3">
-                <h2 className="text-sm font-semibold">Repair activity</h2>
-                <p className="text-[11px] text-muted-foreground">
-                  {liveSnapshot
-                    ? `${customerExposureCount} outcome${customerExposureCount === 1 ? '' : 's'} at risk · ${repairPendingCount} repair${repairPendingCount === 1 ? '' : 's'} pending validation`
-                    : 'Waiting for SHAPI telemetry'}
-                </p>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-sm font-semibold">Repair activity</h2>
+                    <p className="text-[11px] text-muted-foreground">
+                      {liveSnapshot
+                        ? `${customerExposureCount} outcome${customerExposureCount === 1 ? '' : 's'} at risk · ${repairPendingCount} repair${repairPendingCount === 1 ? '' : 's'} pending validation`
+                        : 'Waiting for SHAPI telemetry'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 rounded border border-border bg-secondary/30 p-1" role="tablist" aria-label="Repair queue filter">
+                    {[
+                      { key: 'all' as const, label: 'All', count: activeIncidents.length },
+                      { key: 'exposure' as const, label: 'At risk', count: customerExposureCount },
+                      { key: 'pending' as const, label: 'Pending validation', count: repairPendingCount },
+                    ].map(filter => (
+                      <button
+                        key={filter.key}
+                        type="button"
+                        role="tab"
+                        aria-selected={repairQueueFilter === filter.key}
+                        onClick={() => setRepairQueueFilter(filter.key)}
+                        className={`rounded px-2 py-1 font-mono text-[9px] transition-colors ${repairQueueFilter === filter.key ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                      >
+                        {filter.label} {filter.count}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
               <div className="divide-y divide-border text-xs">
-                {activeIncidents.length ? (
-                  activeIncidents.map(incident => (
-                    <div key={incident.id} className="flex items-center gap-3 px-4 py-3">
-                      <TriangleAlert className="size-4 text-warning" />
-                      <div>
-                        <p>{incident.title}</p>
-                        <p className="font-mono text-[10px] text-muted-foreground">
-                          {incident.integrationId} · {incident.severity}
-                        </p>
-                      </div>
-                      <span className="ml-auto status-healing">{incident.status}</span>
-                    </div>
+                {repairQueueItems.length ? (
+                  repairQueueItems.map(incident => (
+                    <button
+                      key={incident.id}
+                      type="button"
+                      onClick={() => openDiagnosis(incident.id)}
+                      className="group flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/40"
+                    >
+                      {incident.status === 'REPAIRED' ? <Clock3 className="size-4 text-warning" /> : <TriangleAlert className="size-4 text-warning" />}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate">{incident.invariant?.name ?? incident.title}</span>
+                        <span className="font-mono text-[10px] text-muted-foreground">
+                          {incident.integration?.name ?? incident.integrationId} · {incident.severity}
+                        </span>
+                      </span>
+                      <span className={`ml-auto shrink-0 ${incident.status === 'REPAIRED' ? 'status-healing' : 'status-healing'}`}>{incident.status === 'REPAIRED' ? 'VALIDATE' : incident.status}</span>
+                      <ArrowUpRight className="size-3.5 shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary" />
+                    </button>
                   ))
                 ) : (
                   <div className="flex items-center gap-3 px-4 py-6 text-muted-foreground">
-                    <Check className="size-4 text-success" />
+                    {repairQueueFilter === 'pending' ? <Check className="size-4 text-success" /> : <Clock3 className="size-4" />}
                     <p>
-                      {liveSnapshot
-                        ? 'No active incidents'
-                        : 'Connecting to live incident activity…'}
+                      {!liveSnapshot
+                        ? 'Connecting to live incident activity…'
+                        : repairQueueFilter === 'pending'
+                          ? 'No repairs are waiting for validation'
+                          : repairQueueFilter === 'exposure'
+                            ? 'No customer outcomes are currently at risk'
+                            : 'No open review work'}
                     </p>
                   </div>
                 )}
