@@ -9,6 +9,8 @@ import {
   CircleGauge,
   Clock3,
   Command,
+  Copy,
+  Download,
   GitBranch,
   Globe2,
   HeartPulse,
@@ -1345,6 +1347,125 @@ function RecoveryReceipt({
       : incident.status === 'REPAIRED'
         ? 'Repair generated · validation pending'
         : 'Incident open · review required';
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
+  const verifiedChecks = verifiedPr?.proof?.checkRuns.filter(check => check.conclusion === 'success').length ?? 0;
+  const receiptData = {
+    receiptVersion: 1,
+    receiptReference: incident.id.slice(0, 12),
+    generatedAt: new Date().toISOString(),
+    incident: {
+      id: incident.id,
+      title: incident.title,
+      status: incident.status,
+      severity: incident.severity,
+      detectedAt: incident.detectedAt,
+      integration: incident.integration?.name ?? incident.integrationId,
+      invariant: incident.invariant?.name ?? null,
+      description: incident.description,
+    },
+    outcomeContract: {
+      description: incident.invariant?.description ?? null,
+      predicate: incident.invariant?.predicateDescription ?? null,
+      expectedSuccessRate: incident.invariant?.expectedSuccessRate ?? null,
+      requiredChecks: incident.invariant?.repairRequiredChecks ?? [],
+    },
+    evidence: {
+      timelineEvents: timeline.length,
+      lastEventAt: timeline.length ? timeline[timeline.length - 1].timestamp : null,
+    },
+    repair: {
+      status: receiptStatus,
+      summary: repairSummary,
+      candidateCount: diagnosis?.candidates.length ?? incident.repairCandidates?.length ?? 0,
+      pullRequest: verifiedPr
+        ? {
+            number: verifiedPr.prNumber,
+            repository: verifiedPr.repository,
+            url: verifiedPr.prUrl,
+            status: verifiedPr.status,
+            verified: verifiedPr.verified,
+            headSha: verifiedPr.proof?.headSha ?? null,
+            checksTotal: verifiedPr.proof?.checksTotal ?? null,
+          }
+        : latestPr
+          ? {
+              number: latestPr.prNumber,
+              repository: latestPr.repository,
+              url: latestPr.prUrl,
+              status: latestPr.status,
+              verified: latestPr.verified,
+            }
+          : null,
+    },
+    verification: {
+      status: receiptStatus,
+      successfulChecks: verifiedChecks,
+      checks: verifiedPr?.proof?.checkRuns.map(({ name, status, conclusion }) => ({ name, status, conclusion })) ?? [],
+      requiredChecks: incident.invariant?.repairRequiredChecks ?? [],
+      missingChecks: verifiedPr?.proof?.missingChecks ?? [],
+    },
+    outcomeState: outcomeSummary,
+  };
+  const receiptJson = JSON.stringify(receiptData, null, 2);
+  const receiptMarkdown = [
+    '# SHAPI Recovery Receipt',
+    '',
+    `- Reference: ${receiptData.receiptReference}`,
+    `- Generated: ${new Date(receiptData.generatedAt).toLocaleString()}`,
+    `- Status: ${receiptStatus}`,
+    '',
+    '## Incident',
+    '',
+    `- Title: ${incident.title}`,
+    `- Severity: ${incident.severity}`,
+    `- State: ${incident.status}`,
+    `- Detected: ${new Date(incident.detectedAt).toLocaleString()}`,
+    `- Integration: ${receiptData.incident.integration}`,
+    `- Contract: ${receiptData.incident.invariant ?? 'Not recorded'}`,
+    `- Signal: ${incident.description}`,
+    '',
+    '## Evidence',
+    '',
+    `- Timeline events: ${timeline.length}`,
+    `- Last event: ${receiptData.evidence.lastEventAt ? new Date(receiptData.evidence.lastEventAt).toLocaleString() : 'Not recorded'}`,
+    '',
+    '## Repair',
+    '',
+    `- ${repairSummary}`,
+    `- Candidates: ${receiptData.repair.candidateCount}`,
+    `- Outcome state: ${outcomeSummary}`,
+    '',
+    '## Verification',
+    '',
+    `- ${checksSummary}`,
+    `- Successful checks: ${verifiedChecks}`,
+    `- Required checks: ${receiptData.verification.requiredChecks.length ? receiptData.verification.requiredChecks.join(', ') : 'None recorded'}`,
+    `- Missing checks: ${receiptData.verification.missingChecks.length ? receiptData.verification.missingChecks.join(', ') : 'None'}`,
+    '',
+    'This receipt contains incident evidence and verification metadata only. Secrets and credentials are excluded.',
+  ].join('\n');
+
+  const downloadReceipt = (filename: string, content: string, type: string) => {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const copySummary = async () => {
+    try {
+      await navigator.clipboard.writeText(receiptMarkdown);
+      setCopyState('copied');
+      window.setTimeout(() => setCopyState('idle'), 2000);
+    } catch {
+      setCopyState('failed');
+    }
+  };
 
   return (
     <section className="mt-4 rounded-lg border border-primary/25 bg-primary/5 p-4" aria-labelledby="recovery-receipt-title">
@@ -1384,6 +1505,35 @@ function RecoveryReceipt({
           <span className="block uppercase tracking-[0.12em]">Receipt reference</span>
           <span className="mt-1 block text-foreground">{incident.id.slice(0, 12)}</span>
         </div>
+      </div>
+      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-primary/15 pt-3">
+        <button
+          type="button"
+          className="inline-flex items-center gap-1.5 rounded border border-primary/30 bg-background/70 px-3 py-2 font-mono text-[10px] text-foreground hover:border-primary/60"
+          onClick={copySummary}
+        >
+          {copyState === 'copied' ? <Check className="size-3.5 text-success" /> : <Copy className="size-3.5" />}
+          {copyState === 'copied' ? 'Copied' : copyState === 'failed' ? 'Copy unavailable' : 'Copy summary'}
+        </button>
+        <button
+          type="button"
+          className="inline-flex items-center gap-1.5 rounded border border-border bg-background/70 px-3 py-2 font-mono text-[10px] text-foreground hover:border-primary/50"
+          onClick={() => downloadReceipt(`shapi-recovery-${receiptData.receiptReference}.md`, receiptMarkdown, 'text/markdown;charset=utf-8')}
+        >
+          <Download className="size-3.5" />
+          Download Markdown
+        </button>
+        <button
+          type="button"
+          className="inline-flex items-center gap-1.5 rounded border border-border bg-background/70 px-3 py-2 font-mono text-[10px] text-foreground hover:border-primary/50"
+          onClick={() => downloadReceipt(`shapi-recovery-${receiptData.receiptReference}.json`, receiptJson, 'application/json;charset=utf-8')}
+        >
+          <Download className="size-3.5" />
+          Download JSON
+        </button>
+        <span className="ml-auto font-mono text-[9px] uppercase tracking-[0.12em] text-muted-foreground">
+          Safe export · secrets excluded
+        </span>
       </div>
     </section>
   );
