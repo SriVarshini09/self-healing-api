@@ -817,18 +817,20 @@ function BusinessImpactPanel({
   onNavigate: (target: string) => void;
   onOpenDiagnosis: (incidentId?: string) => void;
 }) {
+  const customerExposureIncidents = activeIncidents.filter(incident => incident.status !== 'REPAIRED');
+  const repairPendingIncidents = activeIncidents.filter(incident => incident.status === 'REPAIRED');
   const severityRank: Record<string, number> = { CRITICAL: 3, HIGH: 3, MEDIUM: 2, LOW: 1 };
-  const highestSeverity = activeIncidents.reduce((highest, incident) => {
+  const highestSeverity = customerExposureIncidents.reduce((highest, incident) => {
     return (severityRank[incident.severity.toUpperCase()] ?? 0) > (severityRank[highest] ?? 0)
       ? incident.severity.toUpperCase()
       : highest;
   }, '—');
-  const affectedIntegrations = new Set(activeIncidents.map(incident => incident.integrationId)).size;
-  const oldestIncident = activeIncidents.reduce<LiveSnapshot['incidents'][number] | null>(
+  const affectedIntegrations = new Set(customerExposureIncidents.map(incident => incident.integrationId)).size;
+  const oldestIncident = customerExposureIncidents.reduce<LiveSnapshot['incidents'][number] | null>(
     (oldest, incident) => (!oldest || new Date(incident.detectedAt) < new Date(oldest.detectedAt) ? incident : oldest),
     null,
   );
-  const exposureState = !liveSnapshot ? 'waiting' : activeIncidents.length ? 'attention' : 'healthy';
+  const exposureState = !liveSnapshot ? 'waiting' : customerExposureIncidents.length ? 'attention' : 'healthy';
 
   return (
     <section
@@ -852,20 +854,22 @@ function BusinessImpactPanel({
         <div className={`rounded border p-4 ${exposureState === 'attention' ? 'border-warning/35 bg-warning/5' : exposureState === 'healthy' ? 'border-success/30 bg-success/5' : 'border-border bg-secondary/20'}`}>
           <div className="flex items-center justify-between gap-3">
             <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Current exposure</p>
-            {exposureState === 'attention' ? <TriangleAlert className="size-4 text-warning" /> : exposureState === 'healthy' ? <ShieldCheck className="size-4 text-success" /> : <Clock3 className="size-4 text-muted-foreground" />}
+            {exposureState === 'attention' ? <TriangleAlert className="size-4 text-warning" /> : repairPendingIncidents.length ? <Clock3 className="size-4 text-warning" /> : exposureState === 'healthy' ? <ShieldCheck className="size-4 text-success" /> : <Clock3 className="size-4 text-muted-foreground" />}
           </div>
-          <p className="mt-3 text-4xl font-semibold tabular-nums">{liveSnapshot ? activeIncidents.length : '—'}</p>
+          <p className="mt-3 text-4xl font-semibold tabular-nums">{liveSnapshot ? customerExposureIncidents.length : '—'}</p>
           <p className="mt-1 text-xs font-medium">
-            {!liveSnapshot ? 'waiting for live data' : activeIncidents.length ? `outcome${activeIncidents.length === 1 ? '' : 's'} need review` : 'customer outcomes at risk'}
+            {!liveSnapshot ? 'waiting for live data' : customerExposureIncidents.length ? `outcome${customerExposureIncidents.length === 1 ? '' : 's'} at risk` : 'customer outcomes at risk'}
           </p>
           <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
             {!liveSnapshot
               ? 'The business view will populate when SHAPI returns its first live snapshot.'
-              : activeIncidents.length
+              : customerExposureIncidents.length
                 ? 'These signals represent business contracts outside their expected behavior—not just infrastructure noise.'
-                : 'No active outcome violations are currently reported by SHAPI.'}
+                : repairPendingIncidents.length
+                  ? 'No current customer exposure is reported. A generated repair still needs validation before the incident can close.'
+                  : 'No active outcome violations are currently reported by SHAPI.'}
           </p>
-          <div className="mt-5 grid grid-cols-2 gap-2 border-t border-border/70 pt-3">
+          <div className="mt-5 grid grid-cols-3 gap-2 border-t border-border/70 pt-3">
             <div>
               <p className="font-mono text-lg font-semibold">{liveSnapshot ? affectedIntegrations : '—'}</p>
               <p className="text-[10px] text-muted-foreground">Sources affected</p>
@@ -873,6 +877,10 @@ function BusinessImpactPanel({
             <div>
               <p className={`font-mono text-lg font-semibold ${highestSeverity === '—' ? '' : highestSeverity === 'CRITICAL' || highestSeverity === 'HIGH' ? 'text-critical' : highestSeverity === 'MEDIUM' ? 'text-warning' : 'text-observed'}`}>{liveSnapshot ? highestSeverity : '—'}</p>
               <p className="text-[10px] text-muted-foreground">Highest severity</p>
+            </div>
+            <div>
+              <p className="font-mono text-lg font-semibold text-warning">{liveSnapshot ? repairPendingIncidents.length : '—'}</p>
+              <p className="text-[10px] text-muted-foreground">Repair pending</p>
             </div>
           </div>
         </div>
@@ -883,12 +891,12 @@ function BusinessImpactPanel({
               <p className="mt-1 text-xs text-muted-foreground">Select an outcome to open its evidence and repair review.</p>
             </div>
             <span className="font-mono text-[10px] text-muted-foreground">
-              {oldestIncident ? `oldest ${incidentAge(oldestIncident.detectedAt)}` : liveSnapshot ? 'all clear' : 'waiting'}
+              {oldestIncident ? `oldest ${incidentAge(oldestIncident.detectedAt)}` : repairPendingIncidents.length ? 'repair pending' : liveSnapshot ? 'all clear' : 'waiting'}
             </span>
           </div>
-          {activeIncidents.length ? (
+          {customerExposureIncidents.length ? (
             <div className="divide-y divide-border">
-              {activeIncidents.map(incident => {
+              {customerExposureIncidents.map(incident => {
                 const outcome = incident.invariant?.name ?? incident.title;
                 const integration = incident.integration?.name ?? incident.integrationId;
                 const severity = incident.severity.toUpperCase();
@@ -920,15 +928,46 @@ function BusinessImpactPanel({
             </div>
           ) : (
             <div className="flex min-h-[150px] items-center gap-3 px-4 py-6">
-              {liveSnapshot ? <Check className="size-4 text-success" /> : <Clock3 className="size-4 text-muted-foreground" />}
+              {liveSnapshot ? repairPendingIncidents.length ? <Clock3 className="size-4 text-warning" /> : <Check className="size-4 text-success" /> : <Clock3 className="size-4 text-muted-foreground" />}
               <div>
-                <p className="text-xs font-semibold">{liveSnapshot ? 'No customer-facing outcomes need review' : 'Waiting for the first live snapshot'}</p>
+                <p className="text-xs font-semibold">{liveSnapshot ? customerExposureIncidents.length ? 'No customer-facing outcomes need review' : repairPendingIncidents.length ? 'No active customer-facing outcome exposure' : 'No customer-facing outcomes need review' : 'Waiting for the first live snapshot'}</p>
                 <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
-                  {liveSnapshot ? 'SHAPI is monitoring the connected workflows normally.' : 'The impact panel will become actionable when live incident data arrives.'}
+                  {liveSnapshot
+                    ? repairPendingIncidents.length
+                      ? 'A repair is waiting for validation and remains visible below as review work.'
+                      : 'SHAPI is monitoring the connected workflows normally.'
+                    : 'The impact panel will become actionable when live incident data arrives.'}
                 </p>
               </div>
             </div>
           )}
+          {repairPendingIncidents.length ? (
+            <div className="border-t border-warning/25 bg-warning/5">
+              <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+                <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-warning">Repair pending validation</p>
+                <span className="font-mono text-[10px] text-warning">{repairPendingIncidents.length}</span>
+              </div>
+              <div className="divide-y divide-warning/15">
+                {repairPendingIncidents.map(incident => (
+                  <button
+                    key={incident.id}
+                    type="button"
+                    onClick={() => onOpenDiagnosis(incident.id)}
+                    className="group flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-warning/10"
+                  >
+                    <Clock3 className="size-4 shrink-0 text-warning" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-xs font-semibold">{incident.invariant?.name ?? incident.title}</span>
+                      <span className="mt-1 block text-[10px] text-muted-foreground">
+                        {incident.integration?.name ?? incident.integrationId} · repair generated · awaiting validation
+                      </span>
+                    </span>
+                    <ArrowUpRight className="size-3.5 shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-warning" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </section>
