@@ -1129,6 +1129,169 @@ function RecoveryObservatory({
   );
 }
 
+function OutcomeTwin({
+  liveSnapshot,
+  onNavigate,
+  onOpenDiagnosis,
+}: {
+  liveSnapshot: LiveSnapshot | null;
+  onNavigate: (target: string) => void;
+  onOpenDiagnosis: (incidentId?: string) => void;
+}) {
+  type TwinStepKey = 'event' | 'contract' | 'outcome' | 'repair' | 'proof';
+
+  const activeIncidents = liveSnapshot?.incidents.filter(
+    incident => incident.status !== 'RESOLVED' && incident.status !== 'DISMISSED'
+  ) ?? [];
+  const paymentIncidents = activeIncidents.filter(incident =>
+    `${incident.title} ${incident.invariant?.name ?? ''}`.toLowerCase().includes('payment succeeded')
+  );
+  const paymentExposure = paymentIncidents.find(incident => incident.status !== 'REPAIRED');
+  const paymentRepair = paymentIncidents.find(incident => incident.status === 'REPAIRED');
+  const selectedIncident = paymentExposure ?? paymentRepair;
+  const paymentAtRisk = Boolean(paymentExposure);
+  const repairCandidateCount = selectedIncident?.repairCandidates?.length ?? 0;
+  const [selectedKey, setSelectedKey] = useState<TwinStepKey>('outcome');
+
+  const statusLabel = paymentAtRisk
+    ? 'CUSTOMER EXPOSURE'
+    : paymentRepair
+      ? 'REPAIR PENDING'
+      : liveSnapshot
+        ? 'PROTECTED'
+        : 'WAITING';
+  const statusClass = paymentAtRisk
+    ? 'border-critical/25 bg-critical/10 text-critical'
+    : paymentRepair
+      ? 'border-warning/25 bg-warning/10 text-warning'
+      : liveSnapshot
+        ? 'border-success/25 bg-success/10 text-success'
+        : 'border-border bg-secondary/30 text-muted-foreground';
+
+  const steps: Array<{
+    key: TwinStepKey;
+    number: string;
+    label: string;
+    value: string;
+    detail: string;
+    state: 'healthy' | 'attention' | 'pending' | 'waiting';
+  }> = [
+    {
+      key: 'event',
+      number: '01',
+      label: 'Payment event',
+      value: liveSnapshot ? 'RECEIVED' : 'WAITING',
+      detail: 'invoice.payment_succeeded enters SHAPI.',
+      state: liveSnapshot ? 'healthy' : 'waiting',
+    },
+    {
+      key: 'contract',
+      number: '02',
+      label: 'Outcome contract',
+      value: paymentAtRisk ? 'DRIFT' : paymentRepair ? 'REPAIRED' : liveSnapshot ? 'PASS' : 'WAITING',
+      detail: 'Payment amount must be positive and status must be paid.',
+      state: paymentAtRisk ? 'attention' : paymentRepair ? 'pending' : liveSnapshot ? 'healthy' : 'waiting',
+    },
+    {
+      key: 'outcome',
+      number: '03',
+      label: 'Business outcome',
+      value: paymentAtRisk ? 'AT RISK' : paymentRepair ? 'VALIDATE' : liveSnapshot ? 'PROTECTED' : 'WAITING',
+      detail: 'Revenue is recorded and the customer receives access.',
+      state: paymentAtRisk ? 'attention' : paymentRepair ? 'pending' : liveSnapshot ? 'healthy' : 'waiting',
+    },
+    {
+      key: 'repair',
+      number: '04',
+      label: 'Repair proposal',
+      value: repairCandidateCount ? `${repairCandidateCount} CANDIDATES` : 'REVIEW',
+      detail: repairCandidateCount
+        ? `${repairCandidateCount} evidence-backed repair path${repairCandidateCount === 1 ? '' : 's'} available.`
+        : 'A repair path will appear when SHAPI diagnoses drift.',
+      state: paymentAtRisk ? 'attention' : paymentRepair ? 'pending' : liveSnapshot ? 'healthy' : 'waiting',
+    },
+    {
+      key: 'proof',
+      number: '05',
+      label: 'Recovery proof',
+      value: paymentAtRisk ? 'BLOCKED' : paymentRepair ? 'PENDING' : liveSnapshot ? 'VERIFIED' : 'WAITING',
+      detail: paymentAtRisk
+        ? 'Proof is blocked until a human reviews the repair.'
+        : paymentRepair
+          ? 'The repair exists; validation must prove the outcome recovered.'
+          : 'Every successful recovery leaves an auditable proof record.',
+      state: paymentAtRisk ? 'attention' : paymentRepair ? 'pending' : liveSnapshot ? 'healthy' : 'waiting',
+    },
+  ];
+  const selectedStep = steps.find(step => step.key === selectedKey) ?? steps[2];
+
+  return (
+    <section id="outcome-twin" className="mt-3.5 overflow-hidden rounded-md border border-border bg-card" aria-labelledby="outcome-twin-title">
+      <div className="border-b border-border bg-gradient-to-br from-primary/5 via-background to-success/5 px-4 py-4 md:px-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-primary">Outcome twin · Stripe payments</p>
+            <h2 id="outcome-twin-title" className="mt-1 text-lg font-semibold">Follow one customer promise from signal to proof.</h2>
+            <p className="mt-1 max-w-3xl text-xs text-muted-foreground">
+              SHAPI connects the technical event to the business result, so your team can see what failed and what must be proven before recovery is complete.
+            </p>
+          </div>
+          <span className={`rounded border px-2 py-1 font-mono text-[10px] uppercase ${statusClass}`}>
+            {statusLabel}
+          </span>
+        </div>
+      </div>
+      <div className="p-4 md:p-5">
+        <div className="relative grid gap-2 md:grid-cols-5">
+          <div className="pointer-events-none absolute left-[8%] right-[8%] top-12 hidden h-px bg-gradient-to-r from-success/60 via-primary/60 to-warning/60 md:block" aria-hidden="true" />
+          {steps.map(step => (
+            <button
+              key={step.key}
+              type="button"
+              className={`relative z-10 rounded-lg border p-3 text-left transition-all ${selectedKey === step.key ? 'border-primary bg-primary/10 shadow-sm' : 'border-border bg-background/60 hover:border-primary/40 hover:bg-primary/5'}`}
+              onClick={() => setSelectedKey(step.key)}
+              aria-pressed={selectedKey === step.key}
+              aria-label={`Select ${step.label}`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono text-[9px] text-muted-foreground">{step.number}</span>
+                <span className={`size-2 rounded-full ${step.state === 'healthy' ? 'bg-success' : step.state === 'attention' ? 'bg-critical' : step.state === 'pending' ? 'bg-warning' : 'bg-muted-foreground'}`} />
+              </div>
+              <p className="mt-4 text-xs font-semibold">{step.label}</p>
+              <p className={`mt-1 font-mono text-[10px] ${step.state === 'attention' ? 'text-critical' : step.state === 'pending' ? 'text-warning' : step.state === 'healthy' ? 'text-success' : 'text-muted-foreground'}`}>
+                {step.value}
+              </p>
+            </button>
+          ))}
+        </div>
+        <div className="mt-4 grid gap-4 rounded-lg border border-border bg-secondary/20 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Selected step · {selectedStep.label}</p>
+            <p className="mt-1 text-sm font-medium">{selectedStep.detail}</p>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              {paymentAtRisk
+                ? 'Current proof boundary: 1 payment outcome is exposed until the repair is reviewed and verified.'
+                : paymentRepair
+                  ? 'Current proof boundary: the repair is pending validation before the outcome can be marked recovered.'
+                  : liveSnapshot
+                    ? 'Current proof boundary: SHAPI is watching the payment contract for drift.'
+                    : 'Connect SHAPI to see the live proof boundary for this outcome.'}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 md:justify-end">
+            <button type="button" className="inline-flex items-center gap-1.5 rounded border border-border bg-background px-3 py-2 font-mono text-[10px] text-foreground hover:border-primary/50" onClick={() => onNavigate('traffic')}>
+              View signal <ArrowUpRight className="size-3" />
+            </button>
+            <button type="button" className="inline-flex items-center gap-1.5 rounded bg-primary px-3 py-2 font-mono text-[10px] text-primary-foreground hover:bg-primary/90" onClick={() => selectedIncident && onOpenDiagnosis(selectedIncident.id)} disabled={!selectedIncident}>
+              Open evidence <ArrowUpRight className="size-3" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function AssuranceHero({
   liveSnapshot,
   customerExposureCount,
@@ -1873,6 +2036,11 @@ function HealingDashboardContent({
             <Globe2 />
             Signal field
           </a>
+          <a className="nav-item" href="#outcome-twin">
+            <Zap />
+            Outcome twin
+            <span className="ml-auto rounded bg-primary/15 px-1.5 text-[10px] text-primary">NEW</span>
+          </a>
           <a className="nav-item" href="#healing" onClick={() => setRepairQueueFilter('pending')}>
             <GitBranch />
             Repair queue
@@ -2024,6 +2192,11 @@ function HealingDashboardContent({
               onOpenDiagnosis={openDiagnosis}
             />
           </div>
+          <OutcomeTwin
+            liveSnapshot={liveSnapshot}
+            onNavigate={navigateFromObservatory}
+            onOpenDiagnosis={openDiagnosis}
+          />
           <OutcomeCoverageSummary onNavigate={navigateFromObservatory} />
           <BusinessImpactPanel
             activeIncidents={activeIncidents}
