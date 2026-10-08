@@ -44,6 +44,45 @@ function Mark({ className = '' }: { className?: string }) {
   return <svg className={`brand-mark ${className}`} viewBox="0 0 36 36" fill="none" aria-hidden="true"><path d="M2 19h9l5-12 6 24 4-12h8" stroke="currentColor" strokeWidth="3" strokeLinejoin="miter" /></svg>;
 }
 
+function AmbientSystem() {
+  const reduced = useReducedMotion();
+  const motionTransition = (duration: number, delay = 0) => reduced ? { duration: 0 } : { duration, delay, repeat: Infinity, repeatType: 'mirror' as const, ease: 'easeInOut' as const };
+  return <div className="ambient-system" aria-hidden="true">
+    <div className="ambient-aurora ambient-aurora-one" />
+    <div className="ambient-aurora ambient-aurora-two" />
+    <svg className="ambient-orbits" viewBox="0 0 1400 760" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="ambient-flow" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#55d8b0" stopOpacity="0" />
+          <stop offset=".42" stopColor="#5f7df5" stopOpacity=".75" />
+          <stop offset="1" stopColor="#d66bff" stopOpacity="0" />
+        </linearGradient>
+        <radialGradient id="ambient-node" cx="50%" cy="50%" r="50%">
+          <stop offset="0" stopColor="#ffffff" />
+          <stop offset=".34" stopColor="#9cf0d1" />
+          <stop offset="1" stopColor="#6571eb" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <path className="ambient-orbit ambient-orbit-one" d="M-80 510 C210 70 460 50 690 340 S1120 720 1500 180" />
+      <path className="ambient-orbit ambient-orbit-two" d="M-100 170 C220 650 560 650 830 240 S1180 80 1510 530" />
+      <motion.path className="ambient-flow" d="M-80 510 C210 70 460 50 690 340 S1120 720 1500 180" pathLength="1" initial={{ pathLength: reduced ? 1 : 0, opacity: reduced ? .2 : 0 }} animate={{ pathLength: 1, opacity: [.15, .8, .15] }} transition={{ pathLength: reduced ? { duration: 0 } : { duration: 4.2, ease: 'easeInOut' }, opacity: motionTransition(5.4) }} />
+      <motion.g animate={reduced ? undefined : { rotate: [0, 360] }} transition={reduced ? undefined : { duration: 38, repeat: Infinity, ease: 'linear' }} style={{ transformOrigin: '700px 360px' }}>
+        <ellipse className="ambient-ring" cx="700" cy="360" rx="300" ry="116" />
+        <ellipse className="ambient-ring ambient-ring-secondary" cx="700" cy="360" rx="220" ry="178" transform="rotate(-28 700 360)" />
+      </motion.g>
+      <g className="ambient-node-cloud">
+        <motion.circle cx="238" cy="222" r="8" fill="url(#ambient-node)" animate={reduced ? undefined : { cy: [222, 244, 222], opacity: [.35, 1, .35] }} transition={motionTransition(3.8, .2)} />
+        <motion.circle cx="690" cy="334" r="11" fill="url(#ambient-node)" animate={reduced ? undefined : { r: [8, 15, 8], opacity: [.45, 1, .45] }} transition={motionTransition(4.7, .8)} />
+        <motion.circle cx="1088" cy="232" r="7" fill="url(#ambient-node)" animate={reduced ? undefined : { cy: [232, 208, 232], opacity: [.25, .9, .25] }} transition={motionTransition(4.1, 1.1)} />
+        <motion.circle cx="1015" cy="572" r="6" fill="url(#ambient-node)" animate={reduced ? undefined : { cx: [1015, 1040, 1015], opacity: [.25, .8, .25] }} transition={motionTransition(3.2, .6)} />
+      </g>
+    </svg>
+    <div className="ambient-badge ambient-badge-one"><span className="ambient-badge-dot" /><strong>EVENT</strong><small>observed</small></div>
+    <div className="ambient-badge ambient-badge-two"><span className="ambient-badge-dot ambient-badge-dot-violet" /><strong>OUTCOME</strong><small>verified</small></div>
+    <div className="ambient-badge ambient-badge-three"><span className="ambient-badge-dot ambient-badge-dot-coral" /><strong>REPAIR</strong><small>reviewable</small></div>
+  </div>;
+}
+
 function Reveal({ children, className = '' }: { children: ReactNode; className?: string }) {
   const reduced = useReducedMotion();
   return <motion.div className={className} initial={reduced ? false : { opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.12 }} transition={{ duration: 0.55, ease: EASE }}>{children}</motion.div>;
@@ -273,5 +312,5 @@ function Closing() {
 }
 
 export function LandingPage() {
-  return <div className="landing-page" id="top"><a className="skip-link" href="#main">Skip to content</a><Navigation /><main id="main"><Hero /><InteractiveDemo /><Workflow /><Developers /><Faq /><Closing /></main></div>;
+  return <div className="landing-page" id="top"><a className="skip-link" href="#main">Skip to content</a><AmbientSystem /><Navigation /><main id="main"><Hero /><InteractiveDemo /><Workflow /><Developers /><Faq /><Closing /></main></div>;
 }

@@ -716,3 +716,130 @@ h2 { color: var(--ink); font-weight: 570; }
   .demo-console, .workflow-evidence, .sdk-panel { border-radius: 16px; }
   .workflow-evidence { box-shadow: 7px 7px 0 rgba(204, 222, 241, .64); }
 }
+
+/* Living signal field: the page has motion, but the motion always explains the product. */
+.landing-page { position: relative; }
+.landing-page > main { position: relative; z-index: 1; }
+.ambient-system {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  width: 100%;
+  height: min(980px, 100vh);
+  overflow: hidden;
+  pointer-events: none;
+  opacity: .92;
+  isolation: isolate;
+}
+.ambient-system::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+  background: linear-gradient(180deg, rgba(241, 248, 255, .12) 0%, rgba(241, 248, 255, .04) 65%, #eef6ff 100%);
+}
+.ambient-aurora {
+  position: absolute;
+  width: 34rem;
+  height: 34rem;
+  border-radius: 50%;
+  filter: blur(5px);
+  opacity: .24;
+  mix-blend-mode: multiply;
+  animation: ambient-drift 16s ease-in-out infinite;
+}
+.ambient-aurora-one {
+  top: -17rem;
+  right: -6rem;
+  background: radial-gradient(circle, rgba(111, 158, 255, .72) 0%, rgba(132, 152, 255, .2) 43%, transparent 70%);
+}
+.ambient-aurora-two {
+  top: 27rem;
+  left: -15rem;
+  animation-delay: -6s;
+  background: radial-gradient(circle, rgba(98, 227, 188, .46) 0%, rgba(155, 206, 255, .18) 45%, transparent 70%);
+}
+.ambient-orbits {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 760px;
+  overflow: visible;
+  opacity: .65;
+}
+.ambient-orbit {
+  fill: none;
+  stroke: rgba(90, 126, 214, .17);
+  stroke-width: 1;
+  stroke-dasharray: 2 13;
+}
+.ambient-orbit-two { stroke: rgba(93, 204, 178, .14); stroke-dasharray: 1 18; }
+.ambient-flow {
+  fill: none;
+  stroke: url(#ambient-flow);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: .05 .035;
+  filter: drop-shadow(0 0 7px rgba(99, 122, 235, .36));
+}
+.ambient-ring {
+  fill: none;
+  stroke: rgba(112, 135, 233, .21);
+  stroke-width: 1;
+  stroke-dasharray: 1 15;
+}
+.ambient-ring-secondary { stroke: rgba(94, 207, 177, .17); stroke-dasharray: 1 21; }
+.ambient-node-cloud { filter: drop-shadow(0 0 8px rgba(112, 132, 236, .3)); }
+.ambient-badge {
+  position: absolute;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 8px;
+  align-items: center;
+  padding: 10px 13px 9px;
+  border: 1px solid rgba(188, 207, 232, .72);
+  border-radius: 11px;
+  color: #5d7191;
+  background: rgba(255, 255, 255, .56);
+  box-shadow: 0 10px 25px rgba(91, 124, 170, .08);
+  backdrop-filter: blur(11px);
+  font-family: var(--mono);
+  transform: translateZ(0);
+  animation: ambient-bob 7s ease-in-out infinite;
+}
+.ambient-badge strong { font-size: .62rem; line-height: 1.3; letter-spacing: .08em; }
+.ambient-badge small { grid-column: 2; color: #8c9db4; font-size: .59rem; line-height: 1.3; }
+.ambient-badge-dot { grid-row: 1 / span 2; width: 7px; height: 7px; border-radius: 50%; background: #35bd8f; box-shadow: 0 0 0 5px rgba(53, 189, 143, .12); }
+.ambient-badge-dot-violet { background: #7165e8; box-shadow: 0 0 0 5px rgba(113, 101, 232, .12); }
+.ambient-badge-dot-coral { background: #e67567; box-shadow: 0 0 0 5px rgba(230, 117, 103, .12); }
+.ambient-badge-one { top: 9rem; left: max(2rem, calc(50% - 650px)); }
+.ambient-badge-two { top: 29rem; right: max(3rem, calc(50% - 650px)); animation-delay: -2s; }
+.ambient-badge-three { top: 50rem; left: max(4rem, calc(50% - 620px)); animation-delay: -4s; }
+
+@keyframes ambient-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(2.5rem, 1.4rem, 0) scale(1.05); }
+}
+@keyframes ambient-bob {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -8px, 0); }
+}
+
+@media (max-width: 899px) {
+  .ambient-badge-one { left: 2rem; }
+  .ambient-badge-two { right: 2rem; }
+  .ambient-badge-three { left: 8rem; }
+}
+@media (max-width: 639px) {
+  .ambient-system { height: 800px; }
+  .ambient-orbits { height: 620px; width: 170%; left: -35%; opacity: .5; }
+  .ambient-aurora { width: 24rem; height: 24rem; }
+  .ambient-badge { transform: scale(.82); transform-origin: left top; }
+  .ambient-badge-one { top: 8.5rem; left: 1rem; }
+  .ambient-badge-two { top: 29rem; right: -1rem; transform-origin: right top; }
+  .ambient-badge-three { top: 53rem; left: 2rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ambient-aurora, .ambient-badge { animation: none; }
+}
