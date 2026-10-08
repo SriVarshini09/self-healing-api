@@ -50,6 +50,10 @@ function AmbientSystem() {
   return <div className="ambient-system" aria-hidden="true">
     <div className="ambient-aurora ambient-aurora-one" />
     <div className="ambient-aurora ambient-aurora-two" />
+    <div className="ambient-grid" />
+    <div className="ambient-scanline" />
+    <div className="ambient-beacon ambient-beacon-one"><span /></div>
+    <div className="ambient-beacon ambient-beacon-two"><span /></div>
     <svg className="ambient-orbits" viewBox="0 0 1400 760" preserveAspectRatio="none">
       <defs>
         <linearGradient id="ambient-flow" x1="0" y1="0" x2="1" y2="1">

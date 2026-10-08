@@ -796,6 +796,72 @@ h2 { color: var(--ink); font-weight: 570; }
   content: '';
   background: linear-gradient(180deg, rgba(241, 248, 255, .12) 0%, rgba(241, 248, 255, .04) 65%, #eef6ff 100%);
 }
+.ambient-grid {
+  position: absolute;
+  inset: -4rem -4rem 0;
+  opacity: .3;
+  background-image: linear-gradient(rgba(91, 131, 204, .09) 1px, transparent 1px), linear-gradient(90deg, rgba(91, 131, 204, .09) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, .72) 42%, transparent 92%);
+  animation: ambient-grid-drift 26s linear infinite;
+}
+.ambient-grid::after {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 24%, rgba(126, 173, 255, .2), transparent 48%);
+  content: '';
+}
+.ambient-scanline {
+  position: absolute;
+  top: -24%;
+  left: -10%;
+  width: 120%;
+  height: 22%;
+  background: linear-gradient(180deg, transparent, rgba(90, 196, 224, .17), rgba(206, 134, 235, .09), transparent);
+  filter: blur(16px);
+  opacity: .7;
+  transform: rotate(-6deg);
+  animation: ambient-scan 15s ease-in-out infinite;
+}
+.ambient-beacon {
+  position: absolute;
+  width: 150px;
+  height: 150px;
+  border: 1px solid rgba(101, 133, 225, .12);
+  border-radius: 50%;
+  opacity: .7;
+  animation: ambient-beacon-pulse 9s ease-in-out infinite;
+}
+.ambient-beacon::before,
+.ambient-beacon::after {
+  position: absolute;
+  inset: 17px;
+  border: 1px dashed rgba(113, 146, 235, .2);
+  border-radius: 50%;
+  content: '';
+  animation: ambient-beacon-spin 18s linear infinite;
+}
+.ambient-beacon::after {
+  inset: 42px;
+  border-style: solid;
+  border-color: rgba(102, 215, 188, .24) transparent rgba(211, 112, 221, .19);
+  animation-duration: 11s;
+  animation-direction: reverse;
+}
+.ambient-beacon span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #55cdb0;
+  box-shadow: 0 0 0 7px rgba(85, 205, 176, .12), 0 0 24px rgba(85, 205, 176, .5);
+  transform: translate(-50%, -50%);
+}
+.ambient-beacon-one { top: 11rem; left: 32%; }
+.ambient-beacon-two { top: 38rem; right: 18%; width: 94px; height: 94px; animation-delay: -4s; }
+.ambient-beacon-two span { background: #d271d9; box-shadow: 0 0 0 7px rgba(210, 113, 217, .12), 0 0 24px rgba(210, 113, 217, .45); }
 .ambient-aurora {
   position: absolute;
   width: 34rem;
@@ -879,6 +945,20 @@ h2 { color: var(--ink); font-weight: 570; }
   0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
   50% { transform: translate3d(2.5rem, 1.4rem, 0) scale(1.05); }
 }
+@keyframes ambient-grid-drift {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 72px 72px, 72px 72px; }
+}
+@keyframes ambient-scan {
+  0%, 100% { transform: translate3d(-3%, -10%, 0) rotate(-6deg); opacity: 0; }
+  18%, 76% { opacity: .7; }
+  55% { transform: translate3d(3%, 420%, 0) rotate(-6deg); opacity: .32; }
+}
+@keyframes ambient-beacon-pulse {
+  0%, 100% { transform: scale(.9); opacity: .38; }
+  50% { transform: scale(1.08); opacity: .72; }
+}
+@keyframes ambient-beacon-spin { to { transform: rotate(360deg); } }
 @keyframes ambient-bob {
   0%, 100% { transform: translate3d(0, 0, 0); }
   50% { transform: translate3d(0, -8px, 0); }
@@ -893,13 +973,16 @@ h2 { color: var(--ink); font-weight: 570; }
   .ambient-system { height: 800px; }
   .ambient-orbits { height: 620px; width: 170%; left: -35%; opacity: .5; }
   .ambient-aurora { width: 24rem; height: 24rem; }
+  .ambient-grid { background-size: 54px 54px; }
+  .ambient-beacon-one { top: 15rem; left: 52%; }
+  .ambient-beacon-two { top: 39rem; right: 2rem; }
   .ambient-badge { transform: scale(.82); transform-origin: left top; }
   .ambient-badge-one { top: 8.5rem; left: 1rem; }
   .ambient-badge-two { top: 29rem; right: -1rem; transform-origin: right top; }
   .ambient-badge-three { top: 53rem; left: 2rem; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ambient-aurora, .ambient-badge { animation: none; }
+  .ambient-aurora, .ambient-grid, .ambient-scanline, .ambient-beacon, .ambient-beacon::before, .ambient-beacon::after, .ambient-badge { animation: none; }
   .hero-core-rings span, .hero-signal-orbit { animation: none; }
 }
 @media (max-width: 639px) {
