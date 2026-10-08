@@ -125,21 +125,42 @@ function Navigation() {
 
 function HeroTrace() {
   const reduced = useReducedMotion();
-  return <motion.div className="hero-trace" initial={reduced ? false : { y: 18 }} animate={{ y: 0 }} transition={{ duration: 0.8, ease: EASE }}>
-    <div className="trace-cap"><span className="mono">EVENT TRACE / 001</span><span className="trace-example">Example</span></div>
-    <div className="transport-receipt">
-      <div className="receipt-label"><span>01 — TRANSPORT</span><Check size={18} /></div>
-      <div className="http-status">200<span>OK</span></div>
-      <p>Payment received.</p>
-      <code>invoice.payment_succeeded</code>
+  const [stage, setStage] = useState(0);
+  const [playing, setPlaying] = useState(true);
+  const steps = [
+    { label: 'Signal', value: '200 OK', detail: 'payment received', icon: Activity, tone: 'passed' },
+    { label: 'Outcome', value: 'AT RISK', detail: 'customer access', icon: ScanLine, tone: 'attention' },
+    { label: 'Repair', value: 'REVIEW', detail: 'patch candidate', icon: GitPullRequest, tone: 'review' },
+    { label: 'Proof', value: 'VERIFIED', detail: 'recovery confirmed', icon: CheckCheck, tone: 'passed' },
+  ] as const;
+
+  useEffect(() => {
+    if (!playing || reduced) return;
+    const timer = window.setTimeout(() => setStage(current => current === steps.length - 1 ? 0 : current + 1), 2300);
+    return () => window.clearTimeout(timer);
+  }, [playing, reduced, stage]);
+
+  const current = steps[stage];
+  const CurrentIcon = current.icon;
+  return <motion.div className="hero-trace hero-signal-loop" initial={reduced ? false : { y: 18 }} animate={{ y: 0 }} transition={{ duration: 0.8, ease: EASE }}>
+    <div className="hero-signal-head"><span className="mono">SHAPI / OUTCOME TWIN</span><span className={`hero-live-pill ${playing ? 'is-active' : ''}`}><span />{playing ? 'LIVE SIMULATION' : 'PAUSED'}</span></div>
+    <div className="hero-signal-map">
+      <div className="hero-signal-grid" aria-hidden="true" />
+      <motion.div className={`hero-signal-core is-${current.tone}`} key={stage} initial={reduced ? false : { scale: .92, opacity: .45 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: .5, ease: EASE }}>
+        <div className="hero-core-rings" aria-hidden="true"><span /><span /><span /></div>
+        <div className="hero-core-content"><span className="mono">{current.label}</span><strong>{current.value}</strong><small>{current.detail}</small></div>
+      </motion.div>
+      <span className="hero-signal-orbit orbit-a" aria-hidden="true" /><span className="hero-signal-orbit orbit-b" aria-hidden="true" />
     </div>
-    <div className="trace-bridge" aria-hidden="true"><svg viewBox="0 0 400 76" preserveAspectRatio="none"><path className="bridge-track" d="M38 0 V38 H362 V76" /><motion.path className="bridge-signal" d="M38 0 V38 H362 V76" initial={{ pathLength: reduced ? 1 : 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.8, delay: reduced ? 0 : 0.1, ease: EASE }} /></svg><span>But did the work happen?</span></div>
-    <div className="outcome-receipt">
-      <div className="receipt-label"><span>02 — BUSINESS OUTCOME</span><span className="status status-fail">Failed</span></div>
-      <div className="outcome-title"><span>Customer<br />access</span><span className="missing-symbol" aria-hidden="true">×</span></div>
-      <div className="outcome-detail"><code>provisioning.failed</code><span>Not provisioned</span></div>
+    <div className="hero-signal-steps" aria-label="Outcome rescue stages">
+      {steps.map((item, index) => {
+        const Icon = item.icon;
+        return <button key={item.label} className={`hero-signal-step ${index === stage ? 'is-current' : ''} ${index < stage ? 'is-complete' : ''} is-${item.tone}`} onClick={() => { setStage(index); setPlaying(false); }} aria-current={index === stage ? 'step' : undefined}>
+          <span className="hero-step-icon"><Icon size={15} /></span><span className="hero-step-copy"><strong>{item.label}</strong><small>{item.detail}</small></span><span className="hero-step-state">{index < stage ? <Check size={13} /> : `0${index + 1}`}</span>
+        </button>;
+      })}
     </div>
-    <div className="trace-footer"><Mark /><span>This is where SHAPI looks.</span></div>
+    <div className="hero-signal-footer"><button className="hero-run-button" onClick={() => { if (!playing && stage === steps.length - 1) setStage(0); setPlaying(!playing); }}>{playing ? <Pause size={14} /> : <Play size={14} fill="currentColor" />}{playing ? 'Pause loop' : 'Run protection loop'}</button><span className="mono">STAGE 0{stage + 1} / 04 · {current.label.toUpperCase()}</span></div>
   </motion.div>;
 }
 
