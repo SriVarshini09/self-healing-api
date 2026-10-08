@@ -115,8 +115,18 @@ async function runDashboardSmoke(mode: {
     // The dashboard refreshes its live incident snapshot independently from
     // the API snapshot above. Assert the rendered count shape rather than
     // comparing two independently timed snapshots and creating a false race.
-    await repairReviewCell.getByText(/^\d+$/u).first().waitFor({ timeout: 15000 });
-    await repairReviewCell.getByText(/\d+\s+PR-ready/u).waitFor({ timeout: 15000 });
+    const repairReviewValue = repairReviewCell.locator('p').first();
+    const prReadyValue = repairReviewCell.locator('p').filter({ hasText: 'PR-ready' }).first();
+    await repairReviewValue.waitFor({ timeout: 15000 });
+    await prReadyValue.waitFor({ timeout: 15000 });
+    const repairReviewText = (await repairReviewValue.innerText()).trim();
+    const prReadyText = (await prReadyValue.innerText()).trim();
+    if (!/^\d+$/u.test(repairReviewText)) {
+      throw new Error(`Repair review count was not numeric: ${repairReviewText}`);
+    }
+    if (!/^\d+\s+PR-ready$/u.test(prReadyText)) {
+      throw new Error(`PR-ready count had an unexpected shape: ${prReadyText}`);
+    }
     await page.getByRole('heading', { name: 'Alert delivery', exact: true }).waitFor({ timeout: 15000 });
     for (const label of ['Pending', 'Processing', 'Retrying', 'Failed', 'Delivered']) {
       await page.getByText(label, { exact: true }).waitFor({ timeout: 15000 });
