@@ -111,7 +111,7 @@ async function runDashboardSmoke(mode: {
     // both states exist in every tenant.
     await page.getByText(/MANUAL REVIEW|READY FOR TARGET REVIEW/u).first().waitFor({ timeout: 15000 });
     await page.getByText('Repair review', { exact: true }).waitFor({ timeout: 15000 });
-    const repairReviewCell = page.locator('p').filter({ hasText: 'Repair review' }).first().locator('..');
+    const repairReviewCell = page.getByText('Repair review', { exact: true }).first().locator('..');
     // The dashboard refreshes its live incident snapshot independently from
     // the API snapshot above. Assert the rendered count shape rather than
     // comparing two independently timed snapshots and creating a false race.
