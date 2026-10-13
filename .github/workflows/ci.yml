@@ -114,3 +114,51 @@ jobs:
           pnpm --filter @shapi/demo-saas e2e
           pnpm --filter @shapi/demo-saas test -- src/index.test.ts
           pnpm --filter @shapi/repair-generation test -- src/business-outcome-proof.test.ts src/demo-saas-adapter.test.ts
+
+  outcome-checks:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: shapi
+          POSTGRES_PASSWORD: shapi
+          POSTGRES_DB: shapi
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U shapi -d shapi"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://shapi:shapi@localhost:5432/shapi?schema=public
+      JWT_SECRET: ci-only-jwt-secret-not-used-anywhere-else
+      OUTCOME_TEST_DATABASE_URL: postgresql://shapi:shapi@localhost:5432/shapi
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9.0.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare database
+        run: |
+          pnpm --filter @shapi/backend db:generate
+          pnpm build:packages
+          pnpm --filter @shapi/backend db:migrate:deploy
+          pnpm --filter @shapi/backend db:seed
+
+      - name: Outcome query runner against real Postgres (read-only, timeout)
+        run: pnpm --filter @shapi/outcome-checks test
+
+      - name: Outcome checks end to end (webhook -> query -> incident, reconcile)
+        run: pnpm --filter @shapi/backend e2e:outcomes

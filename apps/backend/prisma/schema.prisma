@@ -44,6 +44,7 @@ model Integration {
   incidents       Incident[]
   githubInstalls  GitHubInstallation[]
   driftConfig     DriftDetectionConfig?
+  outcomeChecks   OutcomeCheck[]
 
   @@index([type])
   @@index([tenantId])
@@ -419,4 +420,63 @@ model APIKey {
 
   @@index([prefix])
   @@index([tenantId])
+}
+
+// An outcome check proves a business outcome exists in the customer's own
+// database after a provider event, e.g. invoice.payment_succeeded =>
+// an active subscription row within deadlineSec. No SDK instrumentation.
+model OutcomeCheck {
+  id                 String   @id @default(uuid())
+  integrationId      String
+  integration        Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  name               String
+  description        String   @default("")
+  triggerEventType   String
+  sqlQuery           String   @db.Text
+  paramBindings      Json
+  deadlineSec        Int      @default(300)
+  // AES-256-GCM ciphertexts; never returned by the API.
+  databaseUrlCipher  String   @db.Text
+  stripeApiKeyCipher String?  @db.Text
+  enabled            Boolean  @default(true)
+  lastReconciledAt   DateTime?
+  lastError          String?  @db.Text
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  runs OutcomeCheckRun[]
+
+  @@index([integrationId])
+  @@index([triggerEventType])
+}
+
+model OutcomeCheckRun {
+  id            String   @id @default(uuid())
+  checkId       String
+  check         OutcomeCheck @relation(fields: [checkId], references: [id], onDelete: Cascade)
+  sourceEventId String
+  source        OutcomeRunSource
+  params        Json
+  dueAt         DateTime
+  status        OutcomeRunStatus @default(PENDING)
+  attempts      Int      @default(0)
+  checkedAt     DateTime?
+  detail        String?  @db.Text
+  createdAt     DateTime @default(now())
+
+  @@unique([checkId, sourceEventId])
+  @@index([status, dueAt])
+  @@index([checkId, createdAt])
+}
+
+enum OutcomeRunSource {
+  WEBHOOK
+  RECONCILE
+}
+
+enum OutcomeRunStatus {
+  PENDING
+  PASSED
+  FAILED
+  ERROR
 }
