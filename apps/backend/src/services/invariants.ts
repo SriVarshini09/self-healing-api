@@ -33,8 +33,13 @@ export async function evaluateInvariantsForEvent(
   eventType: string,
   payload: Record<string, unknown>,
   headers: Record<string, unknown> = {},
+  options: { invariantIds?: string[] } = {},
 ): Promise<string[]> {
-  const invariants = await prisma.invariant.findMany({ where: { integrationId } });
+  // invariantIds narrows evaluation, e.g. an outcome-check result only
+  // evaluates its own invariant instead of every unscoped predicate.
+  const invariants = await prisma.invariant.findMany({
+    where: options.invariantIds ? { integrationId, id: { in: options.invariantIds } } : { integrationId },
+  });
   const evaluated: string[] = [];
 
   for (const invariant of invariants) {

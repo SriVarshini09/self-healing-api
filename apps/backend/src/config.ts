@@ -18,6 +18,9 @@ const configSchema = z.object({
   SHAPI_MAX_INVARIANTS_PER_TENANT: z.coerce.number().int().positive().default(100),
   DATABASE_URL: z.string().url(),
   JWT_SECRET: z.string().min(32),
+  // Key for secrets stored at rest (outcome-check database URLs, Stripe keys).
+  // Falls back to a key derived from JWT_SECRET so existing deployments keep booting.
+  SHAPI_ENCRYPTION_KEY: z.preprocess(value => value === '' ? undefined : value, z.string().min(32).optional()),
   API_KEY_PREFIX: z.string().default('shapi_'),
   API_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(1000),
   API_RATE_LIMIT_WINDOW: z.string().default('1 minute'),

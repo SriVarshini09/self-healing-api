@@ -392,6 +392,13 @@ export async function processWebhookEvent(
       await checkDrift(invariantId);
     }
 
+    // Queue outcome checks triggered by this event. A queueing failure must not
+    // fail webhook processing; the Stripe reconcile pass will pick the event up.
+    const { enqueueOutcomeRuns } = await import('../services/outcome-checks.js');
+    const sourceEventId = typeof payload.id === 'string' && payload.id ? payload.id : webhookEventId;
+    await enqueueOutcomeRuns(integrationId, eventType, sourceEventId, payload, new Date(), 'WEBHOOK')
+      .catch(error => logger.error({ webhookEventId, error }, 'Failed to queue outcome checks'));
+
     await prisma.webhookEvent.update({
       where: { id: webhookEventId },
       data: { status: WebhookEventStatus.COMPLETED },
