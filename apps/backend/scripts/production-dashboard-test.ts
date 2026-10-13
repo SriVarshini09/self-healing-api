@@ -90,11 +90,17 @@ async function runDashboardSmoke(mode: {
       await pageHeading(name).waitFor({ timeout: 15000 });
     };
 
-    // Overview: live summary, open incidents and outcome checks.
+    // Overview: status, outcome health with the daily chart, stat tiles,
+    // open incidents, activity and integration health (from /stats/overview).
     await pageHeading('Overview').waitFor({ timeout: 15000 });
-    await page.getByRole('heading', { name: 'Needs attention', exact: true }).waitFor({ timeout: 15000 });
-    await page.getByRole('heading', { name: 'Outcome checks', exact: true }).waitFor({ timeout: 15000 });
     await page.getByText(/^(All clear\.|\d+ incidents? needs? review\.)$/u).first().waitFor({ timeout: 15000 });
+    await page.getByText(/^Outcome health · last 14 days$/u).waitFor({ timeout: 15000 });
+    await page.getByRole('img', { name: /^Daily outcomes, \d+ in range$/u }).waitFor({ timeout: 15000 });
+    for (const heading of ['Needs attention', 'Recent activity', 'Integration health']) {
+      await page.getByRole('heading', { name: heading, exact: true }).waitFor({ timeout: 15000 });
+    }
+    await page.getByRole('tab', { name: '30d', exact: true }).click();
+    await page.getByText(/^Outcome health · last 30 days$/u).waitFor({ timeout: 15000 });
 
     // Connections: integrations, webhook setup, deliveries, GitHub and alerts.
     await openPage('Connections');
@@ -139,6 +145,9 @@ async function runDashboardSmoke(mode: {
     }
     if (!apiRequests.some(url => url.includes('/github/status'))) {
       throw new Error(`${mode.label} dashboard smoke observed no GitHub status request`);
+    }
+    if (!apiRequests.some(url => url.includes('/stats/overview?days=30'))) {
+      throw new Error(`${mode.label} dashboard smoke observed no overview stats request for the 30-day range`);
     }
     if (!apiRequests.some(url => url.includes('/integrations?pageSize=100'))) {
       throw new Error(`${mode.label} dashboard smoke observed no integrations request`);
@@ -214,6 +223,19 @@ async function runOidcSessionSmoke() {
     }
     if (path.endsWith('/drift/summary')) {
       return fulfillJson({ totalInvariants: 0, monitoredIntegrations: 0, activeAlerts: 0 });
+    }
+    if (path.endsWith('/stats/overview')) {
+      return fulfillJson({
+        range: { days: 14 },
+        days: [],
+        totals: { events: 0, outcomesPassed: 0, outcomesFailed: 0, incidentsOpened: 0, incidentsResolved: 0 },
+        previous: { events: 0, outcomesPassed: 0, outcomesFailed: 0, incidentsOpened: 0 },
+        openIncidents: 0,
+        oldestOpenIncidentAt: null,
+        meanTimeToResolveSec: null,
+        integrations: [],
+        activity: [],
+      });
     }
     if (path.endsWith('/incidents')) return fulfillJson({ data: [] });
     if (path.endsWith('/alerts/status')) {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Card, Empty, ErrorNote, PageHeader, Pill, label, severityTone, statusTone, timeAgo, useShapi } from '../ui';
+import { Card, Empty, ErrorNote, PageHeader, Pill, cleanTitle, label, severityTone, statusTone, timeAgo, useShapi } from '../ui';
 import { OPEN_STATUSES, type Incident } from '../types';
 
 type Filter = 'open' | 'closed' | 'all';
@@ -36,7 +36,7 @@ export function IncidentsPage({ go }: { go: (route: string) => void }) {
                 {rows.map(incident => (
                   <tr key={incident.id} className="is-link" onClick={() => go(`incidents/${incident.id}`)}>
                     <td><Pill tone={severityTone(incident.severity)}>{incident.severity.toLowerCase()}</Pill></td>
-                    <td className="c-strong">{incident.title}</td>
+                    <td className="c-strong">{cleanTitle(incident.invariant?.name ?? incident.title)}</td>
                     <td className="c-muted">{incident.integration?.name ?? '—'}</td>
                     <td><Pill tone={statusTone(incident.status)}>{label(incident.status)}</Pill></td>
                     <td className="c-muted c-small" title={new Date(incident.detectedAt).toLocaleString()}>{timeAgo(incident.detectedAt)}</td>
