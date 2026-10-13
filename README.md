@@ -1,14 +1,56 @@
-# SHAPI — Behavioral Dependency Assurance (webhook reliability MVP)
+# SHAPI — Behavioral Dependency Assurance
 
-**Thesis: a `200 OK` does not prove success.** SHAPI detects when a third-party
-integration looks technically healthy but fails to produce the expected
-**business outcome** (e.g. Stripe payment succeeds but the user is never provisioned).
+**A `200 OK` does not prove success.** SHAPI catches third-party integrations that
+look healthy but never produce the business outcome you expect — for example a
+Stripe payment succeeds and the webhook returns 200, but the customer is never
+provisioned.
 
-Core abstraction: **behavioral invariants** — executable predicates over webhook
-events, evaluated over time windows, with statistical **drift detection**,
-**incidents**, **diagnosis**, **replay testing**, and a GitHub repair-PR workflow.
-See [current product status](STATUS.md) for verified capabilities and remaining work.
-The hosted launch sequence is documented in [OPERATIONS.md](OPERATIONS.md).
+## What works today (and what doesn't)
+
+| Capability | Status |
+|---|---|
+| Behavioral invariants (executable predicates over webhook events, evaluated over time windows) | Working, tested |
+| Detection of silent failures + incident lifecycle (DETECTED → TRIAGED → … → RESOLVED) | Working. Demonstrated live: 3 healthy payments provisioned, 6 silent failures (all HTTP 200) opened a HIGH incident |
+| Statistical drift detection (two-proportion z-test) | Working, tested |
+| Diagnosis | **Heuristic rules**, not an LLM |
+| Automated repair PR | **Prototype.** Reviewed repairs target this repository's own demo app. A generic repair agent is the next milestone |
+| Real customers on real Stripe traffic | **None yet** |
+
+Detection is the proven part. Automated repair is the open part. See
+[STATUS.md](STATUS.md) for verified details and [STRATEGY.md](STRATEGY.md) for the
+market map. Hosted launch steps are in [OPERATIONS.md](OPERATIONS.md).
+
+## Quickstart (local, ~5 minutes)
+
+Requires Node >= 20, pnpm >= 9, and a PostgreSQL 16 database (Docker Compose
+provides one: `docker compose up -d`).
+
+```bash
+pnpm install
+pnpm bootstrap     # creates .env + apps/backend/.env, generates Prisma client, builds packages
+pnpm db:push       # create tables
+pnpm db:seed       # demo tenant, invariants, demo API key
+pnpm dev           # backend :3001, dashboard :5173, demo-saas :3000
+```
+
+Port 3000 busy? Run `DEMO_PORT=3300 pnpm dev` and set `DEMO_SAAS_URL` in `.env`.
+No Docker? Point `DATABASE_URL` at any Postgres 16.
+
+### See it catch a silent failure
+
+```bash
+D=http://127.0.0.1:3000
+# healthy: checkout, then the Stripe webhook -> the user is provisioned
+CUS=$(curl -s -X POST $D/checkout -H 'content-type: application/json' \
+  -d '{"email":"a@x.com"}' | sed 's/.*"customerId":"\([^"]*\)".*/\1/')
+curl -X POST $D/webhooks/stripe -H 'content-type: application/json' \
+  -d "{\"id\":\"evt_1\",\"type\":\"invoice.payment_succeeded\",\"data\":{\"object\":{\"customer\":\"$CUS\",\"amount_paid\":4900}}}"
+
+# flip the simulated bug on and repeat the checkout+webhook ~6 times: every webhook
+# still returns HTTP 200, users stay provisioned:false, and SHAPI opens an incident
+# (watch it in the dashboard at :5173)
+curl -X POST $D/admin/failure-mode -H 'content-type: application/json' -d '{"enabled":true}'
+```
 
 ## Monorepo layout
 
@@ -26,32 +68,6 @@ packages/
   replay-engine/        Fix-candidate replay verification (tested)
   repair-generation/    Repair suggestions (tested)
   github-integration/   Webhook verification + verified-PR helpers (tested)
-```
-
-## Prerequisites
-
-- Node >= 20, pnpm >= 9
-- Docker (for PostgreSQL + Redis) **or** a local PostgreSQL you point `DATABASE_URL` at
-
-## Quickstart (local)
-
-```powershell
-# 1. install
-pnpm install
-
-# 2. start postgres + redis (requires Docker Desktop running)
-docker compose up -d
-
-# 3. env
-Copy-Item .env.example .env   # or edit .env (already has dev defaults)
-
-# 4. database (db:push is convenient for a brand-new local demo)
-pnpm db:generate
-pnpm db:push
-pnpm db:seed
-
-# 5. run everything (backend :3001, dashboard :5173, demo-saas :3000)
-pnpm dev
 ```
 
 ## Production containers

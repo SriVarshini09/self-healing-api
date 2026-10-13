@@ -1,5 +1,12 @@
 # SHAPI product status
 
+## Summary (honest, 2026-10-13)
+
+- **Proven:** silent-failure *detection* on a webhook stream; incident lifecycle; drift test; 150+ automated tests; hosted deployment; one real GitHub App repair-PR loop.
+- **Not proven:** that repair works on code that is not this repo's own demo app; any use by an outside team.
+- **Diagnosis** is rule-based heuristics. **Repair** is reviewed adapters for the demo app plus generic predicate/retry suggestions.
+- **Next milestone:** LLM repair agent measured on a benchmark of real open-source Stripe starter kits, and first real users.
+
 Updated 2026-10-02. This is a current-state checklist, not a claim that the
 product is production-ready. See [README.md](README.md) for setup and API details.
 
