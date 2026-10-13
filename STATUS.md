@@ -30,7 +30,7 @@ product is production-ready. See [README.md](README.md) for setup and API detail
   head SHA has a completed, successful `verify` check. The current hosted
   tenant has no active incident because the proof incident is historical.
 - The complete hosted readiness gate now passes with the operator file at
-  `C:\Users\ptula\AppData\Local\SHAPI\shapi-owner.env`: infrastructure,
+  `<operator-env-file>`: infrastructure,
   security, authenticated load, direct and same-origin dashboard browser
   smoke, OIDC access/session checks, signed-webhook deduplication, GitHub App
   readiness, and repair-target audit all pass.
