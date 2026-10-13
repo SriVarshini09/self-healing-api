@@ -1,6 +1,6 @@
 // Read-only browser smoke for the production dashboard served by Docker.
-// It checks the real command center, live API wiring, connection/onboarding
-// panel, repair-target panel, and diagnosis modal without creating incidents,
+// It walks every console page (overview, connections, rules, outcome checks,
+// incidents and an incident detail) against the live API without creating incidents,
 // replay jobs, or pull requests.
 import fs from 'node:fs';
 import { chromium } from '@playwright/test';
@@ -83,13 +83,25 @@ async function runDashboardSmoke(mode: {
 
   try {
     await page.goto(`${dashboardUrl}/`, { waitUntil: 'domcontentloaded' });
-    await page.getByRole('heading', { name: /^(Overview|Outcome protection)$/u }).waitFor({ timeout: 15000 });
-    await page.getByText(/Live SHAPI telemetry/u).first().waitFor({ timeout: 15000 });
-    await page.getByRole('heading', { name: 'Protection signals', exact: true }).waitFor({ timeout: 15000 });
-    await page.getByRole('heading', { name: 'Repair activity', exact: true }).waitFor({ timeout: 15000 });
-    await page.getByRole('heading', { name: 'Recent protection signals', exact: true }).waitFor({ timeout: 15000 });
-    await page.getByRole('heading', { name: 'GitHub repair connection', exact: true }).waitFor({ timeout: 15000 });
-    await page.getByRole('heading', { name: 'Connected integrations', exact: true }).waitFor({ timeout: 15000 });
+    const pageHeading = (name: string) => page.getByRole('heading', { level: 1, name, exact: true });
+    const openPage = async (name: string) => {
+      // The Incidents link also carries its open-count badge in its accessible name.
+      await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: new RegExp(`^${name}(\\s*\\d+)?$`, 'u') }).click();
+      await pageHeading(name).waitFor({ timeout: 15000 });
+    };
+
+    // Overview: live summary, open incidents and outcome checks.
+    await pageHeading('Overview').waitFor({ timeout: 15000 });
+    await page.getByRole('heading', { name: 'Needs attention', exact: true }).waitFor({ timeout: 15000 });
+    await page.getByRole('heading', { name: 'Outcome checks', exact: true }).waitFor({ timeout: 15000 });
+    await page.getByText(/^(All clear\.|\d+ incidents? needs? review\.)$/u).first().waitFor({ timeout: 15000 });
+
+    // Connections: integrations, webhook setup, deliveries, GitHub and alerts.
+    await openPage('Connections');
+    await page.getByRole('heading', { name: 'Integrations', exact: true }).waitFor({ timeout: 15000 });
+    await page.getByRole('heading', { name: 'GitHub', exact: true }).waitFor({ timeout: 15000 });
+    await page.getByRole('heading', { name: 'Alerts', exact: true }).waitFor({ timeout: 15000 });
+    await page.getByText(/^\d+ delivered$/u).waitFor({ timeout: 15000 });
     const setupButtons = page.getByRole('button', { name: 'Setup', exact: true });
     const hasSetupButton = (await setupButtons.count()) > 0;
     if (hasSetupButton) {
@@ -102,39 +114,23 @@ async function runDashboardSmoke(mode: {
       await deliveryButtons.first().click();
       await page.getByText('Recent deliveries', { exact: true }).waitFor({ timeout: 15000 });
     }
-    await page.getByRole('heading', { name: 'Outcome coverage setup', exact: true }).waitFor({ timeout: 15000 });
-    await page.getByLabel('Repair readiness summary').getByText(/ready for target review/u).waitFor({ timeout: 15000 });
-    // A fresh tenant may have all targets ready after reviewed mappings are
-    // seeded, while an older tenant may still contain manual-review targets.
-    // The summary above and the live repair-review counts are the authoritative
-    // assertions; require at least one explicit state label without assuming
-    // both states exist in every tenant.
-    await page.getByText(/MANUAL REVIEW|READY FOR TARGET REVIEW/u).first().waitFor({ timeout: 15000 });
-    await page.getByText('Repair review', { exact: true }).waitFor({ timeout: 15000 });
-    const repairReviewCell = page.getByText('Repair review', { exact: true }).first().locator('..');
-    // The dashboard refreshes its live incident snapshot independently from
-    // the API snapshot above. Assert the rendered count shape rather than
-    // comparing two independently timed snapshots and creating a false race.
-    const repairReviewValue = repairReviewCell.locator('p').first();
-    const prReadyValue = repairReviewCell.locator('p').filter({ hasText: 'PR-ready' }).first();
-    await repairReviewValue.waitFor({ timeout: 15000 });
-    await prReadyValue.waitFor({ timeout: 15000 });
-    const repairReviewText = (await repairReviewValue.innerText()).trim();
-    const prReadyText = (await prReadyValue.innerText()).trim();
-    if (!/^\d+$/u.test(repairReviewText)) {
-      throw new Error(`Repair review count was not numeric: ${repairReviewText}`);
-    }
-    if (!/^\d+\s+PR-ready$/u.test(prReadyText)) {
-      throw new Error(`PR-ready count had an unexpected shape: ${prReadyText}`);
-    }
-    await page.getByRole('heading', { name: 'Alert delivery', exact: true }).waitFor({ timeout: 15000 });
-    for (const label of ['Pending', 'Processing', 'Retrying', 'Failed', 'Delivered']) {
-      await page.getByText(label, { exact: true }).waitFor({ timeout: 15000 });
-    }
 
-    await page.getByRole('button', { name: 'Run diagnosis', exact: true }).click();
-    await page.getByRole('heading', { name: /No live incident selected|Live incident diagnosis|Live diagnosis complete/u }).waitFor({ timeout: 10000 });
-    await page.getByRole('button', { name: 'Done', exact: true }).last().click();
+    // Rules: repair readiness is shown per rule. A fresh tenant may have all
+    // targets ready while an older one still has manual-review targets, so
+    // require at least one explicit state label without assuming both exist.
+    await openPage('Rules');
+    await page.getByText(/^(Manual review|Ready for target review|Blocked .+)$/u).first().waitFor({ timeout: 15000 });
+
+    // Outcome checks and incidents (read-only: nothing is created or diagnosed).
+    await openPage('Outcome checks');
+    await openPage('Incidents');
+    await page.getByRole('tab', { name: /^Open \(\d+\)$/u }).waitFor({ timeout: 15000 });
+    const incidentRows = page.locator('table tbody tr');
+    if ((await incidentRows.count()) > 0) {
+      await incidentRows.first().click();
+      await page.getByRole('heading', { name: 'What happened', exact: true }).waitFor({ timeout: 15000 });
+      await page.getByRole('heading', { name: 'Timeline', exact: true }).waitFor({ timeout: 15000 });
+    }
 
     if (pageErrors.length > 0) throw new Error(`${mode.label} dashboard JavaScript error: ${pageErrors[0]}`);
     if (failedRequests.length > 0) throw new Error(`${mode.label} dashboard request failed: ${failedRequests[0]}`);
@@ -258,7 +254,7 @@ try {
   });
   await runOidcAccessSmoke();
   await runOidcSessionSmoke();
-  console.log('Production dashboard smoke passed: direct API, same-origin proxy, live telemetry, OIDC access gate, OIDC session sign-out, connection panel, integration list, repair review queue, alert delivery, repair targets, and diagnosis modal.');
+  console.log('Production dashboard smoke passed: direct API, same-origin proxy, OIDC access gate, OIDC session sign-out, overview, connections (webhook setup, deliveries, GitHub, alerts), rules with repair readiness, outcome checks, incidents and incident detail.');
 } finally {
   await browser.close();
 }
