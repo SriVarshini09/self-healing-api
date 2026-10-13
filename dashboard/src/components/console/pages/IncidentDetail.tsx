@@ -83,6 +83,7 @@ export function IncidentDetailPage({ id, go }: { id: string; go: (route: string)
 
       <Card
         title="What happened"
+        tint="blue"
         actions={incident.status === 'DETECTED' && (
           <button className="c-btn is-primary" onClick={() => void diagnose()} disabled={busy === 'diagnose'}>
             {busy === 'diagnose' ? 'Diagnosing…' : 'Run diagnosis'}
@@ -105,7 +106,7 @@ export function IncidentDetailPage({ id, go }: { id: string; go: (route: string)
       </Card>
 
       {(incident.repairCandidates?.length ?? 0) > 0 && (
-        <Card title="Proposed repairs" sub="Every repair is reviewed by a person before a pull request is opened.">
+        <Card title="Proposed repairs" tint="mint" sub="Every repair is reviewed by a person before a pull request is opened.">
           <div className="c-list">
             {incident.repairCandidates!.map(candidate => (
               <RepairCandidateRow
@@ -122,7 +123,7 @@ export function IncidentDetailPage({ id, go }: { id: string; go: (route: string)
       )}
 
       {(prs.data?.length ?? 0) > 0 && (
-        <Card title="Pull requests">
+        <Card title="Pull requests" tint="lavender">
           <div className="c-list">
             {prs.data!.map(pr => <PullRequestRow key={pr.id} pr={pr} onChanged={() => void prs.reload()} />)}
           </div>
@@ -300,7 +301,7 @@ function ReplayBox({ incidentId, integrationId }: { incidentId: string; integrat
     }
   };
   return (
-    <Card title="Replay a fix (advanced)" actions={<button className="c-btn is-quiet" onClick={() => setOpen(value => !value)}>{open ? 'Hide' : 'Show'}</button>}>
+    <Card title="Replay a fix (advanced)" tint="peach" actions={<button className="c-btn is-quiet" onClick={() => setOpen(value => !value)}>{open ? 'Hide' : 'Show'}</button>}>
       {open && (
         <div className="c-card-body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <p className="c-muted c-small" style={{ margin: 0 }}>Re-run the latest webhook event with a field change, e.g. <code>add_field:status:"paid"</code>.</p>

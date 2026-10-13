@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import {
-  Activity, CheckCircle2, ChevronRight, CircleAlert, GitPullRequest, RefreshCw, Timer, XCircle,
+  Activity, CheckCircle2, ChevronRight, CircleAlert, GitPullRequest, LayoutDashboard, RefreshCw, Timer, XCircle,
 } from 'lucide-react';
 import { Card, Empty, ErrorNote, Pill, cleanTitle, compact, formatDuration, humanEvent, severityTone, timeAgo, useShapi } from '../ui';
 import { DailyOutcomes, SERIES, Sparkline } from '../charts';
@@ -37,9 +37,12 @@ export function OverviewPage({ go }: { go: (route: string) => void }) {
   return (
     <div className="c-page">
       <header className="c-page-head">
-        <div>
-          <h1 className="c-page-title">Overview</h1>
-          <p className="c-page-sub">Are paying customers getting what they paid for?</p>
+        <div className="c-title-row">
+          <span className="c-page-icon is-blue"><LayoutDashboard /></span>
+          <div>
+            <h1 className="c-page-title">Overview</h1>
+            <p className="c-page-sub">Are paying customers getting what they paid for?</p>
+          </div>
         </div>
         <div className="c-row">
           <div role="tablist" className="c-tabs" aria-label="Time range">
@@ -112,7 +115,7 @@ export function OverviewPage({ go }: { go: (route: string) => void }) {
       </div>
 
       <div className="c-grid-2">
-        <Card title="Needs attention" actions={<button className="c-btn is-quiet" onClick={() => go('incidents')}>All incidents</button>}>
+        <Card title="Needs attention" tint="rose" actions={<button className="c-btn is-quiet" onClick={() => go('incidents')}>All incidents</button>}>
           {open.length ? (
             <div className="c-list">
               {open.slice(0, 6).map(incident => (
@@ -131,7 +134,7 @@ export function OverviewPage({ go }: { go: (route: string) => void }) {
           )}
         </Card>
 
-        <Card title="Recent activity">
+        <Card title="Recent activity" tint="lavender">
           {data?.activity.length ? (
             <ul className="c-feed">
               {data.activity.slice(0, 7).map((item, index) => (
@@ -154,7 +157,7 @@ export function OverviewPage({ go }: { go: (route: string) => void }) {
         </Card>
       </div>
 
-      <Card title="Integration health" sub="Events received in the last 24 hours" actions={<button className="c-btn is-quiet" onClick={() => go('connections')}>Connections</button>}>
+      <Card title="Integration health" tint="teal" sub="Events received in the last 24 hours" actions={<button className="c-btn is-quiet" onClick={() => go('connections')}>Connections</button>}>
         {data?.integrations.length ? (
           <div className="c-list">
             {data.integrations.map(integration => {
@@ -176,6 +179,9 @@ export function OverviewPage({ go }: { go: (route: string) => void }) {
     </div>
   );
 }
+
+const TILE_TINT = { info: 'blue', ok: 'mint', bad: 'rose', warn: 'peach' } as const;
+const TILE_LINE = { info: '#5b7be0', ok: '#3f9a6b', bad: '#e0694f', warn: '#d9a21b' } as const;
 
 function percentDelta(current: number, previous: number): number | null {
   if (!previous) return null;
@@ -200,16 +206,16 @@ function StatTile({
   delta?: number | null; goodWhenUp?: boolean; note?: string; trend?: number[];
 }) {
   return (
-    <div className="c-card c-stat">
+    <div className={`c-card c-stat is-${TILE_TINT[tone]}`}>
       <div className="c-row">
-        <span className={`c-icon-tile is-${tone}`}>{icon}</span>
+        <span className="c-icon-tile">{icon}</span>
         <span className="c-stat-label">{label}</span>
       </div>
       <div className="c-stat-value">{value}</div>
       <div className="c-stat-note">
         {delta !== undefined && delta !== null ? <Delta value={delta} goodWhenUp={goodWhenUp} label="vs previous" /> : note ?? ' '}
       </div>
-      {trend && trend.length > 1 && <Sparkline values={trend} label={`${label} per day`} />}
+      {trend && trend.length > 1 && <Sparkline values={trend} label={`${label} per day`} color={TILE_LINE[tone]} />}
     </div>
   );
 }

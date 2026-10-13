@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Cable } from 'lucide-react';
 import { fetchShapi } from '@/lib/shapi-api';
 import { Card, Empty, ErrorNote, PageHeader, Pill, errorMessage, label, statusTone, useShapi } from '../ui';
 import type { GitHubStatus, Integration } from '../types';
@@ -17,11 +18,13 @@ export function ConnectionsPage() {
     <div className="c-page">
       <PageHeader
         title="Connections"
+        icon={<Cable />}
+        tint="teal"
         sub="Where SHAPI receives events from, and where it sends repairs and alerts."
         actions={<button className="c-btn" onClick={() => { void integrations.reload(); void github.reload(); void alerts.reload(); }}>Refresh</button>}
       />
       <ErrorNote error={integrations.error} />
-      <Card title="Integrations" sub="Providers that send webhooks to SHAPI.">
+      <Card title="Integrations" tint="teal" sub="Providers that send webhooks to SHAPI.">
         {list.length ? (
           <div className="c-list">{list.map(item => <IntegrationRow key={item.id} integration={item} />)}</div>
         ) : (
@@ -30,7 +33,7 @@ export function ConnectionsPage() {
       </Card>
 
       <div className="c-grid-2">
-        <Card title="GitHub" sub="Used to open reviewed repair pull requests.">
+        <Card title="GitHub" tint="lavender" sub="Used to open reviewed repair pull requests.">
           <div className="c-card-body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {github.data ? (
               <>
@@ -53,7 +56,7 @@ export function ConnectionsPage() {
           </div>
         </Card>
 
-        <Card title="Alerts" sub="Signed incident notifications to your webhook.">
+        <Card title="Alerts" tint="peach" sub="Signed incident notifications to your webhook.">
           <div className="c-card-body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {alerts.data ? (
               <>

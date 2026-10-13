@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ScrollText } from 'lucide-react';
 import { Card, Empty, ErrorNote, PageHeader, Pill, errorMessage, label, sendJson, statusTone, useShapi } from '../ui';
 import type { Invariant } from '../types';
 
@@ -9,6 +10,8 @@ export function RulesPage() {
     <div className="c-page">
       <PageHeader
         title="Rules"
+        icon={<ScrollText />}
+        tint="lavender"
         sub="The behavior SHAPI expects from each integration, and where a reviewed repair may be proposed when one breaks."
         actions={<button className="c-btn" onClick={() => void rules.reload()}>Refresh</button>}
       />
