@@ -149,11 +149,58 @@
 .c-timeline li { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 12px; padding: 8px 0; border-top: 1px solid var(--c-border); font-size: 13px; }
 .c-timeline li:first-child { border-top: 0; }
 
+
+/* Overview: hero, stat tiles, charts, feed */
+.c-banner svg { width: 18px; height: 18px; flex-shrink: 0; }
+.c-hero { display: grid; grid-template-columns: minmax(240px, 300px) minmax(0, 1fr); }
+.c-hero-figure { display: flex; flex-direction: column; gap: 8px; padding: 22px 24px; border-right: 1px solid var(--c-border); }
+.c-hero-value { font-size: 52px; font-weight: 650; letter-spacing: -0.03em; line-height: 1.05; }
+.c-hero-note { margin: 4px 0 0; color: var(--c-text-2); font-size: 13px; }
+.c-hero-chart { display: flex; flex-direction: column; gap: 6px; padding: 18px 20px 12px; min-width: 0; }
+.c-meter { display: flex; gap: 2px; height: 8px; margin-top: auto; border-radius: 999px; overflow: hidden; background: var(--c-neutral-soft); }
+.c-meter span { display: block; height: 100%; }
+.c-meter span:first-child { border-radius: 999px 0 0 999px; }
+.c-meter span:last-child { border-radius: 0 999px 999px 0; }
+.c-delta { font-size: 12.5px; font-weight: 550; color: var(--c-text-2); }
+.c-delta.is-good { color: var(--c-ok); }
+.c-delta.is-bad { color: var(--c-bad); }
+.c-delta .c-muted { font-weight: 400; }
+.c-stat { display: flex; flex-direction: column; gap: 4px; }
+.c-stat .c-row { gap: 10px; }
+.c-icon-tile { display: inline-grid; place-items: center; width: 30px; height: 30px; flex-shrink: 0; border-radius: 8px; background: var(--c-neutral-soft); color: var(--c-text-2); }
+.c-icon-tile svg { width: 16px; height: 16px; }
+.c-icon-tile.is-ok { background: var(--c-ok-soft); color: var(--c-ok); }
+.c-icon-tile.is-bad { background: var(--c-bad-soft); color: var(--c-bad); }
+.c-icon-tile.is-warn { background: var(--c-warn-soft); color: var(--c-warn); }
+.c-icon-tile.is-info { background: var(--c-accent-soft); color: var(--c-accent); }
+.c-spark { height: 36px; margin-top: 6px; }
+.c-chart { display: flex; flex-direction: column; gap: 4px; }
+.c-chart-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.c-chart-plot { position: relative; }
+.c-legend { display: flex; gap: 14px; color: var(--c-text-2); font-size: 12.5px; }
+.c-legend span, .c-tip-row { display: inline-flex; align-items: center; gap: 6px; }
+.c-legend i, .c-tip-row i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
+.c-axis { fill: var(--c-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.c-tooltip { position: absolute; top: 4px; transform: translateX(-50%); min-width: 132px; padding: 8px 10px; border: 1px solid var(--c-border); border-radius: 8px; background: var(--c-surface); box-shadow: 0 6px 20px rgba(31, 38, 51, 0.08); font-size: 12.5px; pointer-events: none; }
+.c-tip-row { display: flex; width: 100%; margin-top: 3px; color: var(--c-text-2); }
+.c-tip-row b { margin-left: auto; color: var(--c-text); font-variant-numeric: tabular-nums; }
+.c-num td, .c-num th { font-variant-numeric: tabular-nums; }
+.c-feed { list-style: none; margin: 0; padding: 4px 0; }
+.c-feed li { display: flex; align-items: center; gap: 12px; padding: 9px 18px; }
+.c-feed li.is-link { cursor: pointer; }
+.c-feed li.is-link:hover { background: var(--c-surface-2); }
+.c-dot { display: inline-block; width: 8px; height: 8px; flex-shrink: 0; border-radius: 50%; background: var(--c-border-strong); }
+.c-dot.is-ok { background: #3f9a6b; }
+.c-dot.is-warn { background: #d9a21b; }
+.c-chevron { width: 16px; height: 16px; color: var(--c-muted); flex-shrink: 0; }
+
 /* Access screen */
 .c-access { display: grid; place-items: center; min-height: 100vh; width: 100%; padding: 16px; }
 .c-access .c-card { width: 100%; max-width: 420px; padding: 28px; }
 
 @media (max-width: 1000px) {
+  .c-hero { grid-template-columns: minmax(0, 1fr); }
+  .c-hero-figure { border-right: 0; border-bottom: 1px solid var(--c-border); }
   .c-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .c-grid-2 { grid-template-columns: minmax(0, 1fr); }
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { fetchShapi } from '@/lib/shapi-api';
-import { Card, Empty, ErrorNote, Pill, errorMessage, label, sendJson, severityTone, statusTone, timeAgo, useShapi } from '../ui';
+import { Card, Empty, ErrorNote, Pill, cleanTitle, errorMessage, label, sendJson, severityTone, statusTone, timeAgo, useShapi } from '../ui';
 import {
   OPEN_STATUSES,
   type GitHubInstallation,
@@ -68,7 +68,7 @@ export function IncidentDetailPage({ id, go }: { id: string; go: (route: string)
             <Pill tone={statusTone(incident.status)}>{label(incident.status)}</Pill>
             <span className="c-muted c-small">{incident.integration?.name} · detected {timeAgo(incident.detectedAt)}</span>
           </div>
-          <h1 className="c-page-title">{incident.title}</h1>
+          <h1 className="c-page-title">{cleanTitle(incident.invariant?.name ?? incident.title)}</h1>
           {incident.description && <p className="c-page-sub">{incident.description}</p>}
         </div>
         {isOpen && (

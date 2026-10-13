@@ -70,6 +70,31 @@ export function timeAgo(iso: string): string {
   return `${Math.round(hours / 24)} days ago`;
 }
 
+/** Incident titles in plain words: "Invariant violated: Outcome: Paid customers…" -> "Paid customers…". */
+export function cleanTitle(title: string): string {
+  return title
+    .replace(/^Invariant violated:\s*/i, '')
+    .replace(/^Outcome:\s*/i, '')
+    .replace(/\s+Invariant$/i, '');
+}
+
+/** "provisioning.failed" -> "Provisioning failed". */
+export function humanEvent(type: string): string {
+  return label(type.replace(/[._]/g, ' '));
+}
+
+export function formatDuration(seconds: number | null): string {
+  if (seconds === null) return '—';
+  if (seconds < 90) return `${Math.round(seconds)}s`;
+  if (seconds < 90 * 60) return `${Math.round(seconds / 60)} min`;
+  if (seconds < 48 * 3600) return `${Math.round(seconds / 3600)} h`;
+  return `${Math.round(seconds / 86400)} days`;
+}
+
+export function compact(value: number): string {
+  return new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(value);
+}
+
 export function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
