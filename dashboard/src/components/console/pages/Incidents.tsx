@@ -38,7 +38,7 @@ export function IncidentsPage({ go }: { go: (route: string) => void }) {
               <tbody>
                 {rows.map(incident => (
                   <tr key={incident.id} className="is-link" onClick={() => go(`incidents/${incident.id}`)}>
-                    <td><Pill tone={severityTone(incident.severity)}>{incident.severity.toLowerCase()}</Pill></td>
+                    <td><Pill tone={severityTone(incident.severity)}>{label(incident.severity)}</Pill></td>
                     <td className="c-strong">{cleanTitle(incident.invariant?.name ?? incident.title)}</td>
                     <td className="c-muted">{incident.integration?.name ?? '—'}</td>
                     <td><Pill tone={statusTone(incident.status)}>{label(incident.status)}</Pill></td>

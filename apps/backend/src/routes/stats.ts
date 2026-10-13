@@ -98,6 +98,7 @@ export async function statsRoutes(app: FastifyInstance) {
     fillBuckets(buckets, resolved, 'incidentsResolved');
     const total = (rows: DailyRow[]) => rows.reduce((value, row) => value + Number(row.count), 0);
 
+    const workspace = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { name: true } });
     const openStatuses = [IncidentStatus.DETECTED, IncidentStatus.TRIAGED, IncidentStatus.REPLAYING, IncidentStatus.REPAIRED];
     const [openIncidents, oldestOpen, resolvedInRange, integrations, recentIncidents, recentFailures, recentPrs] = await Promise.all([
       prisma.incident.count({ where: { integration: { tenantId }, status: { in: openStatuses } } }),
@@ -163,6 +164,7 @@ export async function statsRoutes(app: FastifyInstance) {
       .map(incident => (incident.resolvedAt!.getTime() - incident.detectedAt.getTime()) / 1000);
 
     return reply.send({
+      workspace: { name: workspace?.name ?? 'Workspace' },
       range: { days, from: from.toISOString(), to: now.toISOString() },
       days: buckets,
       totals: {

@@ -25,15 +25,13 @@ export function Card({ title, sub, actions, tint, children }: { title?: ReactNod
   );
 }
 
-export function PageHeader({ title, sub, actions, icon, tint = 'blue' }: { title: string; sub?: ReactNode; actions?: ReactNode; icon?: ReactNode; tint?: Tint }) {
+// icon/tint are accepted for call-site compatibility; the quiet design shows a plain title.
+export function PageHeader({ title, sub, actions }: { title: string; sub?: ReactNode; actions?: ReactNode; icon?: ReactNode; tint?: Tint }) {
   return (
     <header className="c-page-head">
-      <div className="c-title-row">
-        {icon && <span className={`c-page-icon is-${tint}`}>{icon}</span>}
-        <div>
-          <h1 className="c-page-title">{title}</h1>
-          {sub && <p className="c-page-sub">{sub}</p>}
-        </div>
+      <div>
+        <h1 className="c-page-title">{title}</h1>
+        {sub && <p className="c-page-sub">{sub}</p>}
       </div>
       {actions && <div className="c-row">{actions}</div>}
     </header>

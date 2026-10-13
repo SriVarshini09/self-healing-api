@@ -1,238 +1,293 @@
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import {
-  Activity, CheckCircle2, ChevronRight, CircleAlert, GitPullRequest, LayoutDashboard, RefreshCw, Timer, XCircle,
+  Activity, Check, CheckCircle2, ChevronLeft, ChevronRight, CircleAlert, ListChecks, ShieldCheck, Timer, TrendingDown, TrendingUp,
 } from 'lucide-react';
-import { Card, Empty, ErrorNote, Pill, cleanTitle, compact, formatDuration, humanEvent, severityTone, timeAgo, useShapi } from '../ui';
-import { DailyOutcomes, SERIES, Sparkline } from '../charts';
-import { OPEN_STATUSES, type Incident } from '../types';
+import { Empty, ErrorNote, Pill, cleanTitle, compact, formatDuration, label, timeAgo, useShapi, type Tone } from '../ui';
+import { DailyOutcomes } from '../charts';
+import { OPEN_STATUSES, type Incident, type OutcomeCheck } from '../types';
 
 type Stats = {
-  range: { days: number };
-  days: Array<{ date: string; events: number; outcomesPassed: number; outcomesFailed: number; incidentsOpened: number; incidentsResolved: number }>;
-  totals: { events: number; outcomesPassed: number; outcomesFailed: number; incidentsOpened: number; incidentsResolved: number };
+  days: Array<{ date: string; events: number; outcomesPassed: number; outcomesFailed: number }>;
+  totals: { events: number; outcomesPassed: number; outcomesFailed: number; incidentsResolved: number };
   previous: { events: number; outcomesPassed: number; outcomesFailed: number; incidentsOpened: number };
   openIncidents: number;
   oldestOpenIncidentAt: string | null;
   meanTimeToResolveSec: number | null;
   integrations: Array<{ id: string; name: string; type: string; events24h: number; lastEventAt: string | null }>;
-  activity: Array<{ kind: 'incident_opened' | 'incident_resolved' | 'outcome_failed' | 'pr_opened'; at: string; title: string; incidentId: string | null }>;
 };
 
 const RANGES = [7, 14, 30] as const;
 
+const LOGO: Record<string, { bg: string; fg: string; text: string }> = {
+  STRIPE: { bg: '#efeeff', fg: '#5b4fe0', text: 'S' },
+  GITHUB: { bg: '#f1f1f1', fg: '#111111', text: 'G' },
+  SENDGRID: { bg: '#e8f4fd', fg: '#1a82e2', text: 'SG' },
+  TWILIO: { bg: '#fdecee', fg: '#e22b3e', text: 'T' },
+};
+
+function Logo({ type }: { type?: string }) {
+  const logo = LOGO[type ?? ''] ?? { bg: '#f2f2f1', fg: '#4d4d4d', text: (type ?? '?').slice(0, 1) };
+  return <span className="c-match-logo" style={{ background: logo.bg, color: logo.fg }}>{logo.text}</span>;
+}
+
+function severityLabel(severity: string): { text: string; tone: Tone } {
+  if (severity === 'CRITICAL' || severity === 'HIGH') return { text: 'High', tone: 'bad' };
+  if (severity === 'MEDIUM') return { text: 'Medium', tone: 'warn' };
+  return { text: 'Normal', tone: 'ok' };
+}
+
 export function OverviewPage({ go }: { go: (route: string) => void }) {
   const [days, setDays] = useState<(typeof RANGES)[number]>(14);
+  const [queue, setQueue] = useState<'all' | 'open' | 'closed'>('all');
+  const carousel = useRef<HTMLDivElement>(null);
   const stats = useShapi<Stats>(`stats/overview?days=${days}`, 30_000);
   const incidents = useShapi<{ data: Incident[] }>('incidents?pageSize=100', 15_000);
+  const checks = useShapi<{ data: OutcomeCheck[] }>('outcome-checks', 30_000);
+
   // Ignore a malformed body (e.g. an older API without this endpoint) instead of crashing the page.
   const data = stats.data && Array.isArray(stats.data.days) && stats.data.totals ? stats.data : null;
-  const open = (incidents.data?.data ?? []).filter(incident => OPEN_STATUSES.includes(incident.status));
+  const allIncidents = incidents.data?.data ?? [];
+  const open = allIncidents.filter(incident => OPEN_STATUSES.includes(incident.status));
+  const checkList = checks.data?.data ?? [];
 
   const outcomes = data ? data.totals.outcomesPassed + data.totals.outcomesFailed : 0;
   const health = data && outcomes ? (data.totals.outcomesPassed / outcomes) * 100 : null;
-  const previousOutcomes = data ? data.previous.outcomesPassed + data.previous.outcomesFailed : 0;
-  const previousHealth = data && previousOutcomes ? (data.previous.outcomesPassed / previousOutcomes) * 100 : null;
-  const series = (field: keyof Stats['days'][number]) => (data?.days ?? []).map(day => Number(day[field]));
+  const tasks = allIncidents
+    .filter(incident => queue === 'all' || (queue === 'open') === OPEN_STATUSES.includes(incident.status))
+    .sort((a, b) => Number(OPEN_STATUSES.includes(b.status)) - Number(OPEN_STATUSES.includes(a.status)))
+    .slice(0, 6);
+
+  const scrollCarousel = (direction: 1 | -1) => carousel.current?.scrollBy({ left: direction * 376, behavior: 'smooth' });
 
   return (
     <div className="c-page">
       <header className="c-page-head">
-        <div className="c-title-row">
-          <span className="c-page-icon is-blue"><LayoutDashboard /></span>
-          <div>
-            <h1 className="c-page-title">Overview</h1>
-            <p className="c-page-sub">Are paying customers getting what they paid for?</p>
-          </div>
-        </div>
-        <div className="c-row">
-          <div role="tablist" className="c-tabs" aria-label="Time range">
-            {RANGES.map(range => (
-              <button key={range} role="tab" className="c-tab" aria-selected={days === range} onClick={() => setDays(range)}>{range}d</button>
-            ))}
-          </div>
-          <button className="c-btn" aria-label="Refresh" onClick={() => { void stats.reload(); void incidents.reload(); }}><RefreshCw /></button>
+        <div>
+          <h1 className="c-page-title">Overview</h1>
+          <p className="c-page-sub">Are paying customers getting what they paid for?</p>
         </div>
       </header>
       <ErrorNote error={stats.error ?? incidents.error} />
 
-      {incidents.data && (open.length ? (
-        <div className="c-banner is-bad">
-          <CircleAlert />
-          <span className="c-grow"><strong>{open.length} incident{open.length === 1 ? '' : 's'} need{open.length === 1 ? 's' : ''} review.</strong> Some customers may have paid without getting access.</span>
-          <button className="c-btn" onClick={() => go('incidents')}>Review</button>
-        </div>
-      ) : (
-        <div className="c-banner is-ok"><CheckCircle2 /><span><strong>All clear.</strong> Every customer outcome SHAPI checked looks right.</span></div>
-      ))}
-
-      <section className="c-card c-hero">
-        <div className="c-hero-figure">
-          <span className="c-stat-label">Outcome health · last {days} days</span>
-          <div className="c-hero-value">{health === null ? '—' : `${health >= 99.95 || health === 0 ? health.toFixed(0) : health.toFixed(1)}%`}</div>
-          {health !== null && previousHealth !== null && (
-            <Delta value={health - previousHealth} suffix=" pts" goodWhenUp label={`vs previous ${days} days`} />
-          )}
-          <p className="c-hero-note">
-            {data
-              ? outcomes
-                ? <><strong>{data.totals.outcomesPassed.toLocaleString()}</strong> of {outcomes.toLocaleString()} customer outcomes verified · <strong>{data.totals.outcomesFailed.toLocaleString()}</strong> failed</>
-                : 'No customer outcomes checked yet. Add an outcome check to start.'
-              : 'Loading…'}
-          </p>
-          {health !== null && (
-            <div className="c-meter" aria-hidden>
-              <span style={{ width: `${health}%`, background: SERIES.verified }} />
-              <span style={{ width: `${100 - health}%`, background: SERIES.failed }} />
+      <section className="c-panel" aria-label="Outcome health">
+        <div className="c-panel-top">
+          <div>
+            <div className="c-panel-label">Outcome health</div>
+            <div className="c-ring-row">
+              <Ring value={health} />
+              <div>
+                <div className="c-big">{health === null ? '—' : health.toFixed(health >= 99.95 || health === 0 ? 0 : 1)}<small>%</small></div>
+                <div className="c-muted">
+                  {data
+                    ? outcomes
+                      ? `${data.totals.outcomesPassed.toLocaleString()} of ${outcomes.toLocaleString()} customer outcomes verified · last ${days} days`
+                      : `No customer outcomes checked in the last ${days} days`
+                    : 'Loading…'}
+                </div>
+              </div>
             </div>
-          )}
+          </div>
+          <div className="c-row">
+            <div role="tablist" className="c-tabs" aria-label="Time range">
+              {RANGES.map(range => (
+                <button key={range} role="tab" className="c-tab" aria-selected={days === range} onClick={() => setDays(range)}>{range}d</button>
+              ))}
+            </div>
+            <button className="c-btn is-primary" onClick={() => go('checks')}>Add outcome check</button>
+            <button className="c-btn" onClick={() => go('incidents')}>View incidents</button>
+          </div>
         </div>
-        <div className="c-hero-chart">
-          <span className="c-card-title">Customer outcomes per day</span>
-          {data ? <DailyOutcomes data={data.days.map(day => ({ date: day.date, verified: day.outcomesPassed, failed: day.outcomesFailed }))} /> : <Empty>Loading…</Empty>}
+        <div className="c-grid-4">
+          <Mini icon={<Activity />} label="Events received" value={data ? compact(data.totals.events) : '—'}
+            delta={data ? percentDelta(data.totals.events, data.previous.events) : null} goodWhenUp />
+          <Mini icon={<CheckCircle2 />} label="Outcomes verified" value={data ? compact(data.totals.outcomesPassed) : '—'}
+            delta={data ? percentDelta(data.totals.outcomesPassed, data.previous.outcomesPassed) : null} goodWhenUp />
+          <Mini icon={<CircleAlert />} label="Open incidents" value={data ? String(data.openIncidents) : '—'}
+            note={data?.oldestOpenIncidentAt ? `oldest ${timeAgo(data.oldestOpenIncidentAt)}` : 'none open'} />
+          <Mini icon={<Timer />} label="Average time to resolve" value={data ? formatDuration(data.meanTimeToResolveSec) : '—'}
+            note={data ? `${data.totals.incidentsResolved} resolved` : undefined} />
         </div>
       </section>
 
-      <div className="c-grid-4">
-        <StatTile
-          icon={<Activity />} tone="info" label="Events received" value={data ? compact(data.totals.events) : '—'}
-          delta={data ? percentDelta(data.totals.events, data.previous.events) : null} goodWhenUp
-          trend={series('events')}
-        />
-        <StatTile
-          icon={<CheckCircle2 />} tone="ok" label="Outcomes verified" value={data ? compact(data.totals.outcomesPassed) : '—'}
-          delta={data ? percentDelta(data.totals.outcomesPassed, data.previous.outcomesPassed) : null} goodWhenUp
-          trend={series('outcomesPassed')}
-        />
-        <StatTile
-          icon={<CircleAlert />} tone="bad" label="Open incidents" value={data ? String(data.openIncidents) : '—'}
-          note={data?.oldestOpenIncidentAt ? `oldest opened ${timeAgo(data.oldestOpenIncidentAt)}` : 'none open'}
-          trend={series('incidentsOpened')}
-        />
-        <StatTile
-          icon={<Timer />} tone="warn" label="Time to resolve" value={data ? formatDuration(data.meanTimeToResolveSec) : '—'}
-          note={data ? `${data.totals.incidentsResolved} resolved in ${days} days` : undefined}
-        />
-      </div>
-
-      <div className="c-grid-2">
-        <Card title="Needs attention" tint="rose" actions={<button className="c-btn is-quiet" onClick={() => go('incidents')}>All incidents</button>}>
-          {open.length ? (
-            <div className="c-list">
-              {open.slice(0, 6).map(incident => (
-                <div key={incident.id} className="c-list-row is-link" onClick={() => go(`incidents/${incident.id}`)}>
-                  <Pill tone={severityTone(incident.severity)}>{incident.severity.toLowerCase()}</Pill>
-                  <div className="c-grow">
-                    <div className="c-truncate c-strong">{cleanTitle(incident.invariant?.name ?? incident.title)}</div>
-                    <div className="c-muted c-small">{incident.integration?.name ?? 'Integration'} · opened {timeAgo(incident.detectedAt)}</div>
-                  </div>
-                  <ChevronRight className="c-chevron" />
-                </div>
-              ))}
+      <section className="c-section">
+        <div className="c-section-head">
+          <h2 className="c-section-title">Needs attention <span className="c-count">{open.length}</span></h2>
+          {open.length > 1 && (
+            <div className="c-arrows">
+              <button className="c-arrow" aria-label="Previous" onClick={() => scrollCarousel(-1)}><ChevronLeft /></button>
+              <button className="c-arrow" aria-label="Next" onClick={() => scrollCarousel(1)}><ChevronRight /></button>
             </div>
-          ) : (
-            <Empty>{incidents.data ? 'Nothing needs attention.' : 'Loading…'}</Empty>
           )}
-        </Card>
-
-        <Card title="Recent activity" tint="lavender">
-          {data?.activity.length ? (
-            <ul className="c-feed">
-              {data.activity.slice(0, 7).map((item, index) => (
-                <li
-                  key={`${item.at}-${index}`}
-                  className={item.incidentId ? 'is-link' : undefined}
-                  onClick={item.incidentId ? () => go(`incidents/${item.incidentId}`) : undefined}
-                >
-                  <FeedIcon kind={item.kind} />
-                  <div className="c-grow">
-                    <div className="c-truncate">{feedText(item)}</div>
-                    <div className="c-muted c-small">{timeAgo(item.at)}</div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <Empty>{data ? 'No activity yet.' : 'Loading…'}</Empty>
-          )}
-        </Card>
-      </div>
-
-      <Card title="Integration health" tint="teal" sub="Events received in the last 24 hours" actions={<button className="c-btn is-quiet" onClick={() => go('connections')}>Connections</button>}>
-        {data?.integrations.length ? (
-          <div className="c-list">
-            {data.integrations.map(integration => {
-              const fresh = integration.lastEventAt && Date.now() - new Date(integration.lastEventAt).getTime() < 24 * 3600 * 1000;
+        </div>
+        {open.length ? (
+          <div className="c-carousel" ref={carousel}>
+            {open.map(incident => {
+              const severity = severityLabel(incident.severity);
               return (
-                <div key={integration.id} className="c-list-row">
-                  <span className={`c-dot ${fresh ? 'is-ok' : integration.lastEventAt ? 'is-warn' : ''}`} />
-                  <span className="c-grow c-strong">{integration.name}</span>
-                  <span className="c-muted c-small">{integration.lastEventAt ? `last event ${timeAgo(integration.lastEventAt)}` : 'no events yet'}</span>
-                  <Pill tone={fresh ? 'ok' : 'neutral'}>{integration.events24h.toLocaleString()} today</Pill>
-                </div>
+                <article key={incident.id} className="c-match" onClick={() => go(`incidents/${incident.id}`)}>
+                  <div className="c-match-top">
+                    <Logo type={incident.integration?.type} />
+                    <div className="c-grow">
+                      <div className="c-match-title c-truncate">{cleanTitle(incident.invariant?.name ?? incident.title)}</div>
+                      <div className="c-match-sub">{incident.integration?.name ?? 'Integration'} · {label(incident.status)}</div>
+                    </div>
+                    <Pill tone={severity.tone}>{severity.text}</Pill>
+                    {incident.status === 'DETECTED' && <Pill tone="info">New</Pill>}
+                    <ChevronRight className="c-chevron" />
+                  </div>
+                  <p className="c-match-desc">{incident.rootCause ?? incident.description ?? 'Not diagnosed yet.'}</p>
+                  <div className="c-match-foot">
+                    <div className="c-match-foot-label">Incident overview</div>
+                    <div className="c-row">
+                      <span className="c-chip">Detected {timeAgo(incident.detectedAt)}</span>
+                      <span className="c-chip">{incident.rootCause ? 'Diagnosed' : 'Needs diagnosis'}</span>
+                    </div>
+                  </div>
+                </article>
               );
             })}
           </div>
         ) : (
-          <Empty>{data ? 'No integrations yet.' : 'Loading…'}</Empty>
+          <div className="c-card"><Empty>{incidents.data ? 'Nothing needs attention. Every customer outcome SHAPI checked looks right.' : 'Loading…'}</Empty></div>
         )}
-      </Card>
+      </section>
+
+      <div className="c-split">
+        <section className="c-section">
+          <div className="c-section-head">
+            <h2 className="c-section-title">Outcome checks <span className="c-count">{checkList.length}</span></h2>
+            <button className="c-btn is-quiet" onClick={() => go('checks')}>Manage</button>
+          </div>
+          <div className="c-card">
+            {checkList.length ? (
+              <div className="c-table-wrap">
+                <table className="c-table">
+                  <thead><tr><th>Check</th><th>After event</th><th>Last 24h</th><th>Status</th></tr></thead>
+                  <tbody>
+                    {checkList.slice(0, 6).map(check => {
+                      const failed = check.runsLast24h?.FAILED ?? 0;
+                      return (
+                        <tr key={check.id} className="is-link" onClick={() => go('checks')}>
+                          <td><div className="c-cell-entity"><span className="c-match-logo" style={{ background: '#e6f5ec', color: '#1f7a4d' }}><ListChecks size={13} /></span><span className="c-truncate">{check.name}</span></div></td>
+                          <td className="c-muted c-small"><code>{check.triggerEventType}</code></td>
+                          <td><span className="c-row"><Pill tone="ok">{check.runsLast24h?.PASSED ?? 0} ok</Pill><Pill tone={failed ? 'bad' : 'neutral'}>{failed} failed</Pill></span></td>
+                          <td><Pill tone={!check.enabled ? 'neutral' : failed ? 'bad' : 'ok'}>{!check.enabled ? 'Paused' : failed ? 'Failing' : 'Active'}</Pill></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <Empty>{checks.data ? <>No outcome checks yet. <a href="#/checks">Add one</a> to verify every paying customer.</> : 'Loading…'}</Empty>
+            )}
+          </div>
+        </section>
+
+        <section className="c-card c-card-body" aria-label="Review queue" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <h2 className="c-card-title">Review queue</h2>
+          <div className="c-seg" role="tablist" aria-label="Review queue filter">
+            {(['all', 'open', 'closed'] as const).map(key => (
+              <button key={key} role="tab" aria-selected={queue === key} onClick={() => setQueue(key)}>{label(key)}</button>
+            ))}
+          </div>
+          <div className="c-tasks">
+            {tasks.length ? tasks.map(incident => {
+              const done = !OPEN_STATUSES.includes(incident.status);
+              const severity = severityLabel(incident.severity);
+              return (
+                <div key={incident.id} className={`c-task${done ? ' is-done' : ''}`} onClick={() => go(`incidents/${incident.id}`)}>
+                  <span className={`c-check${done ? ' is-done' : ''}`}>{done && <Check />}</span>
+                  <span className="c-task-text c-grow c-truncate">Review: {cleanTitle(incident.invariant?.name ?? incident.title)}</span>
+                  <Pill tone={done ? 'neutral' : severity.tone}>{done ? label(incident.status) : severity.text}</Pill>
+                </div>
+              );
+            }) : <p className="c-empty" style={{ padding: 12 }}>{incidents.data ? 'Nothing here.' : 'Loading…'}</p>}
+          </div>
+        </section>
+      </div>
+
+      <div className="c-split">
+        <section className="c-card c-card-body">
+          <div className="c-section-head" style={{ marginBottom: 8 }}>
+            <h2 className="c-card-title">Customer outcomes per day</h2>
+          </div>
+          {data ? <DailyOutcomes data={data.days.map(day => ({ date: day.date, verified: day.outcomesPassed, failed: day.outcomesFailed }))} /> : <Empty>Loading…</Empty>}
+        </section>
+        <section className="c-card">
+          <div className="c-card-head">
+            <div>
+              <h2 className="c-card-title">Integration health</h2>
+              <p className="c-card-sub">Events received in the last 24 hours</p>
+            </div>
+          </div>
+          {data?.integrations.length ? (
+            <div className="c-list">
+              {data.integrations.map(integration => {
+                const fresh = integration.lastEventAt && Date.now() - new Date(integration.lastEventAt).getTime() < 24 * 3600 * 1000;
+                return (
+                  <div key={integration.id} className="c-list-row">
+                    <Logo type={integration.type} />
+                    <div className="c-grow">
+                      <div className="c-strong c-truncate">{integration.name}</div>
+                      <div className="c-muted c-small">{integration.lastEventAt ? `last event ${timeAgo(integration.lastEventAt)}` : 'no events yet'}</div>
+                    </div>
+                    <Pill tone={fresh ? 'ok' : 'neutral'}>{integration.events24h.toLocaleString()} today</Pill>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <Empty>{data ? 'No integrations yet.' : 'Loading…'}</Empty>
+          )}
+        </section>
+      </div>
     </div>
   );
 }
 
-const TILE_TINT = { info: 'blue', ok: 'mint', bad: 'rose', warn: 'peach' } as const;
-const TILE_LINE = { info: '#5b7be0', ok: '#3f9a6b', bad: '#e0694f', warn: '#d9a21b' } as const;
+function Ring({ value }: { value: number | null }) {
+  const size = 88;
+  const stroke = 5;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const filled = value === null ? 0 : (value / 100) * circumference;
+  return (
+    <div className="c-ring" role="img" aria-label={value === null ? 'No outcome data' : `${value.toFixed(1)}% of outcomes verified`}>
+      <svg width={size} height={size}>
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#e4e4e2" strokeWidth={stroke} />
+        <circle
+          cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#3b7dd8" strokeWidth={stroke} strokeLinecap="round"
+          strokeDasharray={`${filled} ${circumference}`}
+        />
+      </svg>
+      <span className="c-ring-mark"><ShieldCheck /></span>
+    </div>
+  );
+}
 
 function percentDelta(current: number, previous: number): number | null {
   if (!previous) return null;
   return ((current - previous) / previous) * 100;
 }
 
-function Delta({ value, suffix = '%', goodWhenUp, label }: { value: number; suffix?: string; goodWhenUp: boolean; label?: string }) {
-  const rounded = Math.abs(value) < 0.05 ? 0 : value;
-  const good = rounded === 0 ? null : (rounded > 0) === goodWhenUp;
+function Mini({
+  icon, label: text, value, delta, goodWhenUp = true, note,
+}: { icon: ReactNode; label: string; value: string; delta?: number | null; goodWhenUp?: boolean; note?: string }) {
+  const rounded = delta === undefined || delta === null ? null : Math.abs(delta) < 0.05 ? 0 : delta;
+  const good = rounded === null || rounded === 0 ? null : (rounded > 0) === goodWhenUp;
   return (
-    <span className={`c-delta ${good === null ? '' : good ? 'is-good' : 'is-bad'}`}>
-      {rounded > 0 ? '▲' : rounded < 0 ? '▼' : '■'} {Math.abs(rounded).toFixed(Math.abs(rounded) < 10 ? 1 : 0)}{suffix}
-      {label && <span className="c-muted"> {label}</span>}
-    </span>
-  );
-}
-
-function StatTile({
-  icon, tone, label, value, delta, goodWhenUp = true, note, trend,
-}: {
-  icon: ReactNode; tone: 'ok' | 'bad' | 'warn' | 'info'; label: string; value: string;
-  delta?: number | null; goodWhenUp?: boolean; note?: string; trend?: number[];
-}) {
-  return (
-    <div className={`c-card c-stat is-${TILE_TINT[tone]}`}>
-      <div className="c-row">
-        <span className="c-icon-tile">{icon}</span>
-        <span className="c-stat-label">{label}</span>
+    <div className="c-mini">
+      <div className="c-mini-label"><span className="c-mini-icon">{icon}</span>{text}</div>
+      <div className="c-mini-value">
+        {value}
+        {rounded !== null ? (
+          <span className={`c-delta ${good === null ? '' : good ? 'is-good' : 'is-bad'}`}>
+            {rounded >= 0 ? <TrendingUp /> : <TrendingDown />}{rounded > 0 ? '+' : ''}{rounded.toFixed(Math.abs(rounded) < 10 ? 1 : 0)}%
+            <span className="c-muted">vs previous</span>
+          </span>
+        ) : note ? <small>{note}</small> : null}
       </div>
-      <div className="c-stat-value">{value}</div>
-      <div className="c-stat-note">
-        {delta !== undefined && delta !== null ? <Delta value={delta} goodWhenUp={goodWhenUp} label="vs previous" /> : note ?? ' '}
-      </div>
-      {trend && trend.length > 1 && <Sparkline values={trend} label={`${label} per day`} color={TILE_LINE[tone]} />}
     </div>
   );
-}
-
-function FeedIcon({ kind }: { kind: Stats['activity'][number]['kind'] }) {
-  if (kind === 'incident_opened') return <span className="c-icon-tile is-bad"><CircleAlert /></span>;
-  if (kind === 'incident_resolved') return <span className="c-icon-tile is-ok"><CheckCircle2 /></span>;
-  if (kind === 'pr_opened') return <span className="c-icon-tile is-info"><GitPullRequest /></span>;
-  return <span className="c-icon-tile is-warn"><XCircle /></span>;
-}
-
-function feedText(item: Stats['activity'][number]): string {
-  const title = item.kind === 'outcome_failed'
-    ? item.title.replace(/^([a-z_]+\.[a-z_.]+)/, match => humanEvent(match))
-    : cleanTitle(item.title);
-  if (item.kind === 'incident_opened') return `Incident opened: ${title}`;
-  if (item.kind === 'incident_resolved') return `Incident resolved: ${title}`;
-  if (item.kind === 'pr_opened') return `Repair PR opened: ${title}`;
-  return `Outcome failed: ${title}`;
 }
