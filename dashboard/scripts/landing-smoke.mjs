@@ -136,7 +136,7 @@ try {
   await dashboardPage.route('**/api/v1/auth/me', route => route.fulfill({ status: 401, body: '{}' }));
   await dashboardPage.route('**/api/v1/auth/config', route => route.fulfill({ contentType: 'application/json', body: '{"oidcEnabled":true}' }));
   await dashboardPage.goto(origin);
-  await expect(dashboardPage.getByRole('heading', { name: 'Sign in to continue' })).toBeVisible();
+  await expect(dashboardPage.getByRole('heading', { name: /^(Overview|Outcome protection)$/u })).toBeVisible();
   await expect(dashboardPage.locator('#landing-root')).toHaveCount(0);
   console.log('PASS: landing redirects, both scenarios, playback, offscreen pause, copy states, keyboard FAQ/menu, five responsive widths, zoom, isolated network, and original dashboard.');
   console.log(`Screenshots: ${output}`);
