@@ -56,6 +56,8 @@ curl -X POST $D/admin/failure-mode -H 'content-type: application/json' -d '{"ena
 
 ## Outcome checks: verify Stripe payments without an SDK
 
+Step-by-step for a real app (read-only database user, restricted Stripe key, first check, test): [docs/QUICK-SETUP.md](docs/QUICK-SETUP.md).
+
 The fastest way to connect a real app. Tell SHAPI what "provisioned" looks like
 in **your own Postgres database**, and it checks every paying customer:
 
