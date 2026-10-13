@@ -10,6 +10,7 @@ provisioned.
 | Capability | Status |
 |---|---|
 | Behavioral invariants (executable predicates over webhook events, evaluated over time windows) | Working, tested |
+| **Outcome checks**: SQL against your own database after each Stripe payment, no SDK; Stripe Events reconcile with a restricted key | Working, end-to-end tested in CI against real Postgres. Not yet run against a live Stripe account |
 | Detection of silent failures + incident lifecycle (DETECTED → TRIAGED → … → RESOLVED) | Working. Demonstrated live: 3 healthy payments provisioned, 6 silent failures (all HTTP 200) opened a HIGH incident |
 | Statistical drift detection (two-proportion z-test) | Working, tested |
 | Diagnosis | **Heuristic rules**, not an LLM |
@@ -52,6 +53,51 @@ curl -X POST $D/webhooks/stripe -H 'content-type: application/json' \
 curl -X POST $D/admin/failure-mode -H 'content-type: application/json' -d '{"enabled":true}'
 ```
 
+## Outcome checks: verify Stripe payments without an SDK
+
+The fastest way to connect a real app. Tell SHAPI what "provisioned" looks like
+in **your own Postgres database**, and it checks every paying customer:
+
+```bash
+curl -X POST http://127.0.0.1:3001/api/v1/outcome-checks \
+  -H 'x-api-key: <your key>' -H 'content-type: application/json' -d '{
+    "integrationId": "<your Stripe integration id>",
+    "name": "Paid customers are provisioned",
+    "triggerEventType": "invoice.payment_succeeded",
+    "sql": "SELECT 1 FROM users WHERE stripe_customer_id = :customer AND plan_status = '\''active'\''",
+    "paramBindings": { "customer": "data.object.customer" },
+    "deadlineSec": 300,
+    "databaseUrl": "postgresql://shapi_readonly:...@your-db:5432/app",
+    "stripeApiKey": "rk_live_..."
+  }'
+```
+
+- **How it works:** for every `invoice.payment_succeeded` (from your Stripe
+  webhook, or pulled from Stripe's Events API every 15 minutes with the
+  restricted key), SHAPI waits `deadlineSec`, then runs your query. No row means
+  a customer paid and did not get access. That opens an incident.
+- **No code changes needed.** The Stripe key is optional if SHAPI already receives
+  your webhooks. The webhook is optional if you attach a restricted key with read
+  access to Events.
+- **Safety:**
+  - Queries must be a single `SELECT`/`WITH`.
+  - They run in a `READ ONLY` transaction with a 5 s statement timeout and are
+    always rolled back.
+  - Only "a row exists" is observed, so your data never leaves your database.
+  - Use a read-only database role anyway.
+  - Database URLs and Stripe keys are encrypted at rest (AES-256-GCM, key from
+    `SHAPI_ENCRYPTION_KEY`) and never returned by the API.
+  - Live-mode secret keys (`sk_live_`) are refused; use a restricted key.
+- **Try a query before relying on it:** `POST /api/v1/outcome-checks/:id/test`
+  with `{"event": <a Stripe event>}`.
+- **Backfill now:** `POST /api/v1/outcome-checks/:id/reconcile` with
+  `{"sinceHours": 24}`.
+- **See results:** `GET /api/v1/outcome-checks/:id/runs`.
+- **End-to-end proof:** `pnpm --filter @shapi/backend e2e:outcomes`. It runs in CI
+  against a real Postgres.
+- **Current limits:** Postgres only. The Stripe Events API keeps 30 days of
+  history.
+
 ## Monorepo layout
 
 ```
@@ -68,6 +114,7 @@ packages/
   replay-engine/        Fix-candidate replay verification (tested)
   repair-generation/    Repair suggestions (tested)
   github-integration/   Webhook verification + verified-PR helpers (tested)
+  outcome-checks/       SQL guard, parameter binding, read-only query runner (tested on real Postgres)
 ```
 
 ## Production containers
