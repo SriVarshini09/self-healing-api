@@ -132,6 +132,9 @@ export function Console() {
   useEffect(() => {
     const themeColor = document.querySelector('meta[name="theme-color"]');
     themeColor?.setAttribute('content', '#f5f6f8');
+    // The global stylesheet paints a dark body; keep overscroll areas pale too.
+    document.documentElement.style.background = '#f5f6f8';
+    document.body.style.background = '#f5f6f8';
   }, []);
 
   useEffect(() => {
