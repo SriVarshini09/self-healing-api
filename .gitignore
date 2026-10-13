@@ -30,3 +30,10 @@ test-results/
 Thumbs.db
 .idea/
 .vscode/
+
+# Local tooling / design artifacts (never commit)
+node_modules.broken/
+.codex-build/
+.codex-finalizer/
+output/
+*.log
