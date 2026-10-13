@@ -64,7 +64,7 @@ export function IncidentDetailPage({ id, go }: { id: string; go: (route: string)
       <header className="c-page-head">
         <div className="c-grow">
           <div className="c-row" style={{ marginBottom: 6 }}>
-            <Pill tone={severityTone(incident.severity)}>{incident.severity.toLowerCase()}</Pill>
+            <Pill tone={severityTone(incident.severity)}>{label(incident.severity)}</Pill>
             <Pill tone={statusTone(incident.status)}>{label(incident.status)}</Pill>
             <span className="c-muted c-small">{incident.integration?.name} · detected {timeAgo(incident.detectedAt)}</span>
           </div>

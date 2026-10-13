@@ -90,17 +90,21 @@ async function runDashboardSmoke(mode: {
       await pageHeading(name).waitFor({ timeout: 15000 });
     };
 
-    // Overview: status, outcome health with the daily chart, stat tiles,
-    // open incidents, activity and integration health (from /stats/overview).
+    // Overview: outcome-health panel (ring, stat cards, range), needs-attention
+    // cards, outcome checks, review queue, daily chart and integration health.
     await pageHeading('Overview').waitFor({ timeout: 15000 });
-    await page.getByText(/^(All clear\.|\d+ incidents? needs? review\.)$/u).first().waitFor({ timeout: 15000 });
-    await page.getByText(/^Outcome health · last 14 days$/u).waitFor({ timeout: 15000 });
+    await page.getByRole('region', { name: 'Outcome health' }).waitFor({ timeout: 15000 });
+    await page.getByText(/last 14 days$/u).first().waitFor({ timeout: 15000 });
     await page.getByRole('img', { name: /^Daily outcomes, \d+ in range$/u }).waitFor({ timeout: 15000 });
-    for (const heading of ['Needs attention', 'Recent activity', 'Integration health']) {
-      await page.getByRole('heading', { name: heading, exact: true }).waitFor({ timeout: 15000 });
+    for (const heading of [/^Needs attention \d+$/u, /^Outcome checks \d+$/u, /^Review queue$/u, /^Customer outcomes per day$/u, /^Integration health$/u]) {
+      await page.getByRole('heading', { name: heading }).waitFor({ timeout: 15000 });
     }
     await page.getByRole('tab', { name: '30d', exact: true }).click();
-    await page.getByText(/^Outcome health · last 30 days$/u).waitFor({ timeout: 15000 });
+    await page.getByText(/last 30 days$/u).first().waitFor({ timeout: 15000 });
+    // Top-bar search finds pages.
+    await page.getByRole('searchbox', { name: 'Search' }).fill('Rules');
+    await page.getByRole('option', { name: /^Rules\s*Page$/u }).waitFor({ timeout: 15000 });
+    await page.getByRole('searchbox', { name: 'Search' }).fill('');
 
     // Connections: integrations, webhook setup, deliveries, GitHub and alerts.
     await openPage('Connections');
