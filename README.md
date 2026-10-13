@@ -13,6 +13,7 @@ provisioned.
 | **Outcome checks**: SQL against your own database after each Stripe payment, no SDK; Stripe Events reconcile with a restricted key | Working, end-to-end tested in CI against real Postgres. Not yet run against a live Stripe account |
 | Detection of silent failures + incident lifecycle (DETECTED → TRIAGED → … → RESOLVED) | Working. Demonstrated live: 3 healthy payments provisioned, 6 silent failures (all HTTP 200) opened a HIGH incident |
 | Statistical drift detection (two-proportion z-test) | Working, tested |
+| Detection benchmark on real code: [`benchmark/`](benchmark/README.md) | Vercel's `nextjs/saas-starter` (16k stars), unmodified handler, real Postgres: **9/10 injected webhook bugs detected (8/9 silent ones), 0 false positives**, plus 1 real bug found in the unmodified kit. One kit so far |
 | Diagnosis | **Heuristic rules**, not an LLM |
 | Automated repair PR | **Prototype.** Reviewed repairs target this repository's own demo app. A generic repair agent is the next milestone |
 | Real customers on real Stripe traffic | **None yet** |

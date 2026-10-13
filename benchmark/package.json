@@ -1,0 +1,24 @@
+{
+  "name": "shapi-benchmark",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Detection benchmark: real open-source Stripe starter kits with injected webhook bugs",
+  "type": "module",
+  "scripts": {
+    "fetch": "tsx src/fetch-kits.ts",
+    "bench": "tsx src/run.ts"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^16.5.0",
+    "drizzle-orm": "^0.43.1",
+    "jose": "^6.0.11",
+    "postgres": "^3.4.5",
+    "stripe": "^18.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.18",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.3"
+  }
+}

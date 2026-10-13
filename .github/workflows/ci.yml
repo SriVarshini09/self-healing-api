@@ -162,3 +162,46 @@ jobs:
 
       - name: Outcome checks end to end (webhook -> query -> incident, reconcile)
         run: pnpm --filter @shapi/backend e2e:outcomes
+
+  benchmark:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: shapi
+          POSTGRES_PASSWORD: shapi
+          POSTGRES_DB: shapi
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U shapi -d shapi"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      BENCH_DATABASE_URL: postgresql://shapi:shapi@localhost:5432/shapi
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9.0.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --dir benchmark install --frozen-lockfile --ignore-workspace
+
+      - name: Fetch pinned starter kits
+        run: pnpm --dir benchmark fetch
+
+      - name: Detection benchmark (real kits, injected webhook bugs)
+        run: |
+          pnpm --dir benchmark bench
+          cat benchmark/results/latest.md >> "$GITHUB_STEP_SUMMARY"

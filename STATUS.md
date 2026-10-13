@@ -3,6 +3,7 @@
 ## Summary (honest, 2026-10-13)
 
 - **Proven:** silent-failure *detection* on a webhook stream; incident lifecycle; drift test; 150+ automated tests; hosted deployment; one real GitHub App repair-PR loop.
+- **Benchmark:** outcome checks detect 9/10 injected Stripe webhook bugs (8/9 silent) in nextjs/saas-starter with 0 false positives, and surfaced a real stale-plan-name bug in the unmodified kit (benchmark/README.md, CI job `benchmark`).
 - **Not proven:** that repair works on code that is not this repo's own demo app; any use by an outside team.
 - **Diagnosis** is rule-based heuristics. **Repair** is reviewed adapters for the demo app plus generic predicate/retry suggestions.
 - **Next milestone:** LLM repair agent measured on a benchmark of real open-source Stripe starter kits, and first real users.
