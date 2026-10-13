@@ -6,7 +6,7 @@ re-runs each kit with one realistic bug injected at a time.
 
 ## Method
 
-1. **Pin the kit.** `pnpm fetch` checks out the kit at a pinned commit into
+1. **Pin the kit.** `pnpm fetch-kits` checks out the kit at a pinned commit into
    `.kits/`. Kit code is never committed here, and its install scripts never run.
 2. **Run the kit's real webhook route.** The harness calls the `POST` handler
    with Stripe events signed by Stripe's own library. Only `next/server`,
@@ -24,7 +24,7 @@ Run it locally (needs a Postgres role that can `CREATE DATABASE`):
 
 ```bash
 pnpm install && pnpm --dir benchmark install --ignore-workspace
-pnpm --dir benchmark fetch
+pnpm --dir benchmark fetch-kits
 BENCH_DATABASE_URL=postgresql://user:pass@localhost:5432/postgres pnpm --dir benchmark bench
 ```
 

@@ -5,7 +5,7 @@
   "description": "Detection benchmark: real open-source Stripe starter kits with injected webhook bugs",
   "type": "module",
   "scripts": {
-    "fetch": "tsx src/fetch-kits.ts",
+    "fetch-kits": "tsx src/fetch-kits.ts",
     "bench": "tsx src/run.ts"
   },
   "dependencies": {
