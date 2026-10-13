@@ -21,7 +21,8 @@
       "@shapi/diagnosis-engine": ["packages/diagnosis-engine/src"],
       "@shapi/replay-engine": ["packages/replay-engine/src"],
       "@shapi/repair-generation": ["packages/repair-generation/src"],
-      "@shapi/github-integration": ["packages/github-integration/src"]
+      "@shapi/github-integration": ["packages/github-integration/src"],
+      "@shapi/outcome-checks": ["packages/outcome-checks/src"]
     }
   },
   "exclude": ["node_modules", "**/dist", "**/build"]
