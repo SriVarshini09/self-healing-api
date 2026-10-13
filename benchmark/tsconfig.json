@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [".kits/saas-starter/*"],
+      "next/server": ["stubs/next-server.ts"],
+      "next/headers": ["stubs/next-headers.ts"],
+      "next/navigation": ["stubs/next-navigation.ts"]
+    }
+  },
+  "include": ["src/**/*", "stubs/**/*"]
+}
