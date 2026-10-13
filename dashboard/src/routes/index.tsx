@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { HealingDashboard } from "@/components/HealingDashboard";
+import { Console } from "@/components/console/Console";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [
@@ -14,5 +14,5 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  return <HealingDashboard />;
+  return <Console />;
 }
