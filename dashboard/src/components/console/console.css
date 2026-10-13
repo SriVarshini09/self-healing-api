@@ -1,9 +1,9 @@
 /* SHAPI console: a calm, pale, single-theme design system. Everything is scoped under .c-app. */
 .c-app {
-  --c-bg: #f5f6f8;
+  --c-bg: #f2f4fb;
   --c-surface: #ffffff;
-  --c-surface-2: #f8f9fb;
-  --c-border: #e4e7ec;
+  --c-surface-2: #f5f7fd;
+  --c-border: #e3e6f1;
   --c-border-strong: #d4d8e0;
   --c-text: #1f2633;
   --c-text-2: #4a5263;
@@ -17,13 +17,17 @@
   --c-bad-soft: #fcefed;
   --c-warn: #93680f;
   --c-warn-soft: #fcf5e4;
-  --c-neutral-soft: #f0f2f5;
+  --c-neutral-soft: #eceff8;
   --c-radius: 10px;
   --c-shadow: 0 1px 2px rgba(31, 38, 51, 0.04), 0 1px 1px rgba(31, 38, 51, 0.03);
 
   display: flex;
   min-height: 100vh;
-  background: var(--c-bg);
+  background:
+    radial-gradient(1100px 520px at 88% -8%, #f3ecfe 0%, rgba(243, 236, 254, 0) 62%),
+    radial-gradient(900px 480px at 18% -6%, #e8f0ff 0%, rgba(232, 240, 255, 0) 58%),
+    var(--c-bg);
+  background-attachment: fixed;
   color: var(--c-text);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   font-size: 14px;
@@ -39,21 +43,21 @@
 .c-sidebar {
   position: sticky; top: 0; height: 100vh; width: 232px; flex-shrink: 0;
   display: flex; flex-direction: column; gap: 4px;
-  padding: 20px 12px; background: var(--c-surface); border-right: 1px solid var(--c-border);
+  padding: 20px 12px; background: linear-gradient(180deg, #edf1fd 0%, #f2eefc 100%); border-right: 1px solid #e0e3f4;
 }
 .c-brand { display: flex; align-items: center; gap: 10px; padding: 0 8px 18px; }
-.c-brand-mark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: var(--c-accent-soft); color: var(--c-accent); font-weight: 700; font-size: 14px; }
+.c-brand-mark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(135deg, #c8d3fb, #e2d3fb); color: #3a4fc0; font-weight: 700; font-size: 14px; }
 .c-brand-name { font-weight: 650; font-size: 15px; letter-spacing: -0.01em; }
 .c-brand-sub { color: var(--c-muted); font-size: 11.5px; }
 .c-nav-link {
   display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px;
   color: var(--c-text-2) !important; font-weight: 500; text-decoration: none !important;
 }
-.c-nav-link:hover { background: var(--c-surface-2); }
-.c-nav-link[aria-current='page'] { background: var(--c-accent-soft); color: var(--c-accent) !important; }
+.c-nav-link:hover { background: rgba(255, 255, 255, 0.6); }
+.c-nav-link[aria-current='page'] { background: #ffffff; color: var(--c-accent) !important; box-shadow: 0 1px 2px rgba(58, 79, 192, 0.08), 0 0 0 1px #e1e6fa; }
 .c-nav-link svg { width: 17px; height: 17px; }
 .c-nav-count { margin-left: auto; min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--c-bad-soft); color: var(--c-bad); font-size: 11.5px; font-weight: 600; text-align: center; }
-.c-sidebar-foot { margin-top: auto; padding: 12px 10px 0; border-top: 1px solid var(--c-border); color: var(--c-muted); font-size: 12px; }
+.c-sidebar-foot { margin-top: auto; padding: 12px 10px 0; border-top: 1px solid #dfe2f3; color: var(--c-muted); font-size: 12px; }
 .c-live-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; background: var(--c-ok); }
 .c-live-dot.is-off { background: var(--c-warn); }
 
@@ -150,6 +154,33 @@
 .c-timeline li:first-child { border-top: 0; }
 
 
+
+/* Pastel tones */
+.c-page-head .c-page-icon { display: inline-grid; place-items: center; width: 40px; height: 40px; margin-right: 12px; border-radius: 12px; vertical-align: middle; }
+.c-page-icon svg { width: 20px; height: 20px; }
+.c-title-row { display: flex; align-items: center; }
+.is-blue { --t-bg: #eef3ff; --t-line: #dbe4fb; --t-ink: #3d58c9; }
+.is-mint { --t-bg: #ebf8f1; --t-line: #cfeadb; --t-ink: #2b7a52; }
+.is-rose { --t-bg: #fdf0ef; --t-line: #f3d8d4; --t-ink: #b4473d; }
+.is-peach { --t-bg: #fdf4e7; --t-line: #f1e0c2; --t-ink: #94660f; }
+.is-lavender { --t-bg: #f4f0fe; --t-line: #e2d9f8; --t-ink: #6a4cc2; }
+.is-teal { --t-bg: #eaf6f6; --t-line: #cde7e6; --t-ink: #23746f; }
+.c-page-icon.is-blue, .c-page-icon.is-mint, .c-page-icon.is-rose, .c-page-icon.is-peach, .c-page-icon.is-lavender, .c-page-icon.is-teal { background: var(--t-bg); color: var(--t-ink); box-shadow: inset 0 0 0 1px var(--t-line); }
+.c-card.is-blue, .c-card.is-mint, .c-card.is-rose, .c-card.is-peach, .c-card.is-lavender, .c-card.is-teal { border-color: var(--t-line); }
+.c-card.is-blue > .c-card-head, .c-card.is-mint > .c-card-head, .c-card.is-rose > .c-card-head,
+.c-card.is-peach > .c-card-head, .c-card.is-lavender > .c-card-head, .c-card.is-teal > .c-card-head {
+  background: var(--t-bg); border-bottom-color: var(--t-line); border-radius: var(--c-radius) var(--c-radius) 0 0;
+}
+.c-stat.is-blue, .c-stat.is-mint, .c-stat.is-rose, .c-stat.is-peach { background: linear-gradient(160deg, var(--t-bg) 0%, #ffffff 120%); border-color: var(--t-line); }
+.c-stat .c-icon-tile { background: #ffffff; box-shadow: inset 0 0 0 1px var(--t-line, var(--c-border)); color: var(--t-ink, var(--c-text-2)); }
+.c-hero { background: linear-gradient(120deg, #eef3ff 0%, #f4effe 55%, #fff1f3 100%); border-color: #e2e2f6; }
+.c-hero .c-hero-figure { border-right-color: rgba(120, 120, 190, 0.14); }
+.c-hero-value { background: linear-gradient(90deg, #2c3a8f, #5b47b5); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.c-hero .c-meter { background: rgba(255, 255, 255, 0.7); }
+.c-hero .c-tooltip { background: #ffffff; }
+.c-table th { background: #f3f5fd; }
+.c-tabs { background: #e8ebf8; align-self: flex-start; }
+
 /* Overview: hero, stat tiles, charts, feed */
 .c-banner svg { width: 18px; height: 18px; flex-shrink: 0; }
 .c-hero { display: grid; grid-template-columns: minmax(240px, 300px) minmax(0, 1fr); }
@@ -200,7 +231,7 @@
 
 @media (max-width: 1000px) {
   .c-hero { grid-template-columns: minmax(0, 1fr); }
-  .c-hero-figure { border-right: 0; border-bottom: 1px solid var(--c-border); }
+  .c-hero .c-hero-figure { border-right: 0; border-bottom: 1px solid rgba(120, 120, 190, 0.14); }
   .c-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .c-grid-2 { grid-template-columns: minmax(0, 1fr); }
 }

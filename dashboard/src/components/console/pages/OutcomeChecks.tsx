@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
+import { ListChecks } from 'lucide-react';
 import { Card, Empty, ErrorNote, PageHeader, Pill, errorMessage, label, sendJson, statusTone, useShapi } from '../ui';
 import type { Integration, OutcomeCheck, OutcomeRun } from '../types';
 import { fetchShapi } from '@/lib/shapi-api';
@@ -61,6 +62,8 @@ export function OutcomeChecksPage() {
     <div className="c-page">
       <PageHeader
         title="Outcome checks"
+        icon={<ListChecks />}
+        tint="mint"
         sub="After each Stripe event, SHAPI asks your own database whether the customer actually got access. No SDK, no code changes."
         actions={
           <>
@@ -138,7 +141,7 @@ function CreateCheckForm({ integrations, onCreated }: { integrations: Integratio
   };
 
   return (
-    <Card title="New outcome check">
+    <Card title="New outcome check" tint="mint">
       <form className="c-card-body c-form" onSubmit={event => void submit(event)}>
         <label className="c-field">
           <span className="c-label">Name</span>

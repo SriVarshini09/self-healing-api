@@ -6,7 +6,6 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 // Validated as a pair (light surface #ffffff): CVD dE 22.4, normal dE 28.2, both >= 3:1.
 export const SERIES = { verified: '#5b7be0', failed: '#e0694f' };
 const ACCENT = '#4a63d8';
-const MUTED_LINE = '#b9c1d6';
 
 function useWidth<T extends HTMLElement>() {
   const ref = useRef<T>(null);
@@ -21,7 +20,7 @@ function useWidth<T extends HTMLElement>() {
 }
 
 /** 12-ish point trend line for a stat tile: muted history, accent end point. */
-export function Sparkline({ values, label }: { values: number[]; label: string }) {
+export function Sparkline({ values, label, color = ACCENT }: { values: number[]; label: string; color?: string }) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const height = 36;
   const max = Math.max(1, ...values);
@@ -33,9 +32,9 @@ export function Sparkline({ values, label }: { values: number[]; label: string }
     <div ref={ref} className="c-spark" role="img" aria-label={label}>
       {width > 0 && values.length > 1 && (
         <svg width={width} height={height}>
-          <path d={`${line} L${last[0]},${height} L${points[0][0]},${height} Z`} fill={ACCENT} opacity={0.08} />
-          <path d={line} fill="none" stroke={MUTED_LINE} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-          <circle cx={last[0]} cy={last[1]} r={4} fill={ACCENT} stroke="#ffffff" strokeWidth={2} />
+          <path d={`${line} L${last[0]},${height} L${points[0][0]},${height} Z`} fill={color} opacity={0.12} />
+          <path d={line} fill="none" stroke={color} strokeOpacity={0.45} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+          <circle cx={last[0]} cy={last[1]} r={4} fill={color} stroke="#ffffff" strokeWidth={2} />
         </svg>
       )}
     </div>

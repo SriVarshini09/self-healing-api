@@ -2,14 +2,15 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { fetchShapi } from '@/lib/shapi-api';
 
 export type Tone = 'ok' | 'bad' | 'warn' | 'info' | 'neutral';
+export type Tint = 'blue' | 'mint' | 'rose' | 'peach' | 'lavender' | 'teal';
 
 export function Pill({ tone = 'neutral', children }: { tone?: Tone; children: ReactNode }) {
   return <span className={`c-pill${tone === 'neutral' ? '' : ` is-${tone}`}`}>{children}</span>;
 }
 
-export function Card({ title, sub, actions, children }: { title?: ReactNode; sub?: ReactNode; actions?: ReactNode; children: ReactNode }) {
+export function Card({ title, sub, actions, tint, children }: { title?: ReactNode; sub?: ReactNode; actions?: ReactNode; tint?: Tint; children: ReactNode }) {
   return (
-    <section className="c-card">
+    <section className={`c-card${tint ? ` is-${tint}` : ''}`}>
       {(title || actions) && (
         <div className="c-card-head">
           <div className="c-grow">
@@ -24,12 +25,15 @@ export function Card({ title, sub, actions, children }: { title?: ReactNode; sub
   );
 }
 
-export function PageHeader({ title, sub, actions }: { title: string; sub?: ReactNode; actions?: ReactNode }) {
+export function PageHeader({ title, sub, actions, icon, tint = 'blue' }: { title: string; sub?: ReactNode; actions?: ReactNode; icon?: ReactNode; tint?: Tint }) {
   return (
     <header className="c-page-head">
-      <div>
-        <h1 className="c-page-title">{title}</h1>
-        {sub && <p className="c-page-sub">{sub}</p>}
+      <div className="c-title-row">
+        {icon && <span className={`c-page-icon is-${tint}`}>{icon}</span>}
+        <div>
+          <h1 className="c-page-title">{title}</h1>
+          {sub && <p className="c-page-sub">{sub}</p>}
+        </div>
       </div>
       {actions && <div className="c-row">{actions}</div>}
     </header>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { CircleAlert } from 'lucide-react';
 import { Card, Empty, ErrorNote, PageHeader, Pill, cleanTitle, label, severityTone, statusTone, timeAgo, useShapi } from '../ui';
 import { OPEN_STATUSES, type Incident } from '../types';
 
@@ -16,6 +17,8 @@ export function IncidentsPage({ go }: { go: (route: string) => void }) {
     <div className="c-page">
       <PageHeader
         title="Incidents"
+        icon={<CircleAlert />}
+        tint="rose"
         sub="Business outcomes that did not happen, even though the HTTP call succeeded."
         actions={<button className="c-btn" onClick={() => void incidents.reload()}>Refresh</button>}
       />
