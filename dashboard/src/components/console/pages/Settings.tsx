@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Card, Empty, ErrorNote, PageHeader, Pill, errorMessage, label, sendJson, timeAgo, useShapi } from '../ui';
+import { AlertsCard } from './AlertsCard';
 
 type Workspace = { id: string; name: string; slug: string; createdAt: string; caller: { name: string; role: string } };
 type ApiKey = {
@@ -13,9 +14,10 @@ export function SettingsPage() {
 
   return (
     <div className="c-page">
-      <PageHeader title="Settings" sub="Your workspace, your access and API keys for automation." />
+      <PageHeader title="Settings" sub="Your workspace, where alerts go, and API keys for automation." />
       <ErrorNote error={workspace.error} />
       {workspace.data && <WorkspaceCard workspace={workspace.data} canManage={canManage} onSaved={() => void workspace.reload()} />}
+      {workspace.data && <AlertsCard canEdit={workspace.data.caller.role !== 'VIEWER'} />}
       {workspace.data && (canManage
         ? <ApiKeysCard />
         : <Card title="API keys"><Empty>Only an Owner or Admin can manage API keys.</Empty></Card>)}

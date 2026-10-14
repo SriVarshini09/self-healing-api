@@ -6,7 +6,7 @@ import type { GitHubStatus, Integration } from '../types';
 
 type WebhookSetup = { webhookUrl: string; webhookSecretConfigured: boolean; instructions: string };
 type Delivery = { id: string; eventType: string; providerEventId?: string | null; status: string; receivedAt: string };
-type AlertStatus = { webhookConfigured: boolean; pending: number; retrying: number; delivered: number; failed: number };
+type AlertStatus = { webhookConfigured: boolean; destinations?: number; pending: number; retrying: number; delivered: number; failed: number };
 
 export function ConnectionsPage() {
   const integrations = useShapi<{ data: Integration[] }>('integrations?pageSize=100');
@@ -70,11 +70,11 @@ export function ConnectionsPage() {
           </div>
         </Card>
 
-        <Card title="Alerts" tint="peach" sub="Signed incident notifications to your webhook.">
+        <Card title="Alerts" tint="peach" sub="Where incidents are sent.">
           <div className="c-card-body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {alerts.data ? (
               <>
-                <div><Pill tone={alerts.data.webhookConfigured ? 'ok' : 'neutral'}>{alerts.data.webhookConfigured ? 'Alert webhook set' : 'No alert webhook'}</Pill></div>
+                <div><Pill tone={(alerts.data.destinations ?? 0) > 0 || alerts.data.webhookConfigured ? 'ok' : 'neutral'}>{(alerts.data.destinations ?? 0) > 0 ? `${alerts.data.destinations} destination${alerts.data.destinations === 1 ? '' : 's'}` : alerts.data.webhookConfigured ? 'Alert webhook set' : 'No destinations yet'}</Pill></div>
                 <div className="c-row c-small">
                   <span>{alerts.data.delivered} delivered</span>
                   <span className="c-muted">·</span>
@@ -82,7 +82,7 @@ export function ConnectionsPage() {
                   <span className="c-muted">·</span>
                   <span className={alerts.data.failed ? '' : 'c-muted'} style={alerts.data.failed ? { color: 'var(--c-bad)' } : undefined}>{alerts.data.failed} failed</span>
                 </div>
-                {!alerts.data.webhookConfigured && <p className="c-muted c-small" style={{ margin: 0 }}>Set ALERT_WEBHOOK_URL on the API to receive incidents in Slack or your pager.</p>}
+                <p className="c-muted c-small" style={{ margin: 0 }}>Add or test Slack and email destinations in <a href="#/settings">Settings</a>.</p>
               </>
             ) : (
               <p className="c-muted" style={{ margin: 0 }}>{alerts.error ?? 'Loading…'}</p>
