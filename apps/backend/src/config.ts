@@ -25,6 +25,10 @@ const configSchema = z.object({
   API_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(1000),
   API_RATE_LIMIT_WINDOW: z.string().default('1 minute'),
   METRICS_TOKEN: z.preprocess(value => value === '' ? undefined : value, z.string().min(16).optional()),
+  // Self-serve sign-up: 'invite' requires SHAPI_SIGNUP_INVITE_CODE (no code = closed),
+  // 'open' lets anyone create a workspace, 'closed' disables sign-up.
+  SHAPI_SIGNUP_MODE: z.enum(['closed', 'invite', 'open']).default('invite'),
+  SHAPI_SIGNUP_INVITE_CODE: z.preprocess(value => value === '' ? undefined : value, z.string().min(8).optional()),
   SHAPI_BOOTSTRAP_TOKEN: z.preprocess(
     value => value === '' ? undefined : value,
     z.string().min(32).optional(),
