@@ -157,6 +157,10 @@ jobs:
           pnpm --filter @shapi/backend db:migrate:deploy
           pnpm --filter @shapi/backend db:seed
 
+      - name: Migrations match schema.prisma (no schema change without a migration)
+        working-directory: apps/backend
+        run: pnpm exec prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
+
       - name: Outcome query runner against real Postgres (read-only, timeout)
         run: pnpm --filter @shapi/outcome-checks test
 

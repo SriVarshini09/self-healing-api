@@ -39,6 +39,10 @@ await registerRoutes(app);
 await app.ready();
 const auth = { 'x-api-key': process.env.SHAPI_API_KEY || 'shapi_demo_local_d3v_k3y_9f2c' };
 const json = (r: { body: string }) => JSON.parse(r.body);
+// Prisma can stamp nextAttemptAt ~1ms after the insert returns, so a pass run
+// immediately after queueing may skip the newest row. The scheduler picks it up
+// on its next tick in production; here, look slightly ahead instead.
+const soon = () => new Date(Date.now() + 1000);
 const dbUrl = (process.env.OUTCOME_E2E_DATABASE_URL || process.env.DATABASE_URL!).split('?')[0];
 const db = new pg.Client({ connectionString: dbUrl });
 await db.connect();
@@ -92,7 +96,7 @@ try {
   incidentLink = `/#/incidents/${incident.id}`;
 
   console.log('4. alerts delivered once each');
-  await deliverPendingAlerts(new Date());
+  await deliverPendingAlerts(soon());
   assert(slackCalls().length === 1, 'one Slack message');
   assert(emailCalls().length === 1, 'one email');
   const slackText = JSON.stringify(slackCalls()[0].body);
@@ -104,7 +108,7 @@ try {
 
   console.log('5. resolved');
   await app.inject({ method: 'PATCH', url: `/api/v1/incidents/${incident.id}`, headers: auth, payload: { status: 'RESOLVED' } });
-  await deliverPendingAlerts(new Date());
+  await deliverPendingAlerts(soon());
   assert(slackCalls().length === 2 && JSON.stringify(slackCalls()[1].body).includes('Resolved: '), 'Slack gets a "resolved" message');
   assert(emailCalls().length === 2, 'email gets a "resolved" message');
   const deliveries = await prisma.alertDelivery.findMany({ where: { incidentId: incident.id } });
