@@ -24,7 +24,8 @@
     "e2e:onboarding": "tsx scripts/e2e-onboarding.ts",
     "stripe:live-test": "tsx scripts/stripe-live-test.ts",
     "e2e:alerts": "tsx scripts/e2e-alerts.ts",
-    "e2e:key-rotation": "tsx scripts/e2e-key-rotation.ts"
+    "e2e:key-rotation": "tsx scripts/e2e-key-rotation.ts",
+    "e2e:stripe-changes": "tsx scripts/e2e-stripe-changes.ts"
   },
   "dependencies": {
     "@fastify/cors": "^8.4.1",
