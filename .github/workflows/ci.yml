@@ -173,6 +173,9 @@ jobs:
       - name: Slack and email alerts end to end (outcome incident -> one alert per destination, resolved message)
         run: pnpm --filter @shapi/backend e2e:alerts
 
+      - name: Encryption key setup and rotation end to end (stored secrets never stranded)
+        run: pnpm --filter @shapi/backend e2e:key-rotation
+
   benchmark:
     runs-on: ubuntu-24.04
     services:

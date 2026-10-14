@@ -32,10 +32,15 @@ ALTER ROLE shapi_readonly SET default_transaction_read_only = on;
 ```
 
 Your connection string will look like
-`postgresql://shapi_readonly:...@your-db-host:5432/your_app`.
+`postgresql://shapi_readonly:...@your-db-host:5432/your_app?sslmode=require`.
 
 SHAPI also runs every query in a read-only transaction with a 5-second timeout,
 and only checks whether a row exists. The read-only user is a second safety layer.
+
+The database must be reachable from the internet: hosted SHAPI refuses private and
+internal addresses. If your database only accepts listed IPs, allow the outbound
+IPs shown under the database URL field and on the dashboard's **Security** page.
+[SECURITY.md](../SECURITY.md) explains what SHAPI stores and how.
 
 ## 2. Create a Stripe restricted key (2 min, optional)
 
