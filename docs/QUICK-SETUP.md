@@ -109,7 +109,16 @@ copy its JSON. In SHAPI, click **Test** on your check and paste the event.
 To catch problems in minutes rather than up to 15, add a Stripe webhook
 endpoint pointing at SHAPI. Copy the exact URL from **Connections → Setup**.
 
-To send incidents to Slack or your pager, set `ALERT_WEBHOOK_URL` on the API.
+## 7. Get alerted (1 min)
+
+Go to **Settings → Alerts → Add destination**:
+
+- **Slack:** paste a Slack incoming-webhook URL.
+- **Email:** add your addresses. This needs the operator to have set up email.
+
+Press **Send test** to check it works. Each incident sends one message naming
+the customer and the Stripe event, with a link to the incident, and another
+when it's resolved.
 
 ## Turning it off
 

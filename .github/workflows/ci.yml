@@ -166,6 +166,9 @@ jobs:
       - name: Self-serve onboarding end to end (sign-up, session, Stripe connection, API key, sign-in)
         run: pnpm --filter @shapi/backend e2e:onboarding
 
+      - name: Slack and email alerts end to end (outcome incident -> one alert per destination, resolved message)
+        run: pnpm --filter @shapi/backend e2e:alerts
+
   benchmark:
     runs-on: ubuntu-24.04
     services:
