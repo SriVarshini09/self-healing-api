@@ -3,6 +3,7 @@ import { ListChecks } from 'lucide-react';
 import { Card, Empty, ErrorNote, PageHeader, Pill, errorMessage, label, sendJson, statusTone, useShapi } from '../ui';
 import type { Integration, OutcomeCheck, OutcomeRun } from '../types';
 import { fetchShapi } from '@/lib/shapi-api';
+import { EgressIps, type Trust } from './Security';
 
 const TRIGGERS = [
   'invoice.payment_succeeded',
@@ -106,6 +107,7 @@ function CreateCheckForm({ integrations, onCreated }: { integrations: Integratio
   const [bindings, setBindings] = useState<Record<string, string>>({});
   const [deadlineSec, setDeadlineSec] = useState(300);
   const [databaseUrl, setDatabaseUrl] = useState('');
+  const trust = useShapi<Trust>('trust');
   const [stripeKey, setStripeKey] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -181,7 +183,8 @@ function CreateCheckForm({ integrations, onCreated }: { integrations: Integratio
         <label className="c-field">
           <span className="c-label">Database URL</span>
           <input className="c-input" type="password" autoComplete="off" placeholder="postgresql://readonly:…@host:5432/app" value={databaseUrl} onChange={event => setDatabaseUrl(event.target.value)} required />
-          <span className="c-hint">Use a read-only database user.</span>
+          <span className="c-hint">Use a read-only database user, and add <code>sslmode=require</code>. <a href="#/security">How SHAPI uses it</a></span>
+          <EgressIps trust={trust.data} />
         </label>
         <label className="c-field">
           <span className="c-label">Stripe restricted key (optional)</span>
