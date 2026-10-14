@@ -8,7 +8,9 @@ dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 dotenv.config();
 
 import { z } from 'zod';
-import { productionConfigIssues } from './config-validation.js';
+import { isIpOrCidr, productionConfigIssues, productionConfigWarnings } from './config-validation.js';
+
+const optionalText = z.preprocess(value => value === '' ? undefined : value, z.string().optional());
 
 const configSchema = z.object({
   NODE_ENV: z.enum(['development', 'staging', 'production']).default('development'),
@@ -19,8 +21,26 @@ const configSchema = z.object({
   DATABASE_URL: z.string().url(),
   JWT_SECRET: z.string().min(32),
   // Key for secrets stored at rest (outcome-check database URLs, Stripe keys).
-  // Falls back to a key derived from JWT_SECRET so existing deployments keep booting.
+  // Falls back to a key derived from JWT_SECRET so existing deployments keep booting;
+  // set it in production so rotating JWT_SECRET never makes stored secrets unreadable.
   SHAPI_ENCRYPTION_KEY: z.preprocess(value => value === '' ? undefined : value, z.string().min(32).optional()),
+  // Comma-separated keys still accepted for decryption during a key rotation.
+  // Run `pnpm secrets:reencrypt --apply`, then remove them.
+  SHAPI_ENCRYPTION_KEY_PREVIOUS: optionalText,
+  // Refuse outcome-check databases on loopback/private/internal addresses.
+  // Defaults to on in production; turn off only for SHAPI self-hosted inside your own network.
+  SHAPI_BLOCK_PRIVATE_DATABASE_HOSTS: z.preprocess(
+    value => value === '' ? undefined : value,
+    z.enum(['true', 'false']).transform(value => value === 'true').optional(),
+  ),
+  // Outbound IPs/CIDRs (comma-separated) that customers allowlist on their database
+  // firewall. Copy them from your host (Render: service -> Connect -> Outbound).
+  SHAPI_EGRESS_IPS: z.preprocess(
+    value => value === '' ? undefined : value,
+    z.string().transform(value => value.split(',').map(entry => entry.trim()).filter(Boolean))
+      .refine(list => list.every(isIpOrCidr), { message: 'Use comma-separated IP addresses or CIDR ranges' })
+      .optional(),
+  ),
   API_KEY_PREFIX: z.string().default('shapi_'),
   API_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(1000),
   API_RATE_LIMIT_WINDOW: z.string().default('1 minute'),
@@ -88,4 +108,11 @@ if (productionIssues.length > 0) {
   process.exit(1);
 }
 
+for (const warning of productionConfigWarnings(parsed.data)) console.warn(`⚠️  ${warning}`);
+
 export const config = parsed.data;
+
+/** Hosted mode: outcome checks may only reach databases on public addresses. */
+export function blockPrivateDatabaseHosts(): boolean {
+  return config.SHAPI_BLOCK_PRIVATE_DATABASE_HOSTS ?? config.NODE_ENV === 'production';
+}

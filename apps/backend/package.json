@@ -19,10 +19,12 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
+    "secrets:reencrypt": "tsx scripts/reencrypt-secrets.ts",
     "e2e:outcomes": "tsx scripts/e2e-outcome-checks.ts",
     "e2e:onboarding": "tsx scripts/e2e-onboarding.ts",
     "stripe:live-test": "tsx scripts/stripe-live-test.ts",
-    "e2e:alerts": "tsx scripts/e2e-alerts.ts"
+    "e2e:alerts": "tsx scripts/e2e-alerts.ts",
+    "e2e:key-rotation": "tsx scripts/e2e-key-rotation.ts"
   },
   "dependencies": {
     "@fastify/cors": "^8.4.1",

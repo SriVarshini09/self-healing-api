@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { productionConfigIssues } from './config-validation.js';
+import { isIpOrCidr, productionConfigIssues, productionConfigWarnings } from './config-validation.js';
 
 const safe = { NODE_ENV: 'production', JWT_SECRET: 'a'.repeat(48) };
 
@@ -93,5 +93,29 @@ describe('productionConfigIssues', () => {
 
   it('does not apply production guards in development', () => {
     expect(productionConfigIssues({ NODE_ENV: 'development', JWT_SECRET: 'your-super-secret' })).toEqual([]);
+  });
+});
+
+describe('productionConfigWarnings', () => {
+  it('warns (without failing boot) when the encryption key or egress IPs are missing in production', () => {
+    const warnings = productionConfigWarnings(safe);
+    expect(warnings.some(warning => warning.startsWith('SHAPI_ENCRYPTION_KEY is not set'))).toBe(true);
+    expect(warnings.some(warning => warning.startsWith('SHAPI_EGRESS_IPS is not set'))).toBe(true);
+    expect(productionConfigIssues(safe)).toEqual([]);
+  });
+
+  it('is quiet when both are configured, and outside production', () => {
+    expect(productionConfigWarnings({ ...safe, SHAPI_ENCRYPTION_KEY: 'k'.repeat(40), SHAPI_EGRESS_IPS: ['44.226.145.213', '44.229.200.0/24'] })).toEqual([]);
+    expect(productionConfigWarnings({ ...safe, NODE_ENV: 'development' })).toEqual([]);
+  });
+});
+
+describe('isIpOrCidr', () => {
+  it.each(['203.0.113.10', '198.51.100.0/24', '0.0.0.0/0', '2600:1f14::1', '2600:1f14::/32'])('accepts %s', entry => {
+    expect(isIpOrCidr(entry)).toBe(true);
+  });
+
+  it.each(['', 'example.com', '203.0.113.10/33', '198.51.100.0/', '198.51.100.0/2a', '1.2.3.4/8/8', '2600::/129', '256.1.1.1'])('rejects %s', entry => {
+    expect(isIpOrCidr(entry)).toBe(false);
   });
 });

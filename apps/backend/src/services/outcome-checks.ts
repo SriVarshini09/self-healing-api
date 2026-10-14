@@ -18,6 +18,7 @@ import {
   type ParamValue,
   type RunOutcomeQueryOptions,
 } from '@shapi/outcome-checks';
+import { blockPrivateDatabaseHosts } from '../config.js';
 import { prisma } from '../utils/prisma.js';
 import { logger } from '../utils/logger.js';
 import { decryptSecret } from '../utils/secrets.js';
@@ -228,6 +229,7 @@ export async function processDueOutcomeRuns(
         connectionString: decryptSecret(run.check.databaseUrlCipher),
         sql: run.check.sqlQuery,
         params: names.map(name => stored[name]),
+        blockPrivateHosts: blockPrivateDatabaseHosts(),
       });
       const status = result.matched ? OutcomeRunStatus.PASSED : OutcomeRunStatus.FAILED;
       await prisma.outcomeCheckRun.update({

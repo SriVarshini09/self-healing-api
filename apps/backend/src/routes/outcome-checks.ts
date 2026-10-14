@@ -3,11 +3,13 @@ import { z } from 'zod';
 import { IntegrationType, OutcomeRunStatus, type OutcomeCheck, type Prisma } from '@prisma/client';
 import {
   assertPostgresUrl,
+  assertPublicDatabaseHost,
   bindParams,
   sqlParamNames,
   validateBindings,
   validateOutcomeSql,
 } from '@shapi/outcome-checks';
+import { blockPrivateDatabaseHosts } from '../config.js';
 import { prisma } from '../utils/prisma.js';
 import { tenantIdFor } from '../utils/auth-context.js';
 import { decryptSecret, describeDatabaseUrl, encryptSecret } from '../utils/secrets.js';
@@ -69,6 +71,17 @@ function validateDefinition(sql: string, bindings: Record<string, string>, datab
   }
 }
 
+/** Hosted mode: the database must be on the public internet (see network.ts in @shapi/outcome-checks). */
+async function publicHostError(databaseUrl: string | undefined): Promise<string | null> {
+  if (databaseUrl === undefined || !blockPrivateDatabaseHosts()) return null;
+  try {
+    await assertPublicDatabaseHost(databaseUrl);
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
+
 export async function outcomeCheckRoutes(app: FastifyInstance) {
   async function findCheck(tenantId: string, id: string) {
     return prisma.outcomeCheck.findFirst({ where: { id, integration: { tenantId } } });
@@ -117,6 +130,8 @@ export async function outcomeCheckRoutes(app: FastifyInstance) {
     }
     const definition = validateDefinition(body.sql, body.paramBindings, body.databaseUrl);
     if ('error' in definition) return reply.code(400).send({ error: definition.error });
+    const hostError = await publicHostError(body.databaseUrl);
+    if (hostError) return reply.code(400).send({ error: hostError });
 
     const check = await prisma.outcomeCheck.create({
       data: {
@@ -149,6 +164,8 @@ export async function outcomeCheckRoutes(app: FastifyInstance) {
     const bindings = body.paramBindings ?? (existing.paramBindings as Record<string, string>);
     const definition = validateDefinition(sql, bindings, body.databaseUrl);
     if ('error' in definition) return reply.code(400).send({ error: definition.error });
+    const hostError = await publicHostError(body.databaseUrl);
+    if (hostError) return reply.code(400).send({ error: hostError });
 
     const data: Prisma.OutcomeCheckUpdateInput = {
       name: body.name,
@@ -198,6 +215,7 @@ export async function outcomeCheckRoutes(app: FastifyInstance) {
         connectionString: decryptSecret(check.databaseUrlCipher),
         sql: check.sqlQuery,
         params,
+        blockPrivateHosts: blockPrivateDatabaseHosts(),
       });
       return reply.send({ ...result, params: Object.fromEntries(names.map((name, index) => [name, params[index]])) });
     } catch (error) {
