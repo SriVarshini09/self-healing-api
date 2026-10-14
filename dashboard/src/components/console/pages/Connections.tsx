@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Cable } from 'lucide-react';
 import { fetchShapi } from '@/lib/shapi-api';
-import { Card, Empty, ErrorNote, PageHeader, Pill, errorMessage, label, statusTone, useShapi } from '../ui';
+import { Card, Empty, ErrorNote, PageHeader, Pill, errorMessage, label, sendJson, statusTone, useShapi } from '../ui';
 import type { GitHubStatus, Integration } from '../types';
 
 type WebhookSetup = { webhookUrl: string; webhookSecretConfigured: boolean; instructions: string };
@@ -13,6 +13,8 @@ export function ConnectionsPage() {
   const github = useShapi<GitHubStatus>('github/status');
   const alerts = useShapi<AlertStatus>('alerts/status');
   const list = integrations.data?.data ?? [];
+  const [adding, setAdding] = useState(false);
+  const [justAdded, setJustAdded] = useState<string | null>(null);
 
   return (
     <div className="c-page">
@@ -21,14 +23,26 @@ export function ConnectionsPage() {
         icon={<Cable />}
         tint="teal"
         sub="Where SHAPI receives events from, and where it sends repairs and alerts."
-        actions={<button className="c-btn" onClick={() => { void integrations.reload(); void github.reload(); void alerts.reload(); }}>Refresh</button>}
+        actions={
+          <>
+            <button className="c-btn" onClick={() => { void integrations.reload(); void github.reload(); void alerts.reload(); }}>Refresh</button>
+            <button className="c-btn is-primary" onClick={() => setAdding(value => !value)}>{adding ? 'Cancel' : 'Add connection'}</button>
+          </>
+        }
       />
       <ErrorNote error={integrations.error} />
-      <Card title="Integrations" tint="teal" sub="Providers that send webhooks to SHAPI.">
+      {adding && (
+        <AddConnection onCreated={id => { setAdding(false); setJustAdded(id); void integrations.reload(); }} />
+      )}
+      <Card title="Integrations" tint="teal" sub="Providers that send events to SHAPI.">
         {list.length ? (
-          <div className="c-list">{list.map(item => <IntegrationRow key={item.id} integration={item} />)}</div>
+          <div className="c-list">
+            {list.map(item => (
+              <IntegrationRow key={item.id} integration={item} startOpen={item.id === justAdded} onChanged={() => void integrations.reload()} />
+            ))}
+          </div>
         ) : (
-          <Empty>{integrations.loading && !integrations.data ? 'Loading…' : 'No integrations yet.'}</Empty>
+          <Empty>{integrations.loading && !integrations.data ? 'Loading…' : 'No connections yet. Add Stripe to start checking payments.'}</Empty>
         )}
       </Card>
 
@@ -80,12 +94,75 @@ export function ConnectionsPage() {
   );
 }
 
-function IntegrationRow({ integration }: { integration: Integration }) {
+const PROVIDERS = [
+  { type: 'STRIPE', label: 'Stripe' },
+  { type: 'GITHUB', label: 'GitHub' },
+  { type: 'SENDGRID', label: 'SendGrid' },
+  { type: 'TWILIO', label: 'Twilio' },
+  { type: 'CUSTOM', label: 'Custom webhook' },
+];
+
+function AddConnection({ onCreated }: { onCreated: (id: string) => void }) {
+  const [type, setType] = useState('STRIPE');
+  const [name, setName] = useState('Stripe');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const created = await sendJson<{ id: string }>('integrations', 'POST', { name: name.trim(), type });
+      onCreated(created.id);
+    } catch (createError) {
+      setError(errorMessage(createError, 'Could not add the connection'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card title="Add connection">
+      <form className="c-card-body c-form" onSubmit={event => void submit(event)}>
+        <label className="c-field">
+          <span className="c-label">Provider</span>
+          <select
+            className="c-select"
+            value={type}
+            onChange={event => {
+              const next = event.target.value;
+              setType(next);
+              setName(PROVIDERS.find(provider => provider.type === next)?.label ?? name);
+            }}
+          >
+            {PROVIDERS.map(provider => <option key={provider.type} value={provider.type}>{provider.label}</option>)}
+          </select>
+        </label>
+        <label className="c-field">
+          <span className="c-label">Name</span>
+          <input className="c-input" value={name} onChange={event => setName(event.target.value)} required maxLength={200} />
+        </label>
+        {error && <p className="c-note is-bad c-span-2">{error}</p>}
+        <div className="c-row c-span-2">
+          <button className="c-btn is-primary" type="submit" disabled={busy || !name.trim()}>{busy ? 'Adding…' : 'Add connection'}</button>
+          <span className="c-hint">Next you get the webhook URL to paste into the provider. For Stripe the webhook is optional if an outcome check uses a restricted key.</span>
+        </div>
+      </form>
+    </Card>
+  );
+}
+
+function IntegrationRow({ integration, startOpen = false, onChanged }: { integration: Integration; startOpen?: boolean; onChanged: () => void }) {
   const [panel, setPanel] = useState<'setup' | 'deliveries' | null>(null);
+  const [secret, setSecret] = useState('');
+  const [savingSecret, setSavingSecret] = useState(false);
+  const [secretMessage, setSecretMessage] = useState<string | null>(null);
+
   const [setup, setSetup] = useState<WebhookSetup | null>(null);
   const [deliveries, setDeliveries] = useState<Delivery[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const ready = integration.webhookEnabled && integration.webhookSecretConfigured;
+  const received = (integration._count?.webhookEvents ?? 0) > 0;
 
   const open = async (next: 'setup' | 'deliveries') => {
     if (panel === next) { setPanel(null); return; }
@@ -99,6 +176,29 @@ function IntegrationRow({ integration }: { integration: Integration }) {
     }
   };
 
+  // A just-added connection opens its setup straight away.
+  useEffect(() => {
+    if (startOpen) void open('setup');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startOpen]);
+
+  const saveSecret = async (event: FormEvent) => {
+    event.preventDefault();
+    setSavingSecret(true);
+    setSecretMessage(null);
+    try {
+      await sendJson(`integrations/${integration.id}`, 'PATCH', { webhookSecret: secret.trim() });
+      setSecret('');
+      setSecretMessage('Signing secret saved.');
+      setSetup(current => (current ? { ...current, webhookSecretConfigured: true } : current));
+      onChanged();
+    } catch (saveError) {
+      setSecretMessage(errorMessage(saveError, 'Could not save the secret'));
+    } finally {
+      setSavingSecret(false);
+    }
+  };
+
   return (
     <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div className="c-row">
@@ -108,7 +208,7 @@ function IntegrationRow({ integration }: { integration: Integration }) {
             {label(integration.type)} · {integration._count?.invariants ?? 0} rules · {integration._count?.incidents ?? 0} incidents
           </div>
         </div>
-        <Pill tone={ready ? 'ok' : 'warn'}>{ready ? 'Receiving' : 'Setup needed'}</Pill>
+        <Pill tone={received ? 'ok' : 'warn'}>{received ? 'Receiving' : 'No events yet'}</Pill>
         <button className="c-btn" onClick={() => void open('setup')}>Setup</button>
         <button className="c-btn" onClick={() => void open('deliveries')}>Deliveries</button>
       </div>
@@ -118,7 +218,26 @@ function IntegrationRow({ integration }: { integration: Integration }) {
           <span className="c-strong">Webhook endpoint</span>
           <code style={{ wordBreak: 'break-all' }}>{setup.webhookUrl}</code>
           <span style={{ whiteSpace: 'pre-line' }}>{setup.instructions}</span>
-          <span className="c-muted">Signing secret: {setup.webhookSecretConfigured ? 'configured (hidden)' : 'not configured'}.</span>
+          {integration.type === 'STRIPE' && (
+            <form className="c-row" onSubmit={event => void saveSecret(event)} style={{ marginTop: 6 }}>
+              <input
+                className="c-input c-grow"
+                type="password"
+                autoComplete="off"
+                placeholder="Paste the endpoint's signing secret (whsec_…)"
+                aria-label="Stripe signing secret"
+                value={secret}
+                onChange={event => setSecret(event.target.value)}
+              />
+              <button className="c-btn" type="submit" disabled={savingSecret || !secret.trim().startsWith('whsec_')}>Save secret</button>
+            </form>
+          )}
+          <span className="c-muted">
+            {integration.type === 'STRIPE'
+              ? 'After adding the endpoint in Stripe, reveal its signing secret there and paste it here so SHAPI can verify events. Saved secrets are never shown again.'
+              : `Signing secret: ${setup.webhookSecretConfigured ? 'configured (hidden)' : 'not configured'}.`}
+          </span>
+          {secretMessage && <span className="c-small">{secretMessage}</span>}
         </div>
       )}
       {panel === 'deliveries' && deliveries && <span className="c-strong c-small">Recent deliveries</span>}

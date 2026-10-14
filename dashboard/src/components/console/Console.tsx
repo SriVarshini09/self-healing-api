@@ -1,8 +1,8 @@
 // SHAPI console: a quiet, page-per-task dashboard.
 // Routes live in the URL hash (#/incidents/<id>) so the static build needs no server routing.
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
 import {
-  BadgeCheck, Bell, BookOpen, Cable, CircleAlert, CircleHelp, Home, ListChecks, LogOut, ScrollText, Search, ShieldCheck,
+  BadgeCheck, Bell, BookOpen, Cable, CircleAlert, CircleHelp, Home, ListChecks, LogOut, ScrollText, Search, Settings, ShieldCheck,
 } from 'lucide-react';
 import { SHAPI_API, SHAPI_KEY } from '@/lib/shapi-api';
 import { OPEN_STATUSES, type Incident, type OutcomeCheck } from './types';
@@ -13,6 +13,7 @@ import { IncidentDetailPage } from './pages/IncidentDetail';
 import { OutcomeChecksPage } from './pages/OutcomeChecks';
 import { RulesPage } from './pages/Rules';
 import { ConnectionsPage } from './pages/Connections';
+import { SettingsPage } from './pages/Settings';
 import './console.css';
 
 const DOCS_URL = 'https://github.com/SriVarshini09/self-healing-api#readme';
@@ -47,7 +48,13 @@ const NAV_SECTIONS: Array<{ label?: string; items: NavItem[] }> = [
       { route: 'rules', label: 'Rules', icon: <ScrollText /> },
     ],
   },
-  { label: 'Setup', items: [{ route: 'connections', label: 'Connections', icon: <Cable /> }] },
+  {
+    label: 'Setup',
+    items: [
+      { route: 'connections', label: 'Connections', icon: <Cable /> },
+      { route: 'settings', label: 'Settings', icon: <Settings /> },
+    ],
+  },
 ];
 
 type ShellStats = { workspace?: { name: string }; totals?: { outcomesPassed: number; outcomesFailed: number } };
@@ -79,6 +86,7 @@ function Shell() {
   else if (section === 'checks') page = <OutcomeChecksPage />;
   else if (section === 'rules') page = <RulesPage />;
   else if (section === 'connections') page = <ConnectionsPage />;
+  else if (section === 'settings') page = <SettingsPage />;
   else page = <OverviewPage go={go} />;
 
   return (
@@ -221,9 +229,57 @@ function SearchBox({ incidents, checks, go }: { incidents: Incident[]; checks: O
   );
 }
 
-type AuthState = 'checking' | 'ready' | 'login' | 'unconfigured';
+type AuthConfig = { oidcEnabled: boolean; passwordLogin: boolean; signup: 'closed' | 'invite' | 'open' };
+type AuthState = { status: 'checking' } | { status: 'ready' } | { status: 'signin'; config: AuthConfig } | { status: 'error'; message: string };
 
-function AccessScreen({ state, message }: { state: Exclude<AuthState, 'ready'>; message: string | null }) {
+async function postAuth(path: string, body: unknown): Promise<void> {
+  const response = await fetch(`${SHAPI_API}/${path}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const failure = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(failure?.error ?? `Request failed (${response.status})`);
+  }
+}
+
+function AccessScreen({ state, onSignedIn }: { state: Exclude<AuthState, { status: 'ready' }>; onSignedIn: () => void }) {
+  const config = state.status === 'signin' ? state.config : null;
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [form, setForm] = useState({ workspaceName: '', name: '', email: '', password: '', inviteCode: '' });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const set = (field: keyof typeof form) => (event: { target: { value: string } }) => setForm(current => ({ ...current, [field]: event.target.value }));
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      if (mode === 'signin') {
+        await postAuth('auth/password/login', { email: form.email, password: form.password });
+      } else {
+        await postAuth('auth/signup', {
+          workspaceName: form.workspaceName,
+          name: form.name,
+          email: form.email,
+          password: form.password,
+          ...(config?.signup === 'invite' ? { inviteCode: form.inviteCode } : {}),
+        });
+        window.location.hash = '/overview';
+      }
+      onSignedIn();
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Something went wrong');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const canSignUp = config ? config.signup !== 'closed' : false;
+
   return (
     <div className="c-app">
       <div className="c-access">
@@ -232,19 +288,65 @@ function AccessScreen({ state, message }: { state: Exclude<AuthState, 'ready'>; 
             <span className="c-brand-mark"><ShieldCheck /></span>
             <span className="c-brand-name">SHAPI</span>
           </div>
-          {state === 'checking' ? (
-            <p className="c-muted" style={{ marginTop: 20 }}>Checking access…</p>
-          ) : state === 'login' ? (
+          {state.status === 'checking' && <p className="c-muted" style={{ marginTop: 20 }}>Checking access…</p>}
+          {state.status === 'error' && (
             <>
-              <h2 className="c-card-title" style={{ margin: '22px 0 6px' }}>Sign in to continue</h2>
-              <p className="c-muted" style={{ margin: '0 0 18px' }}>This dashboard uses your organization&apos;s single sign-on. No API key is stored in the browser.</p>
-              <a className="c-btn is-primary" href={`${SHAPI_API}/auth/login`} style={{ color: '#fff', textDecoration: 'none' }}>Sign in with SSO</a>
+              <h2 className="c-card-title" style={{ margin: '22px 0 6px' }}>Can't reach SHAPI</h2>
+              <p className="c-note is-bad">{state.message}</p>
             </>
-          ) : (
+          )}
+          {config && (
             <>
-              <h2 className="c-card-title" style={{ margin: '22px 0 6px' }}>Dashboard sign-in is not configured</h2>
-              <p className="c-muted" style={{ margin: 0 }}>Configure OIDC for browser sign-in, or provide a tenant API key through the dashboard runtime configuration.</p>
-              {message && <p className="c-note is-bad" style={{ marginTop: 12 }}>{message}</p>}
+              <h2 className="c-card-title" style={{ margin: '22px 0 4px' }}>{mode === 'signin' ? 'Sign in to continue' : 'Create your workspace'}</h2>
+              <p className="c-muted" style={{ margin: '0 0 16px' }}>
+                {mode === 'signin'
+                  ? 'Check that every paying customer actually got access.'
+                  : 'Takes a minute. You can connect Stripe right after.'}
+              </p>
+              {canSignUp && (
+                <div className="c-seg" role="tablist" aria-label="Sign in or sign up" style={{ marginBottom: 16 }}>
+                  <button type="button" role="tab" aria-selected={mode === 'signin'} onClick={() => { setMode('signin'); setError(null); }}>Sign in</button>
+                  <button type="button" role="tab" aria-selected={mode === 'signup'} onClick={() => { setMode('signup'); setError(null); }}>Create workspace</button>
+                </div>
+              )}
+              <form onSubmit={event => void submit(event)} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {mode === 'signup' && (
+                  <>
+                    <label className="c-field"><span className="c-label">Workspace name</span>
+                      <input className="c-input" value={form.workspaceName} onChange={set('workspaceName')} placeholder="Acme Inc." required minLength={2} maxLength={80} autoComplete="organization" />
+                    </label>
+                    <label className="c-field"><span className="c-label">Your name</span>
+                      <input className="c-input" value={form.name} onChange={set('name')} required maxLength={80} autoComplete="name" />
+                    </label>
+                  </>
+                )}
+                <label className="c-field"><span className="c-label">Work email</span>
+                  <input className="c-input" type="email" value={form.email} onChange={set('email')} required autoComplete="email" />
+                </label>
+                <label className="c-field"><span className="c-label">Password</span>
+                  <input
+                    className="c-input" type="password" value={form.password} onChange={set('password')} required
+                    minLength={mode === 'signup' ? 10 : 1} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                  />
+                  {mode === 'signup' && <span className="c-hint">At least 10 characters.</span>}
+                </label>
+                {mode === 'signup' && config.signup === 'invite' && (
+                  <label className="c-field"><span className="c-label">Invite code</span>
+                    <input className="c-input" value={form.inviteCode} onChange={set('inviteCode')} required autoComplete="off" />
+                    <span className="c-hint">SHAPI is in private beta. Ask the team for a code.</span>
+                  </label>
+                )}
+                {error && <p className="c-note is-bad">{error}</p>}
+                <button className="c-btn is-primary" type="submit" disabled={busy}>
+                  {busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create workspace'}
+                </button>
+              </form>
+              {config.oidcEnabled && (
+                <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <span className="c-hint" style={{ textAlign: 'center' }}>or</span>
+                  <a className="c-btn" href={`${SHAPI_API}/auth/login`} style={{ color: 'var(--c-ink)', textDecoration: 'none' }}>Sign in with SSO</a>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -254,8 +356,7 @@ function AccessScreen({ state, message }: { state: Exclude<AuthState, 'ready'>; 
 }
 
 export function Console() {
-  const [authState, setAuthState] = useState<AuthState>(SHAPI_KEY ? 'ready' : 'checking');
-  const [authMessage, setAuthMessage] = useState<string | null>(null);
+  const [authState, setAuthState] = useState<AuthState>(SHAPI_KEY ? { status: 'ready' } : { status: 'checking' });
 
   useEffect(() => {
     const themeColor = document.querySelector('meta[name="theme-color"]');
@@ -272,23 +373,27 @@ export function Console() {
       try {
         const sessionResponse = await fetch(`${SHAPI_API}/auth/me`, { credentials: 'include' });
         if (sessionResponse.ok) {
-          if (active) setAuthState('ready');
+          if (active) setAuthState({ status: 'ready' });
           return;
         }
         const configResponse = await fetch(`${SHAPI_API}/auth/config`, { credentials: 'include' });
         if (!configResponse.ok) throw new Error(`Authentication configuration unavailable (${configResponse.status})`);
-        const authConfig = await configResponse.json() as { oidcEnabled?: boolean };
-        if (active) setAuthState(authConfig.oidcEnabled ? 'login' : 'unconfigured');
-      } catch (error) {
+        const raw = await configResponse.json() as Partial<AuthConfig>;
         if (active) {
-          setAuthState('unconfigured');
-          setAuthMessage(error instanceof Error ? error.message : 'Could not check dashboard access');
+          setAuthState({
+            status: 'signin',
+            config: { oidcEnabled: Boolean(raw.oidcEnabled), passwordLogin: raw.passwordLogin !== false, signup: raw.signup ?? 'closed' },
+          });
         }
+      } catch (error) {
+        if (active) setAuthState({ status: 'error', message: error instanceof Error ? error.message : 'Could not check dashboard access' });
       }
     };
     void checkAccess();
     return () => { active = false; };
   }, []);
 
-  return authState === 'ready' ? <Shell /> : <AccessScreen state={authState} message={authMessage} />;
+  return authState.status === 'ready'
+    ? <Shell />
+    : <AccessScreen state={authState} onSignedIn={() => setAuthState({ status: 'ready' })} />;
 }
