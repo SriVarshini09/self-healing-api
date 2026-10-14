@@ -163,6 +163,9 @@ jobs:
       - name: Outcome checks end to end (webhook -> query -> incident, reconcile)
         run: pnpm --filter @shapi/backend e2e:outcomes
 
+      - name: Self-serve onboarding end to end (sign-up, session, Stripe connection, API key, sign-in)
+        run: pnpm --filter @shapi/backend e2e:onboarding
+
   benchmark:
     runs-on: ubuntu-24.04
     services:

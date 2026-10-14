@@ -58,6 +58,12 @@ curl -X POST $D/admin/failure-mode -H 'content-type: application/json' -d '{"ena
 
 Step-by-step for a real app (read-only database user, restricted Stripe key, first check, test): [docs/QUICK-SETUP.md](docs/QUICK-SETUP.md).
 
+**Self-serve sign-up.** Teams can create their own workspace in the dashboard (email and password, with SSO still available).
+
+- `SHAPI_SIGNUP_MODE=invite` (default) requires `SHAPI_SIGNUP_INVITE_CODE`. Without a code, sign-up is closed.
+- `open` lets anyone sign up. `closed` disables it.
+- Passwords are scrypt-hashed, and sign-up/sign-in are rate-limited to 10 attempts per 15 minutes per IP.
+
 The fastest way to connect a real app. Tell SHAPI what "provisioned" looks like
 in **your own Postgres database**, and it checks every paying customer:
 

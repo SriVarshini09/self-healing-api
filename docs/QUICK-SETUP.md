@@ -12,6 +12,13 @@ SHAPI never writes to your database and never needs code changes in your app.
 - Read access to your production Postgres. You'll create a read-only user below.
 - Your Stripe Dashboard.
 
+## 0. Create your workspace (1 min)
+
+Open the SHAPI dashboard and choose **Create workspace**. During the beta you
+need an invite code. You land on the Overview, where a **Get started**
+checklist tracks the steps below. To add Stripe, use **Connections → Add
+connection**. For API keys (scripts, CI, the SDK), use **Settings**.
+
 ## 1. Create a read-only database user (3 min)
 
 Run this as an admin. Grant `SELECT` only on the tables your check reads.
