@@ -18,7 +18,9 @@ function readKey(): string {
   const file = index >= 0 ? process.argv[index + 1] : undefined;
   let key = process.env.STRIPE_TEST_KEY;
   if (file) {
-    const line = fs.readFileSync(file, 'utf8').split(/\r?\n/).find(l => l.startsWith('STRIPE_TEST_KEY='));
+    // Tolerate a UTF-8 byte-order mark (some Windows editors add one) and stray spaces.
+    const line = fs.readFileSync(file, 'utf8').replace(/^﻿/, '').split(/\r?\n/).map(l => l.trim())
+      .find(l => l.startsWith('STRIPE_TEST_KEY='));
     key = line?.slice('STRIPE_TEST_KEY='.length).trim().replace(/^["']|["']$/g, '');
   }
   if (!key) throw new Error('STRIPE_TEST_KEY not found (pass --key-file <file> containing STRIPE_TEST_KEY=sk_test_...)');
