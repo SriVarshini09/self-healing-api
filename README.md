@@ -10,7 +10,7 @@ provisioned.
 | Capability | Status |
 |---|---|
 | Behavioral invariants (executable predicates over webhook events, evaluated over time windows) | Working, tested |
-| **Outcome checks**: SQL against your own database after each Stripe payment, no SDK; Stripe Events reconcile with a restricted key | Working, end-to-end tested in CI against real Postgres. Not yet run against a live Stripe account |
+| **Outcome checks**: SQL against your own database after each Stripe payment, no SDK; Stripe Events reconcile with a restricted key | Working, end-to-end tested in CI against real Postgres, and verified against a real Stripe sandbox on 2026-10-14 (`stripe:live-test`: real payments, Events API reconcile, 1 passed / 1 failed / incident) |
 | Detection of silent failures + incident lifecycle (DETECTED → TRIAGED → … → RESOLVED) | Working. Demonstrated live: 3 healthy payments provisioned, 6 silent failures (all HTTP 200) opened a HIGH incident |
 | Statistical drift detection (two-proportion z-test) | Working, tested |
 | Detection benchmark on real code: [`benchmark/`](benchmark/README.md) | Vercel's `nextjs/saas-starter` (16k stars), unmodified handler, real Postgres: **9/10 injected webhook bugs detected (8/9 silent ones), 0 false positives**, plus 1 real bug found in the unmodified kit. One kit so far |
