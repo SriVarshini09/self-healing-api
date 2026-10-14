@@ -94,6 +94,7 @@ export function SecurityPage({ signedOut = false }: { signedOut?: boolean }) {
           <Fact icon={<Database />} title="Stripe events you send to SHAPI">
             Stored so checks can run and incidents can show what happened. They contain what Stripe puts in them, which can
             include customer emails. Today they are kept while your workspace exists; retention settings are on the roadmap.
+            To spot Stripe changes, SHAPI also keeps each event type's field names and value kinds, never the values.
           </Fact>
           <Fact icon={<Lock />} title="Accounts">
             Passwords are hashed with scrypt. API keys and session tokens are stored only as SHA-256 hashes. Sessions use

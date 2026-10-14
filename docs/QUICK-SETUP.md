@@ -114,6 +114,15 @@ copy its JSON. In SHAPI, click **Test** on your check and paste the event.
 To catch problems in minutes rather than up to 15, add a Stripe webhook
 endpoint pointing at SHAPI. Copy the exact URL from **Connections → Setup**.
 
+## Stripe changes are watched automatically
+
+Once webhooks arrive, SHAPI learns the fields of every Stripe event type. When
+Stripe starts sending a new API version, or a field that was always there
+disappears or changes type (an id becomes an expanded object), you get one
+incident listing the changes, marked high when one of your outcome checks reads
+the field. Your own webhook handler likely reads it too. See **Connections →
+Stripe changes**. Nothing to set up.
+
 ## 7. Get alerted (1 min)
 
 Go to **Settings → Alerts → Add destination**:

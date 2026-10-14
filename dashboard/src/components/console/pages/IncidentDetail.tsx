@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { fetchShapi } from '@/lib/shapi-api';
 import { Card, Empty, ErrorNote, Pill, cleanTitle, errorMessage, label, sendJson, severityTone, statusTone, timeAgo, useShapi } from '../ui';
+import { IncidentStripeChanges, isStripeChangeIncident } from './StripeChanges';
 import {
   OPEN_STATUSES,
   type GitHubInstallation,
@@ -69,7 +70,9 @@ export function IncidentDetailPage({ id, go }: { id: string; go: (route: string)
             <span className="c-muted c-small">{incident.integration?.name} · detected {timeAgo(incident.detectedAt)}</span>
           </div>
           <h1 className="c-page-title">{cleanTitle(incident.invariant?.name ?? incident.title)}</h1>
-          {incident.description && <p className="c-page-sub">{incident.description}</p>}
+          {incident.description && (
+            <p className="c-page-sub">{isStripeChangeIncident(incident.title) ? incident.description.split('\n')[0] : incident.description}</p>
+          )}
         </div>
         {isOpen && (
           <div className="c-row">
@@ -80,6 +83,8 @@ export function IncidentDetailPage({ id, go }: { id: string; go: (route: string)
       </header>
 
       {message && <p className={`c-note is-${message.tone === 'info' ? 'warn' : message.tone}`}>{message.text}</p>}
+
+      {isStripeChangeIncident(incident.title) && <IncidentStripeChanges incidentId={incident.id} />}
 
       <Card
         title="What happened"
