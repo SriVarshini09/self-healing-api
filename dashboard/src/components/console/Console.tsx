@@ -2,7 +2,7 @@
 // Routes live in the URL hash (#/incidents/<id>) so the static build needs no server routing.
 import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
 import {
-  BadgeCheck, Bell, BookOpen, Cable, CircleAlert, CircleHelp, Home, ListChecks, LogOut, ScrollText, Search, Settings, ShieldCheck,
+  BadgeCheck, Bell, BookOpen, Cable, CircleAlert, CircleHelp, Home, ListChecks, LockKeyhole, LogOut, ScrollText, Search, Settings, ShieldCheck,
 } from 'lucide-react';
 import { SHAPI_API, SHAPI_KEY } from '@/lib/shapi-api';
 import { OPEN_STATUSES, type Incident, type OutcomeCheck } from './types';
@@ -14,6 +14,7 @@ import { OutcomeChecksPage } from './pages/OutcomeChecks';
 import { RulesPage } from './pages/Rules';
 import { ConnectionsPage } from './pages/Connections';
 import { SettingsPage } from './pages/Settings';
+import { SecurityPage } from './pages/Security';
 import './console.css';
 
 const DOCS_URL = 'https://github.com/SriVarshini09/self-healing-api#readme';
@@ -53,6 +54,7 @@ const NAV_SECTIONS: Array<{ label?: string; items: NavItem[] }> = [
     items: [
       { route: 'connections', label: 'Connections', icon: <Cable /> },
       { route: 'settings', label: 'Settings', icon: <Settings /> },
+      { route: 'security', label: 'Security', icon: <LockKeyhole /> },
     ],
   },
 ];
@@ -87,6 +89,7 @@ function Shell() {
   else if (section === 'rules') page = <RulesPage />;
   else if (section === 'connections') page = <ConnectionsPage />;
   else if (section === 'settings') page = <SettingsPage />;
+  else if (section === 'security') page = <SecurityPage />;
   else page = <OverviewPage go={go} />;
 
   return (
@@ -170,6 +173,7 @@ function SearchBox({ incidents, checks, go }: { incidents: Incident[]; checks: O
       { key: 'p-checks', label: 'Outcome checks', kind: 'Page', route: 'checks' },
       { key: 'p-rules', label: 'Rules', kind: 'Page', route: 'rules' },
       { key: 'p-connections', label: 'Connections', kind: 'Page', route: 'connections' },
+      { key: 'p-security', label: 'Security', kind: 'Page', route: 'security' },
     ];
     const all: SearchResult[] = [
       ...incidents.map(incident => ({
@@ -341,6 +345,7 @@ function AccessScreen({ state, onSignedIn }: { state: Exclude<AuthState, { statu
                   {busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create workspace'}
                 </button>
               </form>
+              <a className="c-hint" href="#/security" style={{ display: 'block', marginTop: 14, textAlign: 'center' }}>How SHAPI handles your data</a>
               {config.oidcEnabled && (
                 <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <span className="c-hint" style={{ textAlign: 'center' }}>or</span>
@@ -393,6 +398,11 @@ export function Console() {
     return () => { active = false; };
   }, []);
 
+  const [route] = useRoute();
+  if (authState.status !== 'ready' && route === 'security') {
+    // Readable before signing up: it only calls the public /trust endpoint.
+    return <div className="c-app"><main className="c-main"><div className="c-content" style={{ maxWidth: 1000, width: '100%', margin: '0 auto' }}><SecurityPage signedOut /></div></main></div>;
+  }
   return authState.status === 'ready'
     ? <Shell />
     : <AccessScreen state={authState} onSignedIn={() => setAuthState({ status: 'ready' })} />;
