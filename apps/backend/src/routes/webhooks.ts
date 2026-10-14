@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { prisma } from '../utils/prisma.js';
 import { logger } from '../utils/logger.js';
+import { queueIncidentAlert } from '../services/alert-queue.js';
 import crypto from 'crypto';
 import type {
   Prisma} from '@prisma/client';
@@ -563,7 +564,7 @@ async function createDriftIncident(
         ? IncidentSeverity.HIGH
         : IncidentSeverity.MEDIUM;
 
-  await prisma.incident.create({
+  const incident = await prisma.incident.create({
     data: {
       integrationId: invariant.integrationId,
       invariantId,
@@ -573,4 +574,5 @@ async function createDriftIncident(
       status: IncidentStatus.DETECTED,
     },
   });
+  await queueIncidentAlert(incident.id);
 }

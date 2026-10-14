@@ -6,6 +6,7 @@ import { alertRoutes } from '../alerts.js';
 
 const fake = vi.hoisted(() => ({
   whereClauses: [] as Array<Record<string, unknown>>,
+  destinationWhere: [] as Array<Record<string, unknown>>,
 }));
 
 vi.mock('../../config.js', () => ({
@@ -20,6 +21,12 @@ vi.mock('../../utils/prisma.js', () => ({
         return 1;
       },
     },
+    alertDestination: {
+      count: async ({ where }: { where: Record<string, unknown> }) => {
+        fake.destinationWhere.push(where);
+        return 2;
+      },
+    },
   },
 }));
 
@@ -28,6 +35,7 @@ describe('alert status tenant isolation', () => {
 
   beforeEach(async () => {
     fake.whereClauses.length = 0;
+    fake.destinationWhere.length = 0;
     app = Fastify();
     app.addHook('onRequest', async request => {
       (request as AuthenticatedRequest).shapiAuth = {
@@ -52,6 +60,7 @@ describe('alert status tenant isolation', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({
       webhookConfigured: true,
+      destinations: 2,
       pending: 1,
       processing: 1,
       retrying: 1,
@@ -64,5 +73,6 @@ describe('alert status tenant isolation', () => {
         incident: { integration: { tenantId: 'tenant-42' } },
       });
     }
+    expect(fake.destinationWhere).toEqual([{ tenantId: 'tenant-42', enabled: true }]);
   });
 });

@@ -25,6 +25,7 @@ model Tenant {
   apiKeys       APIKey[]
   trackedEvents TrackedEvent[]
   users         User[]
+  alertDestinations AlertDestination[]
 }
 
 model Integration {
@@ -481,4 +482,31 @@ enum OutcomeRunStatus {
   PASSED
   FAILED
   ERROR
+}
+
+// Where a workspace wants incident alerts: a Slack incoming webhook or email
+// recipients. Deliveries reuse the AlertDelivery outbox with channel
+// "dest:<destinationId>:<detected|resolved>" (one per incident per event).
+model AlertDestination {
+  id              String   @id @default(uuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  kind            AlertDestinationKind
+  name            String
+  // AES-256-GCM ciphertext of the Slack webhook URL; never returned by the API.
+  slackUrlCipher  String?  @db.Text
+  emails          String[] @default([])
+  enabled         Boolean  @default(true)
+  notifyResolved  Boolean  @default(true)
+  lastDeliveredAt DateTime?
+  lastError       String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+enum AlertDestinationKind {
+  SLACK
+  EMAIL
 }

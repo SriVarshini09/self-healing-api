@@ -21,7 +21,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "e2e:outcomes": "tsx scripts/e2e-outcome-checks.ts",
     "e2e:onboarding": "tsx scripts/e2e-onboarding.ts",
-    "stripe:live-test": "tsx scripts/stripe-live-test.ts"
+    "stripe:live-test": "tsx scripts/stripe-live-test.ts",
+    "e2e:alerts": "tsx scripts/e2e-alerts.ts"
   },
   "dependencies": {
     "@fastify/cors": "^8.4.1",

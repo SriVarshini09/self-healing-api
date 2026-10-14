@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { queueIncidentAlert } from '../services/alert-queue.js';
 import { prisma } from '../utils/prisma.js';
 import { GitHubPRStatus, IncidentStatus, IntegrationType, Prisma, WebhookEventStatus } from '@prisma/client';
 import crypto from 'crypto';
@@ -672,6 +673,7 @@ export async function githubRoutes(app: FastifyInstance) {
         where: { id: pr.incidentId },
         data: { status: IncidentStatus.RESOLVED, resolvedAt: new Date() },
       });
+      await queueIncidentAlert(pr.incidentId, 'resolved');
     }
 
     return reply.send({
@@ -756,6 +758,7 @@ async function handlePullRequestEvent(payload: Record<string, unknown>, integrat
         where: { id: ourPR.incidentId },
         data: { status: IncidentStatus.RESOLVED, resolvedAt: new Date() },
       });
+      await queueIncidentAlert(ourPR.incidentId, 'resolved');
     }
   }
 }

@@ -67,6 +67,9 @@ const configSchema = z.object({
   ALERT_WEBHOOK_SECRET: z.preprocess(value => value === '' ? undefined : value, z.string().optional()),
   ALERT_WEBHOOK_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
   ALERT_WEBHOOK_MAX_ATTEMPTS: z.coerce.number().int().positive().default(3),
+  // Email alerts via Resend (https://resend.com). Both must be set for email destinations to send.
+  RESEND_API_KEY: z.preprocess(value => value === '' ? undefined : value, z.string().optional()),
+  ALERT_EMAIL_FROM: z.preprocess(value => value === '' ? undefined : value, z.string().optional()),
   // Frontend URLs
   DASHBOARD_URL: z.string().url().default('http://localhost:5173'),
   DEMO_SAAS_URL: z.string().url().default('http://localhost:3000')
