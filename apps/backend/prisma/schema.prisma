@@ -37,6 +37,8 @@ model Integration {
   config          Json
   webhookSecret   String?  @unique
   webhookEnabled  Boolean  @default(true)
+  // Latest provider API version seen on webhooks (Stripe: event.api_version).
+  providerApiVersion String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -46,6 +48,8 @@ model Integration {
   githubInstalls  GitHubInstallation[]
   driftConfig     DriftDetectionConfig?
   outcomeChecks   OutcomeCheck[]
+  stripeEventShapes StripeEventShape[]
+  stripeChanges   StripeChange[]
 
   @@index([type])
   @@index([tenantId])
@@ -164,6 +168,7 @@ model Incident {
   repairCandidates RepairCandidate[]
   githubPRs       GitHubPullRequest[]
   alertDeliveries AlertDelivery[]
+  stripeChanges   StripeChange[]
 
   @@index([integrationId, status])
   @@index([invariantId])
@@ -509,4 +514,48 @@ model AlertDestination {
 enum AlertDestinationKind {
   SLACK
   EMAIL
+}
+
+// Learned shape of one Stripe webhook event type: field paths and value-kind
+// counts only, never values (see services/stripe-shape.ts).
+model StripeEventShape {
+  id            String   @id @default(uuid())
+  integrationId String
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  eventType     String
+  samples       Int      @default(0)
+  paths         Json     @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([integrationId, eventType])
+}
+
+// A change in what Stripe sends: a new API version, or a field that was always
+// present disappearing or changing type.
+model StripeChange {
+  id               String   @id @default(uuid())
+  integrationId    String
+  integration      Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  incidentId       String?
+  incident         Incident? @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+  kind             StripeChangeKind
+  eventType        String?
+  path             String?
+  before           String?
+  after            String?
+  apiVersion       String?
+  sourceEventId    String?
+  // Outcome checks that read this field (their bindings overlap the path).
+  affectedCheckIds String[] @default([])
+  detectedAt       DateTime @default(now())
+
+  @@index([integrationId, detectedAt])
+  @@index([incidentId])
+}
+
+enum StripeChangeKind {
+  API_VERSION
+  FIELD_REMOVED
+  TYPE_CHANGED
 }

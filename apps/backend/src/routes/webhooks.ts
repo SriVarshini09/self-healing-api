@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { prisma } from '../utils/prisma.js';
 import { logger } from '../utils/logger.js';
 import { queueIncidentAlert } from '../services/alert-queue.js';
+import { observeStripeEvent } from '../services/stripe-changes.js';
 import crypto from 'crypto';
 import type {
   Prisma} from '@prisma/client';
@@ -135,6 +136,8 @@ async function handleStripeWebhook(request: WebhookRequest, reply: FastifyReply)
   processWebhookEvent(webhookEvent.id, candidate.id, eventType, payload).catch(err => {
     logger.error(err, 'Failed to process webhook event');
   });
+  // Stripe change monitor (API version, fields removed or retyped). Never throws.
+  void observeStripeEvent(candidate.id, payload);
 
   return reply.code(200).send({ received: true, eventId: webhookEvent.id });
 }
