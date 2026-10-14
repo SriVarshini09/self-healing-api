@@ -48,6 +48,7 @@ provisioned. The [query runner](packages/outcome-checks/src/runner.ts) enforces:
 | Database URLs, Stripe restricted keys, Slack webhook URLs | AES-256-GCM with a random IV per value. Never returned by the API after saving; the dashboard shows only host and database name. Deleting a check deletes its credentials. |
 | Stripe webhook signing secrets | In SHAPI's database without field-level encryption. A leaked signing secret lets someone send events *to* SHAPI; it grants no access to your Stripe account. |
 | Stripe events sent to SHAPI's webhook | Stored so checks can run and incidents can show what happened. They contain what Stripe sends, which can include customer emails. Kept while the workspace exists; retention settings are planned. |
+| Learned Stripe event shapes (change monitor) | Field names and value kinds (string, object, …) per event type, with counts. Never values. |
 | Passwords | scrypt (N=16384, r=8, p=1) with a per-password salt. |
 | API keys, session tokens | SHA-256 hashes only. Sessions use `HttpOnly`, `SameSite=Lax` cookies (`Secure` in production). |
 

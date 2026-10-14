@@ -176,6 +176,9 @@ jobs:
       - name: Encryption key setup and rotation end to end (stored secrets never stranded)
         run: pnpm --filter @shapi/backend e2e:key-rotation
 
+      - name: Stripe change monitor end to end (API version upgrade, moved field, one incident and alert)
+        run: pnpm --filter @shapi/backend e2e:stripe-changes
+
   benchmark:
     runs-on: ubuntu-24.04
     services:

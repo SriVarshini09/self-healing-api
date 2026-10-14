@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Cable } from 'lucide-react';
 import { fetchShapi } from '@/lib/shapi-api';
 import { Card, Empty, ErrorNote, PageHeader, Pill, errorMessage, label, sendJson, statusTone, useShapi } from '../ui';
+import { StripeChangesCard } from './StripeChanges';
 import type { GitHubStatus, Integration } from '../types';
 
 type WebhookSetup = { webhookUrl: string; webhookSecretConfigured: boolean; instructions: string };
@@ -45,6 +46,8 @@ export function ConnectionsPage() {
           <Empty>{integrations.loading && !integrations.data ? 'Loading…' : 'No connections yet. Add Stripe to start checking payments.'}</Empty>
         )}
       </Card>
+
+      <StripeChangesCard />
 
       <div className="c-grid-2">
         <Card title="GitHub" tint="lavender" sub="Used to open reviewed repair pull requests.">
