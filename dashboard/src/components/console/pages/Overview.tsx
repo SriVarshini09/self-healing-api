@@ -68,6 +68,14 @@ export function OverviewPage({ go }: { go: (route: string) => void }) {
         </div>
       </header>
       <ErrorNote error={stats.error ?? incidents.error} />
+      {data && checks.data && (
+        <GetStarted
+          go={go}
+          hasStripe={data.integrations.some(integration => integration.type === 'STRIPE')}
+          hasCheck={checkList.length > 0}
+          hasVerified={data.totals.outcomesPassed > 0 || checkList.some(check => (check.runsLast24h?.PASSED ?? 0) > 0)}
+        />
+      )}
 
       <section className="c-panel" aria-label="Outcome health">
         <div className="c-panel-top">
@@ -76,7 +84,7 @@ export function OverviewPage({ go }: { go: (route: string) => void }) {
             <div className="c-ring-row">
               <Ring value={health} />
               <div>
-                <div className="c-big">{health === null ? '—' : health.toFixed(health >= 99.95 || health === 0 ? 0 : 1)}<small>%</small></div>
+                <div className="c-big">{health === null ? '—' : <>{health.toFixed(health >= 99.95 || health === 0 ? 0 : 1)}<small>%</small></>}</div>
                 <div className="c-muted">
                   {data
                     ? outcomes
@@ -148,7 +156,7 @@ export function OverviewPage({ go }: { go: (route: string) => void }) {
             })}
           </div>
         ) : (
-          <div className="c-card"><Empty>{incidents.data ? 'Nothing needs attention. Every customer outcome SHAPI checked looks right.' : 'Loading…'}</Empty></div>
+          <div className="c-card"><Empty>{!incidents.data ? 'Loading…' : checkList.length ? 'Nothing needs attention. Every customer outcome SHAPI checked looks right.' : 'Nothing to review yet. Incidents appear here once an outcome check is running.'}</Empty></div>
         )}
       </section>
 
@@ -243,6 +251,40 @@ export function OverviewPage({ go }: { go: (route: string) => void }) {
         </section>
       </div>
     </div>
+  );
+}
+
+function GetStarted({ go, hasStripe, hasCheck, hasVerified }: { go: (route: string) => void; hasStripe: boolean; hasCheck: boolean; hasVerified: boolean }) {
+  const steps = [
+    { done: true, title: 'Create your workspace', detail: 'Done.', action: null },
+    { done: hasStripe, title: 'Connect Stripe', detail: 'Add a Stripe connection so SHAPI knows where payments come from.', action: { label: 'Add connection', route: 'connections' } },
+    { done: hasCheck, title: 'Add an outcome check', detail: 'Write the query that proves a paying customer got access.', action: { label: 'New check', route: 'checks' } },
+    { done: hasVerified, title: 'Verify your first customer outcome', detail: 'Test the check with a real Stripe event, or let the next payment come in.', action: { label: 'Test a check', route: 'checks' } },
+  ];
+  const doneCount = steps.filter(step => step.done).length;
+  if (doneCount === steps.length) return null;
+  return (
+    <section className="c-card" aria-label="Get started">
+      <div className="c-card-head">
+        <div>
+          <h2 className="c-card-title">Get started</h2>
+          <p className="c-card-sub">{doneCount} of {steps.length} done · about 15 minutes · <a href="https://github.com/SriVarshini09/self-healing-api/blob/master/docs/QUICK-SETUP.md" target="_blank" rel="noreferrer">setup guide</a></p>
+        </div>
+        <div className="c-progress" style={{ width: 160, margin: 0 }}><span style={{ width: `${(doneCount / steps.length) * 100}%` }} /></div>
+      </div>
+      <div className="c-list">
+        {steps.map(step => (
+          <div key={step.title} className="c-list-row">
+            <span className={`c-check${step.done ? ' is-done' : ''}`}>{step.done && <Check />}</span>
+            <div className="c-grow">
+              <div className={step.done ? 'c-muted' : 'c-strong'}>{step.title}</div>
+              {!step.done && <div className="c-muted c-small">{step.detail}</div>}
+            </div>
+            {!step.done && step.action && <button className="c-btn" onClick={() => go(step.action!.route)}>{step.action.label}</button>}
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
