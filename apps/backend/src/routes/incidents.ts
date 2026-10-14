@@ -11,6 +11,7 @@ import {
 } from '@prisma/client';
 import { z } from 'zod';
 import { tenantIdFor } from '../utils/auth-context.js';
+import { queueIncidentAlert } from '../services/alert-queue.js';
 import { generateRepairCandidates, repairCandidateReadiness } from '../services/repair.js';
 
 const replaySchema = z.object({
@@ -112,6 +113,9 @@ export async function incidentRoutes(app: FastifyInstance) {
         githubPRs: true,
       },
     });
+    if (data.status === IncidentStatus.RESOLVED && existing.status !== IncidentStatus.RESOLVED) {
+      await queueIncidentAlert(incident.id, 'resolved');
+    }
     return reply.send({
       ...incident,
       repairCandidates: withRepairReadiness(incident.repairCandidates, incident.invariant?.repairRequiredChecks ?? []),

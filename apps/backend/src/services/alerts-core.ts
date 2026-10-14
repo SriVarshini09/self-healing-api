@@ -61,3 +61,100 @@ export function alertProcessingCutoff(
 ): Date {
   return new Date(now.getTime() - leaseMs);
 }
+
+// ---------------------------------------------------------------------------
+// Workspace alert destinations (Slack, email)
+// ---------------------------------------------------------------------------
+
+export type AlertEvent = 'detected' | 'resolved';
+
+export function destinationChannel(destinationId: string, event: AlertEvent): string {
+  return `dest:${destinationId}:${event}`;
+}
+
+export function parseDestinationChannel(channel: string): { destinationId: string; event: AlertEvent } | null {
+  const match = /^dest:([^:]+):(detected|resolved)$/.exec(channel);
+  return match ? { destinationId: match[1], event: match[2] as AlertEvent } : null;
+}
+
+/**
+ * Only real Slack incoming-webhook URLs are accepted, so a destination can't be
+ * used to make SHAPI send requests to arbitrary hosts.
+ */
+export function isSlackWebhookUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && url.hostname === 'hooks.slack.com' && url.pathname.startsWith('/services/') && !url.port;
+  } catch {
+    return false;
+  }
+}
+
+const EMAIL_PATTERN = /^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+$/;
+export function isEmail(value: string): boolean {
+  return EMAIL_PATTERN.test(value) && value.length <= 200;
+}
+
+/** Plain-words incident title: "Invariant violated: Outcome: X" -> "X". */
+export function plainTitle(title: string): string {
+  return title.replace(/^Invariant violated:\s*/i, '').replace(/^Outcome:\s*/i, '').replace(/\s+Invariant$/i, '');
+}
+
+export type AlertContext = {
+  event: AlertEvent;
+  dashboardUrl: string;
+  /** e.g. "Customer cus_123 paid (evt_456) but no matching row was found." */
+  detail?: string | null;
+};
+
+function incidentLink(incident: IncidentAlertInput, ctx: AlertContext): string {
+  return `${ctx.dashboardUrl.replace(/\/$/, '')}/#/incidents/${incident.id}`;
+}
+
+function headline(incident: IncidentAlertInput, ctx: AlertContext): string {
+  const name = plainTitle(incident.invariant?.name ?? incident.title);
+  return ctx.event === 'resolved' ? `Resolved: ${name}` : `Incident: ${name}`;
+}
+
+export function buildSlackMessage(incident: IncidentAlertInput, ctx: AlertContext) {
+  const title = headline(incident, ctx);
+  const link = incidentLink(incident, ctx);
+  const lines = [
+    ctx.event === 'resolved'
+      ? 'This incident was resolved.'
+      : (ctx.detail ?? incident.description),
+    `*Integration:* ${incident.integration.name} · *Severity:* ${incident.severity.toLowerCase()}`,
+  ];
+  return {
+    text: `${title} (${incident.integration.name})`,
+    blocks: [
+      { type: 'header', text: { type: 'plain_text', text: title.slice(0, 150), emoji: false } },
+      { type: 'section', text: { type: 'mrkdwn', text: lines.join('\n').slice(0, 2900) } },
+      {
+        type: 'actions',
+        elements: [{ type: 'button', text: { type: 'plain_text', text: 'Open in SHAPI' }, url: link }],
+      },
+    ],
+  };
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!);
+}
+
+export function buildEmailMessage(incident: IncidentAlertInput, ctx: AlertContext) {
+  const title = headline(incident, ctx);
+  const link = incidentLink(incident, ctx);
+  const body = ctx.event === 'resolved' ? 'This incident was resolved.' : (ctx.detail ?? incident.description);
+  const meta = `Integration: ${incident.integration.name} · Severity: ${incident.severity.toLowerCase()}`;
+  return {
+    subject: `[SHAPI] ${title}`.slice(0, 200),
+    text: `${title}\n\n${body}\n${meta}\n\nOpen in SHAPI: ${link}\n`,
+    html: `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:20px;color:#111">`
+      + `<p style="font-size:18px;margin:0 0 12px">${escapeHtml(title)}</p>`
+      + `<p style="margin:0 0 8px">${escapeHtml(body)}</p>`
+      + `<p style="margin:0 0 16px;color:#4d4d4d">${escapeHtml(meta)}</p>`
+      + `<a href="${escapeHtml(link)}" style="display:inline-block;padding:10px 14px;background:#111;color:#fff;border-radius:10px;text-decoration:none">Open in SHAPI</a>`
+      + `</div>`,
+  };
+}

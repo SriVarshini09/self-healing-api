@@ -6,6 +6,7 @@ import {
   type InvariantEvent,
 } from '@shapi/invariant-engine';
 import { logger } from '../utils/logger.js';
+import { queueIncidentAlert } from './alert-queue.js';
 
 export interface InvariantEventContext {
   type: string;
@@ -178,7 +179,7 @@ async function openViolationIncident(invariantId: string) {
   });
   if (existing) return;
 
-  await prisma.incident.create({
+  const incident = await prisma.incident.create({
     data: {
       integrationId: invariant.integrationId,
       invariantId,
@@ -189,4 +190,5 @@ async function openViolationIncident(invariantId: string) {
     },
   });
   logger.info({ invariantId }, 'Opened violation incident');
+  await queueIncidentAlert(incident.id);
 }
