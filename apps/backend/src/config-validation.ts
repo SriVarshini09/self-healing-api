@@ -1,3 +1,5 @@
+import { isIP } from 'node:net';
+
 export type ProductionConfigInput = {
   NODE_ENV: string;
   JWT_SECRET: string;
@@ -16,6 +18,8 @@ export type ProductionConfigInput = {
   OIDC_DEFAULT_TENANT_SLUG?: string;
   ALERT_WEBHOOK_URL?: string;
   ALERT_WEBHOOK_SECRET?: string;
+  SHAPI_ENCRYPTION_KEY?: string;
+  SHAPI_EGRESS_IPS?: string[];
 };
 
 function present(value: string | undefined): boolean {
@@ -64,4 +68,26 @@ export function productionConfigIssues(input: ProductionConfigInput): string[] {
   }
 
   return issues;
+}
+
+/** Not fatal (existing deployments must keep booting), but logged at every start. */
+export function productionConfigWarnings(input: ProductionConfigInput): string[] {
+  if (input.NODE_ENV !== 'production') return [];
+  const warnings: string[] = [];
+  if (!present(input.SHAPI_ENCRYPTION_KEY)) {
+    warnings.push('SHAPI_ENCRYPTION_KEY is not set: stored customer secrets are encrypted with a key derived from JWT_SECRET, so rotating JWT_SECRET would make them unreadable. Set SHAPI_ENCRYPTION_KEY, then run pnpm secrets:reencrypt --apply.');
+  }
+  if (!input.SHAPI_EGRESS_IPS?.length) {
+    warnings.push('SHAPI_EGRESS_IPS is not set: customers cannot see which IPs to allowlist on their database firewall.');
+  }
+  return warnings;
+}
+
+/** "203.0.113.10" or "198.51.100.0/24" (IPv4 or IPv6). */
+export function isIpOrCidr(entry: string): boolean {
+  const [address, prefix, extra] = entry.split('/');
+  const family = isIP(address);
+  if (extra !== undefined || !family) return false;
+  if (prefix === undefined) return true;
+  return /^[0-9]{1,3}$/.test(prefix) && Number(prefix) <= (family === 4 ? 32 : 128);
 }

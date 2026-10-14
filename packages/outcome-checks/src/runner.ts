@@ -6,6 +6,7 @@
 import pg from 'pg';
 import { compileNamedParams, validateOutcomeSql } from './sql.js';
 import type { ParamValue } from './bind.js';
+import { assertPublicDatabaseHost } from './network.js';
 
 export interface OutcomeQueryResult {
   /** true when the query returned at least one row, i.e. the outcome exists */
@@ -20,6 +21,8 @@ export interface RunOutcomeQueryOptions {
   params: ParamValue[];
   statementTimeoutMs?: number;
   connectTimeoutMs?: number;
+  /** Hosted mode: refuse hosts that resolve to private or internal addresses. */
+  blockPrivateHosts?: boolean;
 }
 
 const DEFAULT_STATEMENT_TIMEOUT_MS = 5_000;
@@ -39,6 +42,9 @@ export function assertPostgresUrl(connectionString: string): void {
 
 export async function runOutcomeQuery(options: RunOutcomeQueryOptions): Promise<OutcomeQueryResult> {
   assertPostgresUrl(options.connectionString);
+  // Checked on every run, not only when the check is saved, so a hostname later
+  // re-pointed at an internal address is refused too.
+  if (options.blockPrivateHosts) await assertPublicDatabaseHost(options.connectionString);
   const { text } = compileNamedParams(validateOutcomeSql(options.sql));
   const statementTimeout = Math.max(100, Math.min(options.statementTimeoutMs ?? DEFAULT_STATEMENT_TIMEOUT_MS, 30_000));
 

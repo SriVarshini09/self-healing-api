@@ -33,10 +33,12 @@ export function requiredPermission(method: string): ApiPermission {
  * (Stripe/GitHub HMAC) instead of SHAPI API keys.
  */
 const PUBLIC_PREFIXES = ['/api/v1/webhooks/', '/api/v1/github/webhook', '/api/v1/bootstrap/tenant', '/api/v1/auth/'];
+// Read before signing up: what SHAPI stores and which IPs it connects from.
+const PUBLIC_PATHS = ['/api/v1/trust'];
 
 export function isPublicPath(url: string): boolean {
   const path = url.split('?')[0];
-  return PUBLIC_PREFIXES.some(p => path === p || path.startsWith(p));
+  return PUBLIC_PATHS.includes(path) || PUBLIC_PREFIXES.some(p => path === p || path.startsWith(p));
 }
 
 export async function authenticateApiKey(key: string | undefined): Promise<AuthenticatedKey | null> {

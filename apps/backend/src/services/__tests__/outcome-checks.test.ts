@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { evaluatePredicate, isRelevantEvent, validatePredicate } from '@shapi/invariant-engine';
 
-vi.mock('../../config.js', () => ({ config: { JWT_SECRET: 'x'.repeat(32), SHAPI_ENCRYPTION_KEY: undefined } }));
+vi.mock('../../config.js', () => ({ config: { JWT_SECRET: 'x'.repeat(32), SHAPI_ENCRYPTION_KEY: undefined }, blockPrivateDatabaseHosts: () => false }));
 vi.mock('../../utils/prisma.js', () => ({ prisma: {} }));
 
 const { outcomeEventTypes, outcomeInvariantPredicate } = await import('../outcome-checks.js');
