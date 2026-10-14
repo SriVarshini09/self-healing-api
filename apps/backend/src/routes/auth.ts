@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import { prisma } from '../utils/prisma.js';
 import { config } from '../config.js';
 import {
@@ -10,6 +11,7 @@ import {
   oidcEnabled,
   SESSION_COOKIE,
 } from '../utils/auth-sessions.js';
+import { hashPassword, normalizeEmail, PASSWORD_ISSUER, verifyPassword } from '../utils/passwords.js';
 
 type OidcMetadata = {
   authorization_endpoint: string;
@@ -61,8 +63,87 @@ function clearStateCookie(): string {
   return `shapi_oidc_state=; Path=/api/v1/auth; Max-Age=0; HttpOnly; SameSite=Lax${secure}`;
 }
 
+/** Effective sign-up mode: 'invite' without a configured code is closed. */
+export function signupMode(): 'closed' | 'invite' | 'open' {
+  const mode = config.SHAPI_SIGNUP_MODE ?? 'invite';
+  if (mode === 'invite' && !config.SHAPI_SIGNUP_INVITE_CODE) return 'closed';
+  return mode;
+}
+
+const signupSchema = z.object({
+  workspaceName: z.string().trim().min(2).max(80),
+  name: z.string().trim().min(1).max(80),
+  email: z.string().trim().email().max(200),
+  password: z.string().min(10).max(200),
+  inviteCode: z.string().max(200).optional(),
+}).strict();
+
+const loginSchema = z.object({
+  email: z.string().trim().email().max(200),
+  password: z.string().min(1).max(200),
+}).strict();
+
+export function workspaceSlug(name: string): string {
+  const base = name.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'workspace';
+  return `${base}-${crypto.randomBytes(3).toString('hex')}`;
+}
+
+// Brute-force protection for credential endpoints, keyed by client IP.
+const credentialRateLimit = { rateLimit: { max: 10, timeWindow: '15 minutes' } };
+
 export async function authRoutes(app: FastifyInstance) {
-  app.get('/auth/config', async (_request, reply) => reply.send({ oidcEnabled: oidcEnabled() }));
+  app.get('/auth/config', async (_request, reply) => reply.send({
+    oidcEnabled: oidcEnabled(),
+    passwordLogin: true,
+    signup: signupMode(),
+  }));
+
+  // Self-serve: create a workspace and its Owner account, then sign in.
+  app.post('/auth/signup', { config: credentialRateLimit }, async (request, reply) => {
+    const mode = signupMode();
+    if (mode === 'closed') return reply.code(403).send({ error: 'Sign-up is closed on this SHAPI instance' });
+    const parsed = signupSchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      const fields = parsed.error.flatten().fieldErrors;
+      const first = Object.entries(fields)[0];
+      const message = first?.[0] === 'password'
+        ? 'Password must be at least 10 characters'
+        : first ? `Check the ${first[0]} field` : 'Invalid sign-up details';
+      return reply.code(400).send({ error: message });
+    }
+    const body = parsed.data;
+    if (mode === 'invite' && !sameSecret(body.inviteCode?.trim(), config.SHAPI_SIGNUP_INVITE_CODE)) {
+      return reply.code(403).send({ error: 'That invite code is not valid' });
+    }
+    const email = normalizeEmail(body.email);
+    const existing = await prisma.user.findUnique({ where: { issuer_subject: { issuer: PASSWORD_ISSUER, subject: email } } });
+    if (existing) return reply.code(409).send({ error: 'An account with this email already exists. Sign in instead.' });
+
+    const passwordHash = await hashPassword(body.password);
+    const { tenant, user } = await prisma.$transaction(async tx => {
+      const tenant = await tx.tenant.create({ data: { name: body.workspaceName, slug: workspaceSlug(body.workspaceName) } });
+      const user = await tx.user.create({
+        data: { tenantId: tenant.id, issuer: PASSWORD_ISSUER, subject: email, email, name: body.name, role: 'OWNER', passwordHash },
+      });
+      return { tenant, user };
+    });
+    await createSession(user.id, reply);
+    return reply.code(201).send({
+      user: { id: user.id, name: user.name, email: user.email, role: user.role },
+      workspace: { id: tenant.id, name: tenant.name },
+    });
+  });
+
+  app.post('/auth/password/login', { config: credentialRateLimit }, async (request, reply) => {
+    const parsed = loginSchema.safeParse(request.body ?? {});
+    if (!parsed.success) return reply.code(400).send({ error: 'Enter your email and password' });
+    const email = normalizeEmail(parsed.data.email);
+    const user = await prisma.user.findUnique({ where: { issuer_subject: { issuer: PASSWORD_ISSUER, subject: email } } });
+    const ok = await verifyPassword(parsed.data.password, user?.passwordHash);
+    if (!user || !ok) return reply.code(401).send({ error: 'Email or password is incorrect' });
+    await createSession(user.id, reply);
+    return reply.send({ user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+  });
 
   app.get('/auth/login', async (_request, reply) => {
     if (!oidcEnabled()) return reply.code(404).send({ error: 'OIDC login is not configured' });

@@ -64,10 +64,17 @@ describe('authentication routes', () => {
   });
 
   it('reports whether OIDC is enabled and fails closed when it is disabled', async () => {
+    // Invite mode without an invite code means sign-up is closed.
     await expect(app.inject({ method: 'GET', url: '/auth/config' })).resolves.toMatchObject({
       statusCode: 200,
-      body: '{"oidcEnabled":false}',
+      body: '{"oidcEnabled":false,"passwordLogin":true,"signup":"closed"}',
     });
+    const signup = await app.inject({
+      method: 'POST',
+      url: '/auth/signup',
+      payload: { workspaceName: 'Acme', name: 'Ada', email: 'ada@example.test', password: 'long-enough-password' },
+    });
+    expect(signup.statusCode).toBe(403);
     expect((await app.inject({ method: 'GET', url: '/auth/login' })).statusCode).toBe(404);
     expect((await app.inject({ method: 'GET', url: '/auth/callback?code=code&state=state' })).statusCode).toBe(404);
   });

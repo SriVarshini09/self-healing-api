@@ -359,6 +359,8 @@ model User {
   email     String
   name      String?
   role      TenantRole @default(OPERATOR)
+  // scrypt hash for email/password accounts (issuer "shapi:password"); null for SSO users.
+  passwordHash String?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
