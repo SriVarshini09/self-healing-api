@@ -50,9 +50,18 @@ export function ConnectionsPage() {
       <StripeChangesCard />
 
       <div className="c-grid-2">
-        <Card title="GitHub" tint="lavender" sub="Used to open reviewed repair pull requests.">
+        <Card title="GitHub" tint="lavender" sub="Optional. Used to open reviewed repair pull requests.">
           <div className="c-card-body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {github.data ? (
+            {github.data && github.data.mode !== 'app' && github.data.mode !== 'token' ? (
+              // Operator setup details (simulation, tokens) mean nothing to a customer.
+              <>
+                <div><Pill>Not connected</Pill></div>
+                <p className="c-muted c-small" style={{ margin: 0 }}>
+                  Not needed to catch problems. SHAPI's incidents and diagnosis tell you what broke and where to fix it.
+                  Repair pull requests are coming later.
+                </p>
+              </>
+            ) : github.data ? (
               <>
                 <div className="c-row">
                   <Pill tone={github.data.mode === 'app' ? 'ok' : github.data.mode === 'unconfigured' ? 'bad' : 'warn'}>
