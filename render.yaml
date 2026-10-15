@@ -49,6 +49,9 @@ services:
         sync: false
       - key: SHAPI_SIGNUP_INVITE_CODE
         sync: false
+      # Receives "Request an invite" emails from the landing page (needs Resend).
+      - key: SHAPI_OPERATOR_EMAIL
+        sync: false
       - key: RESEND_API_KEY
         sync: false
       - key: ALERT_EMAIL_FROM

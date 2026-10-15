@@ -592,3 +592,16 @@ enum StripeChangeKind {
   FIELD_REMOVED
   TYPE_CHANGED
 }
+
+// "Request an invite" from the public landing page. One row per email; a repeat
+// request updates it. Used only to contact the person about the beta.
+model InviteRequest {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  company   String?
+  note      String?  @db.Text
+  requests  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

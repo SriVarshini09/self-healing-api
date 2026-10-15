@@ -49,6 +49,9 @@ const configSchema = z.object({
   // 'open' lets anyone create a workspace, 'closed' disables sign-up.
   SHAPI_SIGNUP_MODE: z.enum(['closed', 'invite', 'open']).default('invite'),
   SHAPI_SIGNUP_INVITE_CODE: z.preprocess(value => value === '' ? undefined : value, z.string().min(8).optional()),
+  // Where "Request an invite" submissions are emailed (needs Resend). List them
+  // any time with `pnpm --filter @shapi/backend invites:list`.
+  SHAPI_OPERATOR_EMAIL: z.preprocess(value => value === '' ? undefined : value, z.string().email().optional()),
   SHAPI_BOOTSTRAP_TOKEN: z.preprocess(
     value => value === '' ? undefined : value,
     z.string().min(32).optional(),
