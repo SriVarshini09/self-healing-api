@@ -25,7 +25,9 @@
     "stripe:live-test": "tsx scripts/stripe-live-test.ts",
     "e2e:alerts": "tsx scripts/e2e-alerts.ts",
     "e2e:key-rotation": "tsx scripts/e2e-key-rotation.ts",
-    "e2e:stripe-changes": "tsx scripts/e2e-stripe-changes.ts"
+    "e2e:stripe-changes": "tsx scripts/e2e-stripe-changes.ts",
+    "e2e:password-reset": "tsx scripts/e2e-password-reset.ts",
+    "auth:reset-link": "tsx scripts/password-reset-link.ts"
   },
   "dependencies": {
     "@fastify/cors": "^8.4.1",

@@ -15,6 +15,7 @@ import { RulesPage } from './pages/Rules';
 import { ConnectionsPage } from './pages/Connections';
 import { SettingsPage } from './pages/Settings';
 import { SecurityPage } from './pages/Security';
+import { ForgotPassword, ResetPasswordScreen } from './PasswordReset';
 import './console.css';
 
 const DOCS_URL = 'https://github.com/SriVarshini09/self-healing-api#readme';
@@ -233,7 +234,7 @@ function SearchBox({ incidents, checks, go }: { incidents: Incident[]; checks: O
   );
 }
 
-type AuthConfig = { oidcEnabled: boolean; passwordLogin: boolean; signup: 'closed' | 'invite' | 'open' };
+type AuthConfig = { oidcEnabled: boolean; passwordLogin: boolean; signup: 'closed' | 'invite' | 'open'; passwordReset: boolean };
 type AuthState = { status: 'checking' } | { status: 'ready' } | { status: 'signin'; config: AuthConfig } | { status: 'error'; message: string };
 
 async function postAuth(path: string, body: unknown): Promise<void> {
@@ -251,7 +252,7 @@ async function postAuth(path: string, body: unknown): Promise<void> {
 
 function AccessScreen({ state, onSignedIn }: { state: Exclude<AuthState, { status: 'ready' }>; onSignedIn: () => void }) {
   const config = state.status === 'signin' ? state.config : null;
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
   const [form, setForm] = useState({ workspaceName: '', name: '', email: '', password: '', inviteCode: '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -299,7 +300,10 @@ function AccessScreen({ state, onSignedIn }: { state: Exclude<AuthState, { statu
               <p className="c-note is-bad">{state.message}</p>
             </>
           )}
-          {config && (
+          {config && mode === 'forgot' && (
+            <ForgotPassword emailEnabled={config.passwordReset} initialEmail={form.email} onBack={() => { setMode('signin'); setError(null); }} />
+          )}
+          {config && mode !== 'forgot' && (
             <>
               <h2 className="c-card-title" style={{ margin: '22px 0 4px' }}>{mode === 'signin' ? 'Sign in to continue' : 'Create your workspace'}</h2>
               <p className="c-muted" style={{ margin: '0 0 16px' }}>
@@ -333,6 +337,12 @@ function AccessScreen({ state, onSignedIn }: { state: Exclude<AuthState, { statu
                     minLength={mode === 'signup' ? 10 : 1} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                   />
                   {mode === 'signup' && <span className="c-hint">At least 10 characters.</span>}
+                  {mode === 'signin' && (
+                    <button type="button" className="c-hint" onClick={() => { setMode('forgot'); setError(null); }}
+                      style={{ alignSelf: 'flex-end', background: 'none', border: 0, padding: 0, cursor: 'pointer', textDecoration: 'underline' }}>
+                      Forgot password?
+                    </button>
+                  )}
                 </label>
                 {mode === 'signup' && config.signup === 'invite' && (
                   <label className="c-field"><span className="c-label">Invite code</span>
@@ -387,7 +397,12 @@ export function Console() {
         if (active) {
           setAuthState({
             status: 'signin',
-            config: { oidcEnabled: Boolean(raw.oidcEnabled), passwordLogin: raw.passwordLogin !== false, signup: raw.signup ?? 'closed' },
+            config: {
+              oidcEnabled: Boolean(raw.oidcEnabled),
+              passwordLogin: raw.passwordLogin !== false,
+              signup: raw.signup ?? 'closed',
+              passwordReset: Boolean(raw.passwordReset),
+            },
           });
         }
       } catch (error) {
@@ -399,6 +414,10 @@ export function Console() {
   }, []);
 
   const [route] = useRoute();
+  if (route.startsWith('reset-password')) {
+    // From the emailed link; works signed in or out.
+    return <ResetPasswordScreen token={new URLSearchParams(route.split('?')[1] ?? '').get('token') ?? ''} />;
+  }
   if (authState.status !== 'ready' && route === 'security') {
     // Readable before signing up: it only calls the public /trust endpoint.
     return <div className="c-app"><main className="c-main"><div className="c-content" style={{ maxWidth: 1000, width: '100%', margin: '0 auto' }}><SecurityPage signedOut /></div></main></div>;

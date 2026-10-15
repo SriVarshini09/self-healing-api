@@ -371,6 +371,7 @@ model User {
   updatedAt DateTime   @updatedAt
 
   sessions AuthSession[]
+  passwordResetTokens PasswordResetToken[]
 
   @@unique([issuer, subject])
   @@index([tenantId])
@@ -387,6 +388,19 @@ model AuthSession {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+// One-time password reset link. Only the SHA-256 hash of the token is stored;
+// it expires after an hour and is deleted when used.
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 // ============================================================================
