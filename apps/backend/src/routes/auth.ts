@@ -12,6 +12,8 @@ import {
   SESSION_COOKIE,
 } from '../utils/auth-sessions.js';
 import { hashPassword, normalizeEmail, PASSWORD_ISSUER, verifyPassword } from '../utils/passwords.js';
+import { emailAvailable } from '../services/email.js';
+import { requestPasswordReset, resetPassword } from '../services/password-reset.js';
 
 type OidcMetadata = {
   authorization_endpoint: string;
@@ -83,6 +85,12 @@ const loginSchema = z.object({
   password: z.string().min(1).max(200),
 }).strict();
 
+const forgotSchema = z.object({ email: z.string().trim().email().max(200) }).strict();
+const resetSchema = z.object({
+  token: z.string().min(20).max(200),
+  password: z.string().min(10).max(200),
+}).strict();
+
 export function workspaceSlug(name: string): string {
   const base = name.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'workspace';
   return `${base}-${crypto.randomBytes(3).toString('hex')}`;
@@ -96,6 +104,8 @@ export async function authRoutes(app: FastifyInstance) {
     oidcEnabled: oidcEnabled(),
     passwordLogin: true,
     signup: signupMode(),
+    // Whether "Forgot password" can email a link (needs Resend).
+    passwordReset: emailAvailable(),
   }));
 
   // Self-serve: create a workspace and its Owner account, then sign in.
@@ -141,6 +151,27 @@ export async function authRoutes(app: FastifyInstance) {
     const user = await prisma.user.findUnique({ where: { issuer_subject: { issuer: PASSWORD_ISSUER, subject: email } } });
     const ok = await verifyPassword(parsed.data.password, user?.passwordHash);
     if (!user || !ok) return reply.code(401).send({ error: 'Email or password is incorrect' });
+    await createSession(user.id, reply);
+    return reply.send({ user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+  });
+
+  // Always the same answer, sent before any lookup or email, so this endpoint
+  // never reveals whether an account exists.
+  app.post('/auth/password/forgot', { config: credentialRateLimit }, async (request, reply) => {
+    const parsed = forgotSchema.safeParse(request.body ?? {});
+    if (!parsed.success) return reply.code(400).send({ error: 'Enter a valid email address' });
+    void requestPasswordReset(parsed.data.email);
+    return reply.code(202).send({ ok: true });
+  });
+
+  app.post('/auth/password/reset', { config: credentialRateLimit }, async (request, reply) => {
+    const parsed = resetSchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      const passwordIssue = parsed.error.issues.some(issue => issue.path[0] === 'password');
+      return reply.code(400).send({ error: passwordIssue ? 'Password must be at least 10 characters' : 'This reset link is not valid' });
+    }
+    const user = await resetPassword(parsed.data.token, parsed.data.password);
+    if (!user) return reply.code(400).send({ error: 'This reset link is invalid or has expired. Ask for a new one.' });
     await createSession(user.id, reply);
     return reply.send({ user: { id: user.id, name: user.name, email: user.email, role: user.role } });
   });

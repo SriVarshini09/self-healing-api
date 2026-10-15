@@ -67,7 +67,7 @@ describe('authentication routes', () => {
     // Invite mode without an invite code means sign-up is closed.
     await expect(app.inject({ method: 'GET', url: '/auth/config' })).resolves.toMatchObject({
       statusCode: 200,
-      body: '{"oidcEnabled":false,"passwordLogin":true,"signup":"closed"}',
+      body: '{"oidcEnabled":false,"passwordLogin":true,"signup":"closed","passwordReset":false}',
     });
     const signup = await app.inject({
       method: 'POST',

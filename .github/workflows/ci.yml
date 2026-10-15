@@ -179,6 +179,9 @@ jobs:
       - name: Stripe change monitor end to end (API version upgrade, moved field, one incident and alert)
         run: pnpm --filter @shapi/backend e2e:stripe-changes
 
+      - name: Forgot password end to end (no enumeration, one-time expiring links, sessions revoked)
+        run: pnpm --filter @shapi/backend e2e:password-reset
+
   benchmark:
     runs-on: ubuntu-24.04
     services:
