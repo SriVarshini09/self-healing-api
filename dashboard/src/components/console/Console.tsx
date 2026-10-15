@@ -16,6 +16,7 @@ import { ConnectionsPage } from './pages/Connections';
 import { SettingsPage } from './pages/Settings';
 import { SecurityPage } from './pages/Security';
 import { ForgotPassword, ResetPasswordScreen } from './PasswordReset';
+import { Landing } from './Landing';
 import './console.css';
 
 const DOCS_URL = 'https://github.com/SriVarshini09/self-healing-api#readme';
@@ -250,9 +251,13 @@ async function postAuth(path: string, body: unknown): Promise<void> {
   }
 }
 
-function AccessScreen({ state, onSignedIn }: { state: Exclude<AuthState, { status: 'ready' }>; onSignedIn: () => void }) {
+function AccessScreen({ state, onSignedIn, initialMode = 'signin' }: {
+  state: Exclude<AuthState, { status: 'ready' }>;
+  onSignedIn: () => void;
+  initialMode?: 'signin' | 'signup';
+}) {
   const config = state.status === 'signin' ? state.config : null;
-  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>(initialMode);
   const [form, setForm] = useState({ workspaceName: '', name: '', email: '', password: '', inviteCode: '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -265,6 +270,7 @@ function AccessScreen({ state, onSignedIn }: { state: Exclude<AuthState, { statu
     try {
       if (mode === 'signin') {
         await postAuth('auth/password/login', { email: form.email, password: form.password });
+        window.location.hash = '/overview';
       } else {
         await postAuth('auth/signup', {
           workspaceName: form.workspaceName,
@@ -355,7 +361,10 @@ function AccessScreen({ state, onSignedIn }: { state: Exclude<AuthState, { statu
                   {busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create workspace'}
                 </button>
               </form>
-              <a className="c-hint" href="#/security" style={{ display: 'block', marginTop: 14, textAlign: 'center' }}>How SHAPI handles your data</a>
+              <p className="c-hint" style={{ display: 'flex', justifyContent: 'center', gap: 16, margin: '14px 0 0' }}>
+                <a href="#/">About SHAPI</a>
+                <a href="#/security">How SHAPI handles your data</a>
+              </p>
               {config.oidcEnabled && (
                 <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <span className="c-hint" style={{ textAlign: 'center' }}>or</span>
@@ -422,7 +431,16 @@ export function Console() {
     // Readable before signing up: it only calls the public /trust endpoint.
     return <div className="c-app"><main className="c-main"><div className="c-content" style={{ maxWidth: 1000, width: '100%', margin: '0 auto' }}><SecurityPage signedOut /></div></main></div>;
   }
-  return authState.status === 'ready'
-    ? <Shell />
-    : <AccessScreen state={authState} onSignedIn={() => setAuthState({ status: 'ready' })} />;
+  if (authState.status === 'ready') return <Shell />;
+  // Signed-out visitors see the landing page; sign-in lives at #/signin.
+  if (authState.status === 'signin' && !route.startsWith('signin')) return <Landing signup={authState.config.signup} />;
+  return (
+    <AccessScreen
+      // Remount when the requested mode changes (e.g. #/signin -> #/signin?mode=signup).
+      key={route.includes('mode=signup') ? 'signup' : 'signin'}
+      state={authState}
+      initialMode={route.includes('mode=signup') ? 'signup' : 'signin'}
+      onSignedIn={() => setAuthState({ status: 'ready' })}
+    />
+  );
 }

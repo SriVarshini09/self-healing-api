@@ -126,7 +126,7 @@ export function ResetPasswordScreen({ token }: { token: string }) {
               </form>
             </>
           )}
-          <a className="c-hint" href="#/" style={{ display: 'block', marginTop: 14, textAlign: 'center' }}>Back to sign in</a>
+          <a className="c-hint" href="#/signin" style={{ display: 'block', marginTop: 14, textAlign: 'center' }}>Back to sign in</a>
         </div>
       </div>
     </div>

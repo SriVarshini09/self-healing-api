@@ -189,6 +189,10 @@ async function runOidcAccessSmoke() {
   try {
     const page = await context.newPage();
     await page.goto(`${oidcDashboardUrl}/`, { waitUntil: 'domcontentloaded' });
+    // Signed-out visitors land on the public page; sign-in is one click away.
+    await page.getByRole('heading', { level: 1, name: /Stripe says paid/u }).waitFor({ timeout: 15000 });
+    await page.getByRole('button', { name: 'Request an invite' }).waitFor({ timeout: 15000 });
+    await page.getByRole('navigation').getByRole('link', { name: 'Sign in', exact: true }).click();
     await page.getByRole('heading', { name: 'Sign in to continue' }).waitFor({ timeout: 15000 });
     const login = page.getByRole('link', { name: 'Sign in with SSO', exact: true });
     await login.waitFor({ timeout: 15000 });

@@ -21,7 +21,6 @@
   "include": [
     "src/vite-env.d.ts",
     "src/main.tsx",
-    "src/landing/main.tsx",
     "src/components/HealingDashboard.tsx",
     "src/components/ui/button.tsx",
     "src/lib/utils.ts",

@@ -42,7 +42,7 @@ export function SecurityPage({ signedOut = false }: { signedOut?: boolean }) {
       <PageHeader
         title="Security"
         sub="What SHAPI can see, what it stores and how, before you connect a database."
-        actions={signedOut ? <a className="c-btn" href="#/" style={{ textDecoration: 'none', color: 'var(--c-ink)' }}>Back to sign in</a> : undefined}
+        actions={signedOut ? <a className="c-btn" href="#/" style={{ textDecoration: 'none', color: 'var(--c-ink)' }}>Back</a> : undefined}
       />
 
       <Card title="Your database" sub="Outcome checks ask one question: does the row that proves this customer was provisioned exist?">
