@@ -10,6 +10,7 @@ const diagnosis = { rootCause: 'Changed payload', suggestedFix: 'Review predicat
 function incident(repairRepository: string | null, repairFilePath: string | null): Parameters<typeof generateRepairCandidates>[0] {
   return {
     invariant: {
+      id: 'inv-payment',
       name: 'payment',
       predicateExpression: 'event.payload.amount > 0',
       repairRepository,
@@ -91,6 +92,28 @@ describe('repair candidate repository mapping', () => {
     });
   });
 
+  it('never offers generic suggestions for files the customer does not have', async () => {
+    const candidates = await generateRepairCandidates({
+      invariant: { id: 'inv-x', name: 'x', predicateExpression: "event.type === 'invoice.paid'", repairRepository: null, repairFilePath: null },
+      integration: { name: 'Stripe Payments', type: 'STRIPE', config: {} },
+    } as unknown as Parameters<typeof generateRepairCandidates>[0], { ...diagnosis, rootCause: 'webhook timeout', suggestedFix: 'event handling' });
+    expect(candidates).toEqual([]);
+    expect(JSON.stringify(candidates)).not.toMatch(/config\.json|handlers\.ts|retryAttempts|circuitBreaker/);
+  });
+
+  it('offers no candidates for outcome-check rules or incidents without a rule', async () => {
+    const outcome = await generateRepairCandidates({
+      invariant: { id: 'outcome-123', name: 'Outcome: paid', predicateExpression: 'event.payload.amount > 0', repairRepository: null, repairFilePath: null },
+      integration: { name: 'Stripe', type: 'STRIPE', config: {} },
+    } as unknown as Parameters<typeof generateRepairCandidates>[0], diagnosis);
+    expect(outcome).toEqual([]);
+    const noRule = await generateRepairCandidates({
+      invariant: null,
+      integration: { name: 'Stripe', type: 'STRIPE', config: {} },
+    } as unknown as Parameters<typeof generateRepairCandidates>[0], diagnosis);
+    expect(noRule).toEqual([]);
+  });
+
   it('keeps unmapped predicate suggestions manual', async () => {
     const candidates = await generateRepairCandidates(incident(null, null), diagnosis);
     const predicate = candidates.find(candidate => candidate.description.includes('optional chaining'));
@@ -123,6 +146,7 @@ describe('repair candidate repository mapping', () => {
 
     const nestedCandidates = await generateRepairCandidates({
       invariant: {
+        id: 'inv-nested-payment',
         name: 'nested payment',
         predicateExpression: 'event.payload.data.object.amount > 0',
         repairRepository: 'acme/demo',
@@ -142,6 +166,7 @@ describe('repair candidate repository mapping', () => {
   it('creates a structured event guard for an explicitly mapped predicate', async () => {
     const candidates = await generateRepairCandidates({
       invariant: {
+        id: 'inv-workflow',
         name: 'workflow',
         predicateExpression: "action === 'completed'",
         repairRepository: 'acme/demo',

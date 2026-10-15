@@ -13,6 +13,17 @@ type DiagnosisIntegration = { id: string; type: IntegrationType; tenantId: strin
 export async function diagnoseIncident(incident: Incident & { invariant: Invariant | null; integration: DiagnosisIntegration }): Promise<DiagnosisResult> {
   const { invariant, integration } = incident;
 
+  // Specific, evidence-based diagnoses first: outcome checks and Stripe changes
+  // know exactly which customers and fields are involved.
+  if (invariant?.id.startsWith(OUTCOME_PREFIX)) {
+    const specific = await diagnoseOutcomeCheck(incident, invariant.id.slice(OUTCOME_PREFIX.length));
+    if (specific) return specific;
+  }
+  if (!invariant) {
+    const specific = await diagnoseStripeChanges(incident);
+    if (specific) return specific;
+  }
+
   if (!invariant) {
     return {
       rootCause: 'No invariant associated with this incident',
@@ -187,4 +198,79 @@ export async function generateHypotheses(incident: Incident & { invariant: Invar
   hypotheses.push('Race condition between webhook processing and invariant evaluation');
 
   return hypotheses;
+}
+
+const OUTCOME_PREFIX = 'outcome-';
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function bindingSummary(params: unknown): string {
+  const values = (params ?? {}) as Record<string, unknown>;
+  if (typeof values.customer === 'string') return `customer ${values.customer}`;
+  const entries = Object.entries(values).slice(0, 3).map(([key, value]) => `${key}=${String(value)}`);
+  return entries.length ? entries.join(', ') : 'no bound values';
+}
+
+/** Which payments failed the check, and whether a Stripe change explains it. */
+async function diagnoseOutcomeCheck(incident: Incident, checkId: string): Promise<DiagnosisResult | null> {
+  const check = await prisma.outcomeCheck.findUnique({ where: { id: checkId } });
+  if (!check) return null;
+  const since = new Date(incident.detectedAt.getTime() - DAY_MS);
+  const [failed, failedCount, passedCount, changes] = await Promise.all([
+    prisma.outcomeCheckRun.findMany({
+      where: { checkId, status: 'FAILED', createdAt: { gte: since } },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    }),
+    prisma.outcomeCheckRun.count({ where: { checkId, status: 'FAILED', createdAt: { gte: since } } }),
+    prisma.outcomeCheckRun.count({ where: { checkId, status: 'PASSED', createdAt: { gte: since } } }),
+    prisma.stripeChange.findMany({
+      where: { integrationId: check.integrationId, affectedCheckIds: { has: checkId }, detectedAt: { gte: new Date(incident.detectedAt.getTime() - 7 * DAY_MS) } },
+      orderBy: { detectedAt: 'desc' },
+      take: 3,
+    }),
+  ]);
+  if (!failedCount) return null;
+
+  const evidence = failed.map(run => `${bindingSummary(run.params)} · ${run.sourceEventId}${run.detail ? ` · ${run.detail}` : ''}`);
+  const total = failedCount + passedCount;
+  let rootCause = `${failedCount} of ${total} ${check.triggerEventType} event(s) since the day before this incident had no matching row in your database (latest: ${failed[0] ? bindingSummary(failed[0].params) : 'unknown'}).`;
+  let confidence = 0.85;
+  if (changes.length) {
+    const change = changes[0];
+    rootCause += ` Stripe changed ${change.path ?? `its API version to ${change.after}`} on ${change.detectedAt.toISOString().slice(0, 10)}, and this check reads it: your webhook handler probably reads the old field too.`;
+    confidence = 0.9;
+    evidence.push(...changes.map(item => `Stripe change: ${item.kind} ${item.path ?? ''} ${item.before ?? ''} -> ${item.after ?? 'removed'}`.replace(/\s+/g, ' ').trim()));
+  } else if (!passedCount) {
+    rootCause += ' None passed, so the handler is failing for everyone, not only some customers.';
+  }
+  const suggestedFix = [
+    `Open your webhook handler for ${check.triggerEventType} and follow it for ${failed[0] ? bindingSummary(failed[0].params) : 'one of these customers'}: it returned 200 but did not write the row the check looks for.`,
+    changes.length ? 'Update it to read the field where Stripe now sends it.' : '',
+    'After deploying the fix, use Test on the outcome check with one of these events, give the affected customers their access, then resolve this incident.',
+  ].filter(Boolean).join(' ');
+  return { rootCause, suggestedFix, confidence, evidence };
+}
+
+/** Stripe change incidents have no rule; their changes are the diagnosis. */
+async function diagnoseStripeChanges(incident: Incident): Promise<DiagnosisResult | null> {
+  const changes = await prisma.stripeChange.findMany({ where: { incidentId: incident.id }, orderBy: { detectedAt: 'asc' } });
+  if (!changes.length) return null;
+  const fields = changes.filter(change => change.path);
+  const version = changes.find(change => change.kind === 'API_VERSION');
+  const readByChecks = fields.some(change => change.affectedCheckIds.length);
+  const rootCause = [
+    version ? `Stripe now sends webhooks with API version ${version.after}${version.before ? ` (was ${version.before})` : ''}.` : '',
+    fields.length ? `${fields.length} field(s) changed: ${fields.slice(0, 4).map(change => `${change.path} (${change.kind === 'FIELD_REMOVED' ? 'no longer sent' : `${change.before} -> ${change.after}`})`).join(', ')}.` : '',
+  ].filter(Boolean).join(' ');
+  const suggestedFix = [
+    'Search your webhook handler for each changed field and read it from its new location.',
+    readByChecks ? 'At least one outcome check reads a changed field: update its bindings too.' : '',
+    'Watch your outcome checks over the next hour; if they keep passing, resolve this incident. Stripe upgrade notes: https://docs.stripe.com/upgrades',
+  ].filter(Boolean).join(' ');
+  return {
+    rootCause: rootCause || 'Stripe changed what it sends to your webhook.',
+    suggestedFix,
+    confidence: 0.8,
+    evidence: changes.map(change => `${change.kind}${change.eventType ? ` · ${change.eventType}` : ''}${change.path ? ` · ${change.path}` : ''}`),
+  };
 }

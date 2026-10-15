@@ -152,7 +152,8 @@ export function IncidentDetailPage({ id, go }: { id: string; go: (route: string)
         </div>
       </Card>
 
-      <ReplayBox incidentId={id} integrationId={incident.integrationId} />
+      {/* Replay tests a candidate fix against a stored event; only useful when a real repair exists. */}
+      {(incident.repairCandidates?.length ?? 0) > 0 && <ReplayBox incidentId={id} integrationId={incident.integrationId} />}
     </div>
   );
 }
