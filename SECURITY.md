@@ -49,6 +49,7 @@ provisioned. The [query runner](packages/outcome-checks/src/runner.ts) enforces:
 | Stripe webhook signing secrets | In SHAPI's database without field-level encryption. A leaked signing secret lets someone send events *to* SHAPI; it grants no access to your Stripe account. |
 | Stripe events sent to SHAPI's webhook | Stored so checks can run and incidents can show what happened. They contain what Stripe sends, which can include customer emails. Kept while the workspace exists; retention settings are planned. |
 | Learned Stripe event shapes (change monitor) | Field names and value kinds (string, object, …) per event type, with counts. Never values. |
+| Invite requests (public landing page) | The email, name, company and note you submit, used only to contact you about the beta. Ask us and we delete it. |
 | Passwords | scrypt (N=16384, r=8, p=1) with a per-password salt. |
 | API keys, session tokens | SHA-256 hashes only. Sessions use `HttpOnly`, `SameSite=Lax` cookies (`Secure` in production). |
 | Password reset links | SHA-256 hash only. A link expires after an hour, works once, and a newer request cancels older links. A reset signs the account out everywhere. "Forgot password" answers the same whether or not an account exists. |

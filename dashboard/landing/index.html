@@ -3,20 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#eef6ff" />
-    <meta name="description" content="A 200 OK doesn’t prove success. SHAPI connects integration events to real business outcomes, surfaces silent failures, and helps your team review the repair." />
-    <meta property="og:title" content="SHAPI — Prove the outcome" />
-    <meta property="og:description" content="Follow an integration from HTTP 200 to business outcome. Explore SHAPI’s interactive failure-to-repair demo." />
-    <meta property="og:type" content="website" />
-    <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="SHAPI — Prove the outcome" />
-    <meta name="twitter:description" content="A 200 OK doesn’t prove success. Trace the outcome with SHAPI." />
-    <link rel="icon" type="image/svg+xml" href="/landing/favicon.svg" />
-    <title>SHAPI — Prove the outcome</title>
+    <!-- The landing page moved to the site root; keep old /landing/ links working. -->
+    <meta http-equiv="refresh" content="0; url=/" />
+    <link rel="canonical" href="/" />
+    <title>SHAPI</title>
+    <script>window.location.replace('/' + window.location.search);</script>
   </head>
   <body>
-    <div id="landing-root"></div>
-    <noscript><p>SHAPI verifies instrumented business outcomes behind integration events. Enable JavaScript to explore the interactive demo, or <a href="https://github.com/SriVarshini09/self-healing-api#readme">read the documentation</a>.</p></noscript>
-    <script type="module" src="/src/landing/main.tsx"></script>
+    <p>SHAPI's home page is now at <a href="/">the site root</a>.</p>
   </body>
 </html>

@@ -14,6 +14,7 @@ import { statsRoutes } from './stats.js';
 import { workspaceRoutes } from './workspace.js';
 import { trustRoutes } from './trust.js';
 import { stripeChangeRoutes } from './stripe-changes.js';
+import { inviteRequestRoutes } from './invite-requests.js';
 import { isPublicPath, authenticateApiKey, hasPermission, requiredPermission } from '../utils/api-keys.js';
 import { authenticateSession, getCookie, SESSION_COOKIE } from '../utils/auth-sessions.js';
 import type { AuthenticatedRequest } from '../utils/auth-context.js';
@@ -53,6 +54,7 @@ export async function registerRoutes(app: FastifyInstance) {
     await api.register(workspaceRoutes);
     await api.register(trustRoutes);
     await api.register(stripeChangeRoutes);
+    await api.register(inviteRequestRoutes);
   }, { prefix: '/api/v1' });
 
   // Root endpoint

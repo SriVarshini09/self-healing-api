@@ -43,11 +43,12 @@ server {
     try_files $uri $uri/ /index.html;
   }
 
+  # The public landing page moved to the site root; keep old links working.
   location = /landing {
-    return 308 /landing/$is_args$args;
+    return 301 /$is_args$args;
   }
 
   location /landing/ {
-    try_files $uri $uri/ =404;
+    return 301 /$is_args$args;
   }
 }

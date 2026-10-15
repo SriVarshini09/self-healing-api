@@ -15,6 +15,8 @@ describe('api-keys', () => {
     expect(isPublicPath('/api/v1/github/webhook')).toBe(true);
     expect(isPublicPath('/api/v1/bootstrap/tenant')).toBe(true);
     expect(isPublicPath('/api/v1/trust')).toBe(true);
+    expect(isPublicPath('/api/v1/invite-requests')).toBe(true);
+    expect(isPublicPath('/api/v1/invite-requests/123')).toBe(false);
     expect(isPublicPath('/api/v1/trusted-admin')).toBe(false);
     expect(isPublicPath('/api/v1/sdk/track')).toBe(false);
     expect(isPublicPath('/api/v1/invariants')).toBe(false);

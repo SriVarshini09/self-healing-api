@@ -34,7 +34,7 @@ export function requiredPermission(method: string): ApiPermission {
  */
 const PUBLIC_PREFIXES = ['/api/v1/webhooks/', '/api/v1/github/webhook', '/api/v1/bootstrap/tenant', '/api/v1/auth/'];
 // Read before signing up: what SHAPI stores and which IPs it connects from.
-const PUBLIC_PATHS = ['/api/v1/trust'];
+const PUBLIC_PATHS = ['/api/v1/trust', '/api/v1/invite-requests'];
 
 export function isPublicPath(url: string): boolean {
   const path = url.split('?')[0];
