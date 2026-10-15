@@ -6,6 +6,7 @@ import { detectDrift } from '@shapi/drift-detection';
 import { tenantIdFor } from '../utils/auth-context.js';
 import { enqueueIncidentAlert } from '../services/alerts.js';
 import { logger } from '../utils/logger.js';
+import { pageParams } from '../utils/pagination.js';
 
 export async function driftRoutes(app: FastifyInstance) {
   app.get('/drift/config/:integrationId', async (request, reply) => {
@@ -44,8 +45,7 @@ export async function driftRoutes(app: FastifyInstance) {
   app.get('/drift/results', async (request, reply) => {
     const tenantId = tenantIdFor(request);
     const q = (request.query ?? {}) as Record<string, unknown>;
-    const page = Number(q.page ?? 1) || 1;
-    const pageSize = Math.min(Number(q.pageSize ?? 20) || 20, 100);
+    const { page, pageSize } = pageParams(q);
 
     const where: Prisma.DriftResultWhereInput = { invariant: { integration: { tenantId } } };
     if (typeof q.invariantId === 'string') where.invariantId = q.invariantId;
@@ -72,8 +72,7 @@ export async function driftRoutes(app: FastifyInstance) {
     const tenantId = tenantIdFor(request);
     const { invariantId } = (request.params ?? {}) as { invariantId: string };
     const q = (request.query ?? {}) as Record<string, unknown>;
-    const page = Number(q.page ?? 1) || 1;
-    const pageSize = Math.min(Number(q.pageSize ?? 20) || 20, 100);
+    const { page, pageSize } = pageParams(q);
 
     const [results, total] = await Promise.all([
       prisma.driftResult.findMany({

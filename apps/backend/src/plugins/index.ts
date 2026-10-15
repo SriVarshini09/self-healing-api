@@ -12,6 +12,18 @@ export async function registerPlugins(app: FastifyInstance) {
   // which JSON.stringify cannot serialize. Convert safely instead of 500ing.
   app.setReplySerializer(serializeJson);
 
+  // One place for errors that escape a route: "record not found" is a 404,
+  // client errors keep their message, and server errors are logged in full but
+  // answered without internals (no database messages or file paths).
+  app.setErrorHandler((error, request, reply) => {
+    const code = (error as { code?: string }).code;
+    if (code === 'P2025') return reply.code(404).send({ error: 'Not found' });
+    const status = error.statusCode && error.statusCode >= 400 ? error.statusCode : 500;
+    if (status < 500) return reply.code(status).send({ error: error.message });
+    logger.error({ requestId: request.id, method: request.method, url: request.url, error: error.message, stack: error.stack }, 'Unhandled route error');
+    return reply.code(500).send({ error: 'Something went wrong on our side. Please try again.', requestId: request.id });
+  });
+
   app.addHook('onResponse', async (request, reply) => {
     incrementCounter('shapi_http_requests_total', {
       method: request.method,

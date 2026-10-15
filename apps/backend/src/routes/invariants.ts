@@ -9,6 +9,7 @@ import { evaluateInvariantWindow } from '../services/invariants.js';
 import { tenantIdFor } from '../utils/auth-context.js';
 import { config } from '../config.js';
 import { repairTargetReadiness } from '../services/repair-target-readiness.js';
+import { pageParams } from '../utils/pagination.js';
 
 function withRepairTargetReadiness<T extends {
   id: string;
@@ -23,8 +24,7 @@ export async function invariantRoutes(app: FastifyInstance) {
   app.get('/invariants', async (request, reply) => {
     const tenantId = tenantIdFor(request);
     const q = (request.query ?? {}) as Record<string, unknown>;
-    const page = Number(q.page ?? 1) || 1;
-    const pageSize = Math.min(Number(q.pageSize ?? 20) || 20, 100);
+    const { page, pageSize } = pageParams(q);
 
     const where: Prisma.InvariantWhereInput = { integration: { tenantId } };
     if (typeof q.integrationId === 'string') where.integrationId = q.integrationId;
@@ -261,8 +261,7 @@ export async function invariantRoutes(app: FastifyInstance) {
     const tenantId = tenantIdFor(request);
     const { id } = (request.params ?? {}) as { id: string };
     const q = (request.query ?? {}) as Record<string, unknown>;
-    const page = Number(q.page ?? 1) || 1;
-    const pageSize = Math.min(Number(q.pageSize ?? 20) || 20, 100);
+    const { page, pageSize } = pageParams(q);
 
     const [evaluations, total] = await Promise.all([
       prisma.invariantEvaluation.findMany({

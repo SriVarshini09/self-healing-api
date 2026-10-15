@@ -13,6 +13,7 @@ import { z } from 'zod';
 import { tenantIdFor } from '../utils/auth-context.js';
 import { queueIncidentAlert } from '../services/alert-queue.js';
 import { generateRepairCandidates, repairCandidateReadiness } from '../services/repair.js';
+import { pageParams } from '../utils/pagination.js';
 
 const replaySchema = z.object({
   webhookEventId: z.string().min(1),
@@ -30,8 +31,7 @@ export async function incidentRoutes(app: FastifyInstance) {
   app.get('/incidents', async (request, reply) => {
     const tenantId = tenantIdFor(request);
     const q = (request.query ?? {}) as Record<string, unknown>;
-    const page = Number(q.page ?? 1) || 1;
-    const pageSize = Math.min(Number(q.pageSize ?? 20) || 20, 100);
+    const { page, pageSize } = pageParams(q);
 
     const where: Prisma.IncidentWhereInput = { integration: { tenantId } };
     if (typeof q.integrationId === 'string') where.integrationId = q.integrationId;

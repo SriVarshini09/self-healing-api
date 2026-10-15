@@ -16,6 +16,7 @@ import {
 type WebhookRequest = FastifyRequest & { rawBody?: unknown };
 import { evaluatePredicate as sandboxedEvaluate } from '@shapi/invariant-engine';
 import { detectDrift } from '@shapi/drift-detection';
+import { publicApiOrigin } from '../utils/public-url.js';
 
 export async function webhookRoutes(app: FastifyInstance) {
   // rawBody: true opts into fastify-raw-body capture for HMAC verification.
@@ -149,7 +150,7 @@ async function handleWebhook(request: FastifyRequest, reply: FastifyReply, type:
   // JSON would compute a different digest and reject real webhooks.
   const rawBody = (request as WebhookRequest).rawBody;
   const rawBytes = typeof rawBody === 'string' ? rawBody : undefined;
-  const webhookUrl = `${process.env.BACKEND_URL || 'http://localhost:3001'}${request.raw.url ?? request.url}`;
+  const webhookUrl = `${publicApiOrigin(request)}${request.raw.url ?? request.url}`;
   const candidates = await findIntegrationsByType(type);
   let integration: (typeof candidates)[number] | undefined;
   for (const candidate of candidates) {

@@ -185,6 +185,9 @@ jobs:
       - name: Teammates end to end (invite links, roles enforced, revoke, removal signs out, isolation)
         run: pnpm --filter @shapi/backend e2e:team
 
+      - name: Route audit (every API route: auth required, no 5xx on bad input, no leaked internals)
+        run: pnpm --filter @shapi/backend e2e:route-audit
+
   benchmark:
     runs-on: ubuntu-24.04
     services:

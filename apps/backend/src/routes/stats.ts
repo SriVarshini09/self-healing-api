@@ -61,20 +61,23 @@ export async function statsRoutes(app: FastifyInstance) {
     const previousFrom = new Date(from.getTime() - days * DAY_MS);
 
     const daily = async (sql: Prisma.Sql) => prisma.$queryRaw<DailyRow[]>(sql);
+    // Columns are timestamp-without-time-zone holding UTC; compare in UTC so the
+    // database session's TimeZone setting cannot shift days.
+    const utc = (date: Date) => Prisma.sql`(${date}::timestamptz AT TIME ZONE 'UTC')`;
     const eventsSql = (start: Date, end: Date) => Prisma.sql`
       SELECT date_trunc('day', w."receivedAt") AS day, count(*) AS count
       FROM "WebhookEvent" w JOIN "Integration" i ON i.id = w."integrationId"
-      WHERE i."tenantId" = ${tenantId} AND w."receivedAt" >= ${start} AND w."receivedAt" < ${end}
+      WHERE i."tenantId" = ${tenantId} AND w."receivedAt" >= ${utc(start)} AND w."receivedAt" < ${utc(end)}
       GROUP BY 1`;
     const outcomesSql = (condition: Prisma.Sql, start: Date, end: Date) => Prisma.sql`
       SELECT date_trunc('day', "timestamp") AS day, count(*) AS count
       FROM "TrackedEvent"
-      WHERE "tenantId" = ${tenantId} AND "timestamp" >= ${start} AND "timestamp" < ${end} AND ${condition}
+      WHERE "tenantId" = ${tenantId} AND "timestamp" >= ${utc(start)} AND "timestamp" < ${utc(end)} AND ${condition}
       GROUP BY 1`;
     const incidentsSql = (column: 'detectedAt' | 'resolvedAt', start: Date, end: Date) => Prisma.sql`
       SELECT date_trunc('day', x.${Prisma.raw(`"${column}"`)}) AS day, count(*) AS count
       FROM "Incident" x JOIN "Integration" i ON i.id = x."integrationId"
-      WHERE i."tenantId" = ${tenantId} AND x.${Prisma.raw(`"${column}"`)} >= ${start} AND x.${Prisma.raw(`"${column}"`)} < ${end}
+      WHERE i."tenantId" = ${tenantId} AND x.${Prisma.raw(`"${column}"`)} >= ${utc(start)} AND x.${Prisma.raw(`"${column}"`)} < ${utc(end)}
       GROUP BY 1`;
 
     const end = new Date(todayStart + DAY_MS);
