@@ -16,6 +16,7 @@ import { ConnectionsPage } from './pages/Connections';
 import { SettingsPage } from './pages/Settings';
 import { SecurityPage } from './pages/Security';
 import { ForgotPassword, ResetPasswordScreen } from './PasswordReset';
+import { AcceptInviteScreen } from './AcceptInvite';
 import './console.css';
 
 const DOCS_URL = 'https://github.com/SriVarshini09/self-healing-api#readme';
@@ -417,6 +418,9 @@ export function Console() {
   if (route.startsWith('reset-password')) {
     // From the emailed link; works signed in or out.
     return <ResetPasswordScreen token={new URLSearchParams(route.split('?')[1] ?? '').get('token') ?? ''} />;
+  }
+  if (route.startsWith('accept-invite')) {
+    return <AcceptInviteScreen token={new URLSearchParams(route.split('?')[1] ?? '').get('token') ?? ''} />;
   }
   if (authState.status !== 'ready' && route === 'security') {
     // Readable before signing up: it only calls the public /trust endpoint.

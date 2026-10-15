@@ -51,6 +51,7 @@ provisioned. The [query runner](packages/outcome-checks/src/runner.ts) enforces:
 | Learned Stripe event shapes (change monitor) | Field names and value kinds (string, object, …) per event type, with counts. Never values. |
 | Passwords | scrypt (N=16384, r=8, p=1) with a per-password salt. |
 | API keys, session tokens | SHA-256 hashes only. Sessions use `HttpOnly`, `SameSite=Lax` cookies (`Secure` in production). |
+| Teammate invite links | SHA-256 hash only. A link expires after 7 days, works once, and re-inviting or revoking cancels it. Owners and Admins invite; Viewers can only read. Removing someone signs them out everywhere. |
 | Password reset links | SHA-256 hash only. A link expires after an hour, works once, and a newer request cancels older links. A reset signs the account out everywhere. "Forgot password" answers the same whether or not an account exists. |
 
 Every API request is scoped to the caller's workspace.

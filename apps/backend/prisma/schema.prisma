@@ -26,6 +26,24 @@ model Tenant {
   trackedEvents TrackedEvent[]
   users         User[]
   alertDestinations AlertDestination[]
+  invites       WorkspaceInvite[]
+}
+
+// An invitation to join a workspace. Only the SHA-256 hash of the link token
+// is stored; it expires after 7 days and is deleted when accepted or revoked.
+model WorkspaceInvite {
+  id          String     @id @default(uuid())
+  tenantId    String
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email       String
+  role        TenantRole @default(OPERATOR)
+  tokenHash   String     @unique
+  invitedById String?
+  invitedBy   User?      @relation("InvitesSent", fields: [invitedById], references: [id], onDelete: SetNull)
+  expiresAt   DateTime
+  createdAt   DateTime   @default(now())
+
+  @@unique([tenantId, email])
 }
 
 model Integration {
@@ -372,6 +390,7 @@ model User {
 
   sessions AuthSession[]
   passwordResetTokens PasswordResetToken[]
+  invitesSent WorkspaceInvite[] @relation("InvitesSent")
 
   @@unique([issuer, subject])
   @@index([tenantId])

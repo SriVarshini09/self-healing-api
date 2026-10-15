@@ -182,6 +182,9 @@ jobs:
       - name: Forgot password end to end (no enumeration, one-time expiring links, sessions revoked)
         run: pnpm --filter @shapi/backend e2e:password-reset
 
+      - name: Teammates end to end (invite links, roles enforced, revoke, removal signs out, isolation)
+        run: pnpm --filter @shapi/backend e2e:team
+
   benchmark:
     runs-on: ubuntu-24.04
     services:

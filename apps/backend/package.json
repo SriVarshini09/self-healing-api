@@ -27,7 +27,8 @@
     "e2e:key-rotation": "tsx scripts/e2e-key-rotation.ts",
     "e2e:stripe-changes": "tsx scripts/e2e-stripe-changes.ts",
     "e2e:password-reset": "tsx scripts/e2e-password-reset.ts",
-    "auth:reset-link": "tsx scripts/password-reset-link.ts"
+    "auth:reset-link": "tsx scripts/password-reset-link.ts",
+    "e2e:team": "tsx scripts/e2e-team.ts"
   },
   "dependencies": {
     "@fastify/cors": "^8.4.1",
