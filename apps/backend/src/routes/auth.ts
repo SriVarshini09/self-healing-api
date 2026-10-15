@@ -14,6 +14,7 @@ import {
 import { hashPassword, normalizeEmail, PASSWORD_ISSUER, verifyPassword } from '../utils/passwords.js';
 import { emailAvailable } from '../services/email.js';
 import { requestPasswordReset, resetPassword } from '../services/password-reset.js';
+import { acceptInvite, findInvite, TeamError } from '../services/team.js';
 
 type OidcMetadata = {
   authorization_endpoint: string;
@@ -86,6 +87,11 @@ const loginSchema = z.object({
 }).strict();
 
 const forgotSchema = z.object({ email: z.string().trim().email().max(200) }).strict();
+const acceptSchema = z.object({
+  token: z.string().min(20).max(200),
+  name: z.string().trim().min(1).max(80),
+  password: z.string().min(10).max(200),
+}).strict();
 const resetSchema = z.object({
   token: z.string().min(20).max(200),
   password: z.string().min(10).max(200),
@@ -174,6 +180,30 @@ export async function authRoutes(app: FastifyInstance) {
     if (!user) return reply.code(400).send({ error: 'This reset link is invalid or has expired. Ask for a new one.' });
     await createSession(user.id, reply);
     return reply.send({ user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+  });
+
+  // Invite links (public: the invited person has no account yet).
+  app.get('/auth/invites/:token', { config: credentialRateLimit }, async (request, reply) => {
+    const { token } = request.params as { token: string };
+    const invite = token.length >= 20 && token.length <= 200 ? await findInvite(token) : null;
+    if (!invite) return reply.code(404).send({ error: 'This invite link is invalid or has expired. Ask for a new one.' });
+    return reply.send({ workspace: invite.tenant.name, email: invite.email, role: invite.role, invitedBy: invite.invitedBy?.name ?? null });
+  });
+
+  app.post('/auth/invites/accept', { config: credentialRateLimit }, async (request, reply) => {
+    const parsed = acceptSchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      const passwordIssue = parsed.error.issues.some(issue => issue.path[0] === 'password');
+      return reply.code(400).send({ error: passwordIssue ? 'Password must be at least 10 characters' : 'Enter your name' });
+    }
+    try {
+      const user = await acceptInvite(parsed.data.token, parsed.data.name, parsed.data.password);
+      await createSession(user.id, reply);
+      return reply.code(201).send({ user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+    } catch (error) {
+      if (error instanceof TeamError) return reply.code(error.status).send({ error: error.message });
+      throw error;
+    }
   });
 
   app.get('/auth/login', async (_request, reply) => {
