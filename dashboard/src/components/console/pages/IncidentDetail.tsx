@@ -153,7 +153,7 @@ export function IncidentDetailPage({ id, go }: { id: string; go: (route: string)
       </Card>
 
       {/* Replay tests a candidate fix against a stored event; only useful when a real repair exists. */}
-      {(incident.repairCandidates?.length ?? 0) > 0 && <ReplayBox incidentId={id} integrationId={incident.integrationId} />}
+      {(incident.repairCandidates?.length ?? 0) > 0 && <ReplayBox incidentId={id} integrationId={incident.integrationId} onFinished={() => { void detail.reload(); void timeline.reload(); }} />}
     </div>
   );
 }
@@ -286,7 +286,7 @@ function PullRequestRow({ pr, onChanged }: { pr: GitHubPr; onChanged: () => void
   );
 }
 
-function ReplayBox({ incidentId, integrationId }: { incidentId: string; integrationId: string }) {
+function ReplayBox({ incidentId, integrationId, onFinished }: { incidentId: string; integrationId: string; onFinished: () => void }) {
   const [open, setOpen] = useState(false);
   const [candidate, setCandidate] = useState('');
   const [busy, setBusy] = useState(false);
@@ -298,8 +298,21 @@ function ReplayBox({ incidentId, integrationId }: { incidentId: string; integrat
       const events = await fetchShapi<{ data: Array<{ id: string }> }>(`integrations/${integrationId}/webhook-events?pageSize=1&status=COMPLETED`);
       const event = events.data?.[0];
       if (!event) throw new Error('No completed webhook event is available to replay.');
-      const job = await sendJson<{ status: string; result?: string | null }>(`incidents/${incidentId}/replay`, 'POST', { webhookEventId: event.id, fixCandidate: candidate.trim() });
-      setNote(`Replay ${job.status.toLowerCase()}${job.result ? `: ${job.result.toLowerCase()}` : ''}.`);
+      const job = await sendJson<{ id: string; status: string; result?: string | null }>(`incidents/${incidentId}/replay`, 'POST', { webhookEventId: event.id, fixCandidate: candidate.trim() });
+      setNote('Replaying the latest event…');
+      // The job runs in the background; check back until it finishes.
+      let finished: { status: string; result?: string | null; errorMessage?: string | null } | undefined;
+      for (let attempt = 0; attempt < 15 && !finished; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 700));
+        const detail = await fetchShapi<{ replayJobs?: Array<{ id: string; status: string; result?: string | null; errorMessage?: string | null }> }>(`incidents/${incidentId}`);
+        const current = detail.replayJobs?.find(item => item.id === job.id);
+        if (current && current.status !== 'PENDING' && current.status !== 'RUNNING') finished = current;
+      }
+      if (!finished) setNote('Still replaying. Check the timeline in a moment.');
+      else if (finished.result === 'PASSED') setNote('Replay passed: with this change, the rule holds for the latest event.');
+      else if (finished.result === 'FAILED') setNote('Replay failed: with this change, the rule still fails for the latest event.');
+      else setNote(`Replay could not run${finished.errorMessage ? `: ${finished.errorMessage}` : '.'}`);
+      onFinished();
     } catch (error) {
       setNote(errorMessage(error, 'Replay failed'));
     } finally {

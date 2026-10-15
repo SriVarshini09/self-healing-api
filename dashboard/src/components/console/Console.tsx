@@ -85,6 +85,27 @@ function Shell() {
     window.location.reload();
   };
 
+  // Settings announces a rename; refresh the sidebar's workspace name right away.
+  const reloadStats = stats.reload;
+  useEffect(() => {
+    const onChange = () => void reloadStats();
+    window.addEventListener('shapi:workspace-changed', onChange);
+    return () => window.removeEventListener('shapi:workspace-changed', onChange);
+  }, [reloadStats]);
+
+  // Browser tab title follows the page.
+  useEffect(() => {
+    const titles: Record<string, string> = {
+      incidents: route.split('/')[1] ? 'Incident' : 'Incidents',
+      checks: 'Outcome checks',
+      rules: 'Rules',
+      connections: 'Connections',
+      settings: 'Settings',
+      security: 'Security',
+    };
+    document.title = `${titles[section] ?? 'Overview'} · SHAPI`;
+  }, [section, route]);
+
   let page: ReactNode;
   if (section === 'incidents' && route.split('/')[1]) page = <IncidentDetailPage key={route} id={route.split('/')[1]} go={go} />;
   else if (section === 'incidents') page = <IncidentsPage go={go} />;
@@ -176,6 +197,7 @@ function SearchBox({ incidents, checks, go }: { incidents: Incident[]; checks: O
       { key: 'p-checks', label: 'Outcome checks', kind: 'Page', route: 'checks' },
       { key: 'p-rules', label: 'Rules', kind: 'Page', route: 'rules' },
       { key: 'p-connections', label: 'Connections', kind: 'Page', route: 'connections' },
+      { key: 'p-settings', label: 'Settings', kind: 'Page', route: 'settings' },
       { key: 'p-security', label: 'Security', kind: 'Page', route: 'security' },
     ];
     const all: SearchResult[] = [
@@ -262,6 +284,7 @@ function AccessScreen({ state, onSignedIn, initialMode = 'signin' }: {
   const [form, setForm] = useState({ workspaceName: '', name: '', email: '', password: '', inviteCode: '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useEffect(() => { document.title = 'Sign in · SHAPI'; }, []);
   const set = (field: keyof typeof form) => (event: { target: { value: string } }) => setForm(current => ({ ...current, [field]: event.target.value }));
 
   const submit = async (event: FormEvent) => {

@@ -1,6 +1,6 @@
 // Public landing page for signed-out visitors. Every claim here is backed by
 // something in the repository (benchmark/, the Stripe change monitor, SECURITY.md).
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { ArrowRight, BellRing, Check, Database, GitCompareArrows, Lock, PlugZap, ShieldCheck } from 'lucide-react';
 import { SHAPI_API } from '@/lib/shapi-api';
 import './landing.css';
@@ -87,6 +87,7 @@ function RequestInvite() {
 
 export function Landing({ signup }: { signup: Signup | null }) {
   const createLabel = signup === 'open' ? 'Create a workspace' : 'I have an invite code';
+  useEffect(() => { document.title = 'SHAPI — Stripe says paid. Did the customer get access?'; }, []);
   return (
     <div className="c-app l-page">
       <header className="l-nav">

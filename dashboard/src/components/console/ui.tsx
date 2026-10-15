@@ -38,6 +38,22 @@ export function PageHeader({ title, sub, actions }: { title: string; sub?: React
   );
 }
 
+/** Props for a clickable table row that also works from the keyboard (Tab, then Enter). */
+export function rowLink(open: () => void) {
+  return {
+    className: 'is-link',
+    role: 'link',
+    tabIndex: 0,
+    onClick: open,
+    onKeyDown: (event: { key: string; preventDefault: () => void }) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        open();
+      }
+    },
+  };
+}
+
 export function Empty({ children }: { children: ReactNode }) {
   return <p className="c-empty">{children}</p>;
 }
