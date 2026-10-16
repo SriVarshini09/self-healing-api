@@ -8,10 +8,10 @@
     "packages/*"
   ],
   "scripts": {
-    "bootstrap": "node scripts/setup-env.mjs && pnpm db:generate && pnpm build:packages",
+    "bootstrap": "node scripts/setup-env.mjs && pnpm db:generate && pnpm build:packages && pnpm --dir dashboard install --ignore-workspace --frozen-lockfile",
     "build:packages": "pnpm --filter \"./packages/*\" build",
     "predev": "pnpm build:packages",
-    "dev": "concurrently \"pnpm --filter @shapi/backend dev\" \"pnpm --filter @shapi/dashboard dev\" \"pnpm --filter @shapi/demo-saas dev\"",
+    "dev": "concurrently \"pnpm --filter @shapi/backend dev\" \"pnpm --dir dashboard dev\" \"pnpm --filter @shapi/demo-saas dev\"",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",

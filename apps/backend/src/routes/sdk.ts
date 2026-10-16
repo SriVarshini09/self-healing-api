@@ -39,7 +39,7 @@ export async function sdkRoutes(app: FastifyInstance) {
 
     try {
       const tracked = await prisma.trackedEvent.upsert({
-        where: { eventId: body.eventId },
+        where: { tenantId_eventId: { tenantId, eventId: body.eventId } },
         update: {},
         create: {
           eventId: body.eventId,

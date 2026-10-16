@@ -80,6 +80,7 @@ function matchesPr(p: FakePr, where: Record<string, unknown>): boolean {
 vi.mock('../../utils/prisma.js', () => ({
   prisma: {
     integration: {
+      findFirst: vi.fn(async () => ({ id: 'github-demo' })),
       findMany: vi.fn(async () => [{
         id: 'github-demo',
         type: 'GITHUB',
@@ -89,6 +90,10 @@ vi.mock('../../utils/prisma.js', () => ({
       }]),
     },
     gitHubInstallation: {
+      upsert: vi.fn(async () => ({
+        id: 'token-installation-row', githubInstallationId: BigInt(-1),
+        accountLogin: 'acme', repositories: ['acme/demo'],
+      })),
       findMany: vi.fn(async () => [{
         id: 'install-1', githubInstallationId: BigInt(166689576),
         accountLogin: 'SriVarshini09', repositories: ['SriVarshini09/self-healing-api'],
@@ -427,6 +432,36 @@ describe('POST /github/incidents/:incidentId/pr', () => {
       }), undefined, undefined, -1,
     );
     expect(res.json()).toMatchObject({ prNumber: 42, status: 'OPEN' });
+  });
+
+  it('records the real installation row when the env-token alias is used', async () => {
+    vi.stubEnv('GITHUB_TOKEN', 'ghp_test_token');
+    vi.stubEnv('GITHUB_ACCOUNT_LOGIN', 'acme');
+    vi.stubEnv('GITHUB_REPOSITORIES', 'acme/demo');
+    try {
+      db.candidates = [{
+        id: candidateB, incidentId: 'inc-1', description: 'Selected', diff: null, confidence: 0.7,
+        changes: [{ kind: 'replace', path: 'src/selected.ts', before: 'old', after: 'new' }], repository: 'acme/demo',
+      }];
+      previewRepairPrChangesMock.mockResolvedValue({
+        base: 'master', baseSha: 'base-sha',
+        files: [{ path: 'src/selected.ts', kind: 'replace', original: 'const value = old;\n', content: 'const value = new;\n' }],
+      });
+      const alias = { installationId: 'env-token-installation', repository: 'acme/demo', candidateId: candidateB };
+      const preview = await app.inject({ method: 'POST', url: '/github/incidents/inc-1/pr/preview', payload: alias });
+      expect(preview.statusCode).toBe(200);
+      openRepairPrFromChangesMock.mockResolvedValue({ prNumber: 7, prUrl: 'https://github.com/acme/demo/pull/7', real: true });
+
+      const res = await app.inject({
+        method: 'POST', url: '/github/incidents/inc-1/pr',
+        payload: { ...alias, title: 'Repair', previewToken: (preview.json() as { previewToken: string }).previewToken },
+      });
+      expect(res.statusCode).toBe(201);
+      // The foreign key needs the installation's row id, not the alias the caller typed.
+      expect(res.json()).toMatchObject({ installationId: 'token-installation-row', prNumber: 7 });
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('requires a current preview approval before a PR can be created', async () => {

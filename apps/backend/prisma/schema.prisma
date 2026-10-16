@@ -430,7 +430,7 @@ model TrackedEvent {
   id              String   @id @default(uuid())
   tenantId        String?
   tenant          Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
-  eventId         String   @unique
+  eventId         String
   integration     IntegrationType
   type            String
   payload         Json
@@ -443,6 +443,8 @@ model TrackedEvent {
   @@index([correlationId])
   @@index([timestamp])
   @@index([tenantId, timestamp])
+  // Event ids are chosen by each workspace's own code, so two workspaces can use the same id.
+  @@unique([tenantId, eventId])
 }
 
 model APIKey {
