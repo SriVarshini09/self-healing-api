@@ -52,6 +52,9 @@ const configSchema = z.object({
   // Where "Request an invite" submissions are emailed (needs Resend). List them
   // any time with `pnpm --filter @shapi/backend invites:list`.
   SHAPI_OPERATOR_EMAIL: z.preprocess(value => value === '' ? undefined : value, z.string().email().optional()),
+  // Public contact address shown on the Terms and Privacy pages (and in GET /trust).
+  // Separate from SHAPI_OPERATOR_EMAIL on purpose: that one stays private.
+  SHAPI_CONTACT_EMAIL: z.preprocess(value => value === '' ? undefined : value, z.string().email().optional()),
   SHAPI_BOOTSTRAP_TOKEN: z.preprocess(
     value => value === '' ? undefined : value,
     z.string().min(32).optional(),
