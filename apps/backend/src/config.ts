@@ -18,6 +18,10 @@ const configSchema = z.object({
   HOST: z.string().default('0.0.0.0'),
   INVARIANT_EVALUATION_INTERVAL_SEC: z.coerce.number().int().positive().default(60),
   SHAPI_MAX_INVARIANTS_PER_TENANT: z.coerce.number().int().positive().default(100),
+  // How long received Stripe/webhook events, tracked events and finished check runs
+  // are kept. Older rows are deleted daily. 30 days is the floor: drift detection
+  // compares against a recent baseline.
+  SHAPI_RETENTION_DAYS: z.coerce.number().int().min(30).max(3650).default(90),
   DATABASE_URL: z.string().url(),
   JWT_SECRET: z.string().min(32),
   // Key for secrets stored at rest (outcome-check database URLs, Stripe keys).

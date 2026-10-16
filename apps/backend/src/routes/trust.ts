@@ -13,5 +13,7 @@ export async function trustRoutes(app: FastifyInstance) {
     dedicatedEncryptionKey: Boolean(config.SHAPI_ENCRYPTION_KEY),
     // Outcome checks refuse databases on private/internal addresses.
     privateDatabaseHostsBlocked: blockPrivateDatabaseHosts(),
+    // Received events and finished check runs are deleted after this many days.
+    retentionDays: config.SHAPI_RETENTION_DAYS,
   }));
 }
