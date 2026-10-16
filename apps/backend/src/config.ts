@@ -105,7 +105,7 @@ const configSchema = z.object({
   RESEND_API_KEY: z.preprocess(value => value === '' ? undefined : value, z.string().optional()),
   ALERT_EMAIL_FROM: z.preprocess(value => value === '' ? undefined : value, z.string().optional()),
   // Frontend URLs
-  DASHBOARD_URL: z.string().url().default('http://localhost:5173'),
+  DASHBOARD_URL: z.string().url().default('http://localhost:5174'),
   DEMO_SAAS_URL: z.string().url().default('http://localhost:3000')
 });
 

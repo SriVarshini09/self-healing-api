@@ -221,7 +221,7 @@ function generateWebhookSecret(): string {
 
 function getWebhookInstructions(type: string, url: string): string {
   const instructions: Record<string, string> = {
-    STRIPE: `1. Stripe Dashboard > Developers > Webhooks\n2. Add endpoint: ${url}\n3. Configure the signing secret returned when this integration was created or regenerated.`,
+    STRIPE: `1. Stripe Dashboard > Developers > Webhooks\n2. Add endpoint: ${url}\n3. In Stripe, reveal the endpoint's signing secret (it starts with whsec_) and save it here so SHAPI can verify events.`,
     GITHUB: `1. GitHub App > Webhooks\n2. Payload URL: ${url}\n3. Configure the signing secret returned when this integration was created or regenerated.`,
     SENDGRID: `1. SendGrid > Event Webhook\n2. URL: ${url}`,
     TWILIO: `1. Twilio Console > Webhook URL: ${url}`,

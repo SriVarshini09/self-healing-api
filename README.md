@@ -29,10 +29,10 @@ provides one: `docker compose up -d`).
 
 ```bash
 pnpm install
-pnpm bootstrap     # creates .env + apps/backend/.env, generates Prisma client, builds packages
+pnpm bootstrap     # creates .env + apps/backend/.env, generates Prisma client, builds packages, installs the dashboard
 pnpm db:push       # create tables
 pnpm db:seed       # demo tenant, invariants, demo API key
-pnpm dev           # backend :3001, dashboard :5173, demo-saas :3000
+pnpm dev           # backend :3001, dashboard :5174, demo-saas :3000
 ```
 
 Port 3000 busy? Run `DEMO_PORT=3300 pnpm dev` and set `DEMO_SAAS_URL` in `.env`.
@@ -50,7 +50,7 @@ curl -X POST $D/webhooks/stripe -H 'content-type: application/json' \
 
 # flip the simulated bug on and repeat the checkout+webhook ~6 times: every webhook
 # still returns HTTP 200, users stay provisioned:false, and SHAPI opens an incident
-# (watch it in the dashboard at :5173)
+# (watch it in the dashboard at :5174)
 curl -X POST $D/admin/failure-mode -H 'content-type: application/json' -d '{"enabled":true}'
 ```
 
@@ -112,7 +112,7 @@ curl -X POST http://127.0.0.1:3001/api/v1/outcome-checks \
 ```
 apps/
   backend/    Fastify + Prisma + PostgreSQL API (webhooks, invariants, incidents, drift, SDK ingest, GitHub)
-  dashboard/  React + Vite monitoring UI (:5173)
+  dashboard/  React + Vite monitoring UI (:5174)
   demo-saas/  Demo SaaS with Stripe webhook receiver + simulated silent-provisioning bug (:3000)
 packages/
   shared/               Zod domain types
@@ -492,7 +492,7 @@ delivery id to verify deduplication.
 Open:
 
 - API docs: http://localhost:3001/docs
-- Dashboard: http://localhost:5173
+- Dashboard: http://localhost:5174
 - Demo SaaS health: http://localhost:3000/health
 
 ## The demo: 200 OK that fails the business
