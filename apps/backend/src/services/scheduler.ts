@@ -4,6 +4,7 @@ import { evaluateInvariantWindow } from './invariants.js';
 import { logger } from '../utils/logger.js';
 import { deliverPendingAlerts } from './alerts.js';
 import { processDueOutcomeRuns, reconcileDueStripeChecks } from './outcome-checks.js';
+import { recordSchedulerTick } from './self-monitor.js';
 
 export async function evaluateAllInvariantWindows(now = new Date()): Promise<void> {
   const invariants = await prisma.invariant.findMany();
@@ -21,10 +22,12 @@ export function startEvaluationScheduler(intervalSeconds: number): () => void {
   const tick = async () => {
     if (running) return;
     running = true;
+    recordSchedulerTick();
     try {
       await recoverPendingWebhookEvents();
       await deliverPendingAlerts();
       await evaluateAllInvariantWindows();
+      recordSchedulerTick(true);
     } catch (error) {
       logger.error({ error }, 'Scheduled invariant evaluation failed');
     }
