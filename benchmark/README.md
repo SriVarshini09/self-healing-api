@@ -2,7 +2,8 @@
 
 Can SHAPI's outcome checks catch real Stripe webhook bugs? This benchmark runs
 **real, unmodified open-source starter kits** against a real Postgres. It then
-re-runs each kit with one realistic bug injected at a time.
+re-runs each kit with one realistic bug injected at a time. Two kits so far:
+Vercel's `nextjs/saas-starter` (Drizzle) and `shadcn-ui/taxonomy` (Prisma).
 
 ## Method
 
@@ -10,7 +11,10 @@ re-runs each kit with one realistic bug injected at a time.
    `.kits/`. Kit code is never committed here, and its install scripts never run.
 2. **Run the kit's real webhook route.** The harness calls the `POST` handler
    with Stripe events signed by Stripe's own library. Only `next/server`,
-   `next/headers` and `next/navigation` are replaced, with minimal stubs.
+   `next/headers` and `next/navigation` are replaced, with minimal stubs. For
+   kits whose handler calls back into the Stripe API (taxonomy fetches the
+   subscription), an in-process fake of `api.stripe.com` answers from fixtures;
+   nothing leaves the machine.
 3. **Use a fresh database per variant.** Each run gets the kit's own migration
    SQL plus a few customer rows.
 4. **Check outcomes with SHAPI's real code.** After delivery, SHAPI's
@@ -61,7 +65,55 @@ database ends up correct and an outcome check has nothing to see. On serverless
 platforms the function can be frozen before the write completes. That is not
 reproduced here, so we count it as a miss rather than claim it.
 
-## The bug found in the unmodified kit
+## shadcn-ui/taxonomy @ `298a8857c712` (MIT (c) 2023 shadcn)
+
+A different shape from the first kit: on each event the handler calls Stripe
+(`subscriptions.retrieve`) and then updates a Prisma `User` row.
+
+**One disclosed change.** The kit targets MySQL (PlanetScale), and SHAPI's
+outcome checks read Postgres. The harness switches the Prisma datasource line
+from `mysql` to `postgresql` and generates the schema from the kit's own models.
+The webhook handler, the Prisma models and `lib/db.ts` are untouched.
+
+- Baseline (unmodified kit): all outcome checks pass (no false positives)
+- Injected bugs: 9. Silent (every webhook still returned 2xx): 7.
+- **Detected by outcome checks: 9/9** (silent ones: 7/7).
+
+| Bug | Webhook responses | Outcome checks failed | Detected |
+|---|---|---|---|
+| T1-drop-checkout-case: checkout.session.completed no longer handled | 200 (silent) | subscription-recorded | yes |
+| T2-drop-renewal-case: invoice.payment_succeeded no longer handled | 200 (silent) | renewal-recorded | yes |
+| T3-wrong-subscription-id: Stores the checkout session id as the subscription id | 200 (silent) | subscription-recorded | yes |
+| T4-null-customer: Customer id never saved | 200 (silent) | subscription-recorded | yes |
+| T5-renewal-keeps-old-period: Renewal updates the price but not the period end | 200 (silent) | renewal-recorded | yes |
+| T6-period-in-seconds: Period end stored as seconds treated as milliseconds | 200 (silent) | subscription-recorded | yes |
+| T7-unawaited-write: Checkout write not awaited | 200 (silent) | subscription-recorded | yes |
+| T8-missing-user-metadata: User id read from the wrong metadata key | 500 (checkout), 200 | subscription-recorded | yes |
+| T9-renamed-secret-env: Webhook secret read from a renamed env var | 400 | subscription-recorded, renewal-recorded | yes |
+
+T7 is detected here, unlike M9 in the first kit, for a reason specific to
+Prisma: its queries are lazy, so a query that is never awaited never runs at
+all. It is not a claim that SHAPI catches every timing bug.
+
+### The issue in the unmodified kit: renewals break on newer Stripe accounts
+
+From Stripe API version `2025-03-31.basil`, an invoice no longer has a top-level
+`subscription` field; it moved to `parent.subscription_details.subscription`
+([Stripe changelog](https://docs.stripe.com/changelog/basil/2025-03-31/adds-new-parent-field-to-invoicing-objects)).
+Taxonomy's `invoice.payment_succeeded` handler reads `session.subscription`.
+On an account using the newer version that value is `undefined`, so
+`stripe.subscriptions.retrieve(undefined)` throws, the webhook returns 500, and
+the renewal never reaches the user row. The check for that scenario fails on the
+unmodified kit, which is the point: the harness reports it as a finding instead of
+a false positive, and CI fails if it ever stops reproducing so this write-up
+cannot go stale. The kit pins its own SDK to `2022-11-15`, which hides the
+problem for the calls it makes itself but not for the webhook payload, whose
+shape follows the account's version.
+
+This is also the kind of change SHAPI's Stripe change monitor watches for: a
+field disappearing from an event type.
+
+## The bug found in the unmodified saas-starter kit
 
 `lib/payments/stripe.ts` sets `planName: (plan?.product as Stripe.Product).name`.
 
@@ -88,6 +140,6 @@ reproduced here, so we count it as a miss rather than claim it.
   The plan is: give the repair agent the failing check, the event and the kit
   source; apply its patch; re-run this benchmark. A fix counts when every check
   passes again.
-- **More kits.** One kit (`nextjs/saas-starter`) is covered so far. Kits whose
-  handler calls the Stripe API, like `shadcn-ui/taxonomy`, need a Stripe API
-  stub, which comes next.
+- **More kits.** Two kits are covered. Next candidates are kits on other ORMs
+  and billing flows (for example Supabase-based starters, which need a stub for
+  their REST layer).
