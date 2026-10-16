@@ -113,10 +113,10 @@ services:
       # the browser bundle.
       - key: VITE_API_URL
         value: ''
-      # Leave empty when using OIDC; otherwise set the raw tenant API key
-      # created by POST /api/v1/bootstrap/tenant.
-      - key: VITE_SHAPI_API_KEY
-        sync: false
+      # Do NOT set VITE_SHAPI_API_KEY here. Anything in the dashboard's runtime
+      # config is public, and a key there both leaks the key and switches off
+      # sign-in for everyone. (The entrypoint ignores it unless
+      # SHAPI_DASHBOARD_ALLOW_PUBLIC_KEY=true, which is for private networks.)
       - key: PORT
         value: '10000'
       # Free Render web services cannot receive private-network traffic. Proxy

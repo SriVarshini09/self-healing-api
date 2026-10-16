@@ -130,7 +130,7 @@ packages/
 
 The repository includes provider-neutral Docker packaging. Copy `.env.example`
 to `.env`, replace development secrets, set `POSTGRES_USER`,
-`POSTGRES_PASSWORD`, `POSTGRES_DB`, `VITE_API_URL`, and `VITE_SHAPI_API_KEY`,
+`POSTGRES_PASSWORD`, `POSTGRES_DB`, and `VITE_API_URL`,
 set `SHAPI_DASHBOARD_URL` to the dashboard's public URL, then run:
 
 ```powershell
@@ -203,9 +203,10 @@ without credentials. Apply it from the Render Dashboard, then set the
      -DashboardApiKeyOutputFile C:\secure\shapi-dashboard.env
    ```
 
-   Neither key is printed to terminal logs. Copy only the separately scoped
-   dashboard key into `VITE_SHAPI_API_KEY`, or configure OIDC before exposing
-   the dashboard; do not put the owner key in browser runtime configuration.
+   Neither key is printed to terminal logs. Use the keys for scripts and the
+   API only. **Do not put any API key in the dashboard's configuration**
+   (`VITE_SHAPI_API_KEY`): the dashboard's runtime config is public, so a key there is
+   readable by anyone and turns off sign-in. People sign in with a password or SSO.
 
    Now verify the running API—not only the local key file—before installing or
    syncing the GitHub App:
@@ -565,9 +566,10 @@ Provider calls use a 10-second timeout by default; set
 `OIDC_PROVIDER_TIMEOUT_MS` when the deployment needs a different bounded
 timeout. Provider outages return a controlled gateway error instead of hanging
 the login flow.
-For an OIDC-only dashboard deployment, leave `VITE_SHAPI_API_KEY` empty; the
-production compose file supports this mode and the dashboard will use the
-browser session instead. The dashboard checks `/auth/me` before loading live
+Leave `VITE_SHAPI_API_KEY` empty on every deployed dashboard; the dashboard then
+uses the browser session (password or SSO) instead. The entrypoint ignores the
+variable unless `SHAPI_DASHBOARD_ALLOW_PUBLIC_KEY=true`, which exists only for
+private-network setups where a key-only console is intended. The dashboard checks `/auth/me` before loading live
 data, shows an explicit SSO sign-in action when the session is missing, and
 fails with a configuration message when OIDC is not enabled. API-key-backed
 dashboards keep their existing direct access path.
@@ -804,6 +806,6 @@ incident. Neither action can reopen resolved or dismissed incidents.
   confirm `/api/v1/alerts/status` moves deliveries to `delivered`.
 - Multi-tenant predicates: tune the per-tenant quota for deployment size and
   monitor `isolated-vm` resource use under real traffic.
-- Auth: rotate `SHAPI_API_KEY` per environment; set `VITE_SHAPI_API_KEY` to match.
+- Auth: rotate `SHAPI_API_KEY` per environment. Never publish it through the dashboard config.
 - Bootstrap: set a random `SHAPI_BOOTSTRAP_TOKEN` of at least 32 characters only
   during tenant onboarding, then remove or rotate it.

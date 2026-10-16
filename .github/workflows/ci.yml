@@ -82,6 +82,9 @@ jobs:
       - name: Build dashboard
         run: pnpm --filter @shapi/dashboard build
 
+      - name: Dashboard entrypoint never publishes an API key by default
+        run: sh deploy/test-dashboard-entrypoint.sh
+
       - name: Build production dashboard
         run: |
           pnpm --dir dashboard install --frozen-lockfile --ignore-workspace

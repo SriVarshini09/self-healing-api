@@ -20,10 +20,12 @@ param(
   [switch]$IncludeRepairAudit,
   [switch]$RequireRepairTargets,
   [switch]$RequireOidc,
-  # A hosted release is not usable if the dashboard has neither an API-key
-  # runtime configuration nor an enabled OIDC provider. Keep this check on by
+  # A hosted release must let people sign in (password or OIDC) and must NOT publish
+  # an API key in the dashboard's public runtime config. Keep this check on by
   # default; callers can explicitly disable it for infrastructure-only trials.
-  [switch]$RequireDashboardAuthentication = $true
+  [switch]$RequireDashboardAuthentication = $true,
+  # Only for deliberately key-only, private-network dashboards.
+  [switch]$AllowPublicDashboardKey
 )
 
 $ErrorActionPreference = 'Stop'
@@ -86,14 +88,20 @@ if ($RequireDashboardAuthentication) {
     throw 'Hosted API authentication configuration returned invalid JSON.'
   }
   $oidcConfigured = [bool]$authConfig.oidcEnabled
+  $passwordConfigured = $authConfig.passwordLogin -ne $false
 
-  if (-not $dashboardApiKeyConfigured -and -not $oidcConfigured) {
-    throw 'Hosted dashboard authentication is not configured: set VITE_SHAPI_API_KEY to the scoped dashboard key or enable complete OIDC configuration before release.'
+  # The runtime config is a public file. A key in it is readable by anyone and makes the
+  # dashboard skip sign-in, so it fails the release unless explicitly allowed.
+  if ($dashboardApiKeyConfigured -and -not $AllowPublicDashboardKey) {
+    throw 'The hosted dashboard publishes an API key in its public config.js (value omitted). Remove VITE_SHAPI_API_KEY from the dashboard service and rotate that key; anyone can read it and the sign-in page is bypassed.'
+  }
+  if (-not $dashboardApiKeyConfigured -and -not $oidcConfigured -and -not $passwordConfigured) {
+    throw 'Hosted dashboard sign-in is not available: enable password sign-in or complete OIDC configuration before release.'
   }
   if ($dashboardApiKeyConfigured) {
-    Write-Host 'PASS hosted dashboard authentication configuration (runtime API key present; value omitted)'
+    Write-Host 'WARN hosted dashboard publishes an API key (allowed by -AllowPublicDashboardKey; value omitted)'
   } else {
-    Write-Host 'PASS hosted dashboard authentication configuration (OIDC enabled)'
+    Write-Host 'PASS hosted dashboard authentication configuration (no key published; sign-in via session)'
   }
 }
 
