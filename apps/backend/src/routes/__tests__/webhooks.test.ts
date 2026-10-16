@@ -1,6 +1,29 @@
 import { describe, it, expect } from 'vitest';
 import crypto from 'crypto';
-import { evaluatePredicate, verifyWebhookSignature } from '../webhooks.js';
+import { evaluatePredicate, stripeSecretsToTry, verifyWebhookSignature } from '../webhooks.js';
+
+describe('stripe secret selection', () => {
+  const real = 'whsec_real_secret_value_0123456789';
+  const own = 'whsec_tenant_own_secret_0123456789';
+
+  it('always includes the integration\'s own secret, even when an env secret is set', () => {
+    expect(stripeSecretsToTry(own, real, 1)).toEqual([real, own]);
+  });
+
+  it('ignores the env secret once there is more than one integration', () => {
+    expect(stripeSecretsToTry(own, real, 2)).toEqual([own]);
+  });
+
+  it('ignores placeholder env secrets and does not duplicate an identical secret', () => {
+    expect(stripeSecretsToTry(own, 'whsec_your_stripe_webhook_secret', 1)).toEqual([own]);
+    expect(stripeSecretsToTry(real, real, 1)).toEqual([real]);
+  });
+
+  it('still yields one attempt for an integration with no stored secret', () => {
+    expect(stripeSecretsToTry(null, undefined, 1)).toEqual([undefined]);
+    expect(stripeSecretsToTry(null, real, 1)).toEqual([real, undefined]);
+  });
+});
 
 describe('webhook invariant evaluation', () => {
   it('a 200 OK payload can still violate the business invariant', () => {

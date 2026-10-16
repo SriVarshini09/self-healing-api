@@ -46,6 +46,26 @@ type WebhookKind = 'stripe' | 'github' | 'sendgrid' | 'twilio' | 'custom';
 
 const isDevSecret = isPlaceholderWebhookSecret;
 
+/**
+ * Signing secrets to try for one Stripe integration, in order. A real STRIPE_WEBHOOK_SECRET
+ * in the environment is a single-deployment convenience, so it is tried first only while
+ * there is exactly one integration. The integration's own secret is ALWAYS tried too:
+ * a leftover env value must never make a tenant's correctly configured secret stop working
+ * (before, its events started failing signature checks the moment it was the only
+ * integration, and recovered when a second one appeared).
+ */
+export function stripeSecretsToTry(
+  integrationSecret: string | null,
+  envSecret: string | undefined,
+  candidateCount: number,
+): Array<string | undefined> {
+  const secrets: Array<string | undefined> = [];
+  if (envSecret && !isDevSecret(envSecret) && candidateCount === 1) secrets.push(envSecret);
+  const own = integrationSecret ?? undefined;
+  if (!secrets.includes(own)) secrets.push(own);
+  return secrets;
+}
+
 function toPrismaIntegrationType(kind: WebhookKind): IntegrationType {
   switch (kind) {
     case 'stripe':
@@ -95,21 +115,20 @@ async function handleStripeWebhook(request: WebhookRequest, reply: FastifyReply)
   // when no integration's real signature matched, otherwise it would swallow
   // other tenants' genuine events just by being earlier in the list.
   let unverified: { integration: (typeof candidates)[number]; payload: Record<string, unknown> } | undefined;
-  for (const integration of candidates) {
-    const secret = envSecret && !isDevSecret(envSecret) && candidates.length === 1
-      ? envSecret
-      : integration.webhookSecret ?? undefined;
-    try {
-      const result = verifyStripeWebhook(rawBody, headers['stripe-signature'], secret);
-      if (result.verified) {
-        candidate = integration;
-        payload = result.event as unknown as Record<string, unknown>;
-        logger.debug({ integrationId: integration.id }, 'Stripe signature verified via SDK');
-        break;
+  verification: for (const integration of candidates) {
+    for (const secret of stripeSecretsToTry(integration.webhookSecret, envSecret, candidates.length)) {
+      try {
+        const result = verifyStripeWebhook(rawBody, headers['stripe-signature'], secret);
+        if (result.verified) {
+          candidate = integration;
+          payload = result.event as unknown as Record<string, unknown>;
+          logger.debug({ integrationId: integration.id }, 'Stripe signature verified via SDK');
+          break verification;
+        }
+        unverified ??= { integration, payload: result.event as unknown as Record<string, unknown> };
+      } catch (err) {
+        logger.debug({ integrationId: integration.id, err: err instanceof Error ? err.message : String(err) }, 'Stripe candidate did not verify');
       }
-      unverified ??= { integration, payload: result.event as unknown as Record<string, unknown> };
-    } catch (err) {
-      logger.debug({ integrationId: integration.id, err: err instanceof Error ? err.message : String(err) }, 'Stripe candidate did not verify');
     }
   }
   if (!candidate && unverified) {

@@ -91,7 +91,7 @@ async function resolveGitHubWebhookIntegration(payload: JsonRecord, event: strin
     : candidates.length === 1 ? candidates[0] : undefined;
 }
 
-async function ensureTokenInstallation(tenantId: string, integrationId: string) {
+async function ensureTokenInstallation(integrationId: string) {
   const repositories = (process.env.GITHUB_REPOSITORIES ?? '')
     .split(',')
     .map(repository => repository.trim())
@@ -295,7 +295,7 @@ export async function githubRoutes(app: FastifyInstance) {
     if (installations.length === 0) {
       const integration = await prisma.integration.findFirst({ where: { type: IntegrationType.GITHUB, tenantId } });
       if (integration) {
-        const tokenInstallation = await ensureTokenInstallation(tenantId, integration.id);
+        const tokenInstallation = await ensureTokenInstallation(integration.id);
         if (tokenInstallation) installations = [tokenInstallation as typeof installations[number]];
       }
     }
@@ -446,7 +446,7 @@ export async function githubRoutes(app: FastifyInstance) {
     });
     if (!installation && installationId === 'env-token-installation') {
       const integration = await prisma.integration.findFirst({ where: { type: IntegrationType.GITHUB, tenantId } });
-      if (integration) installation = await ensureTokenInstallation(tenantId, integration.id);
+      if (integration) installation = await ensureTokenInstallation(integration.id);
     }
     if (!installation) return reply.code(404).send({ error: 'Installation not found' });
 
@@ -528,7 +528,7 @@ export async function githubRoutes(app: FastifyInstance) {
     });
     if (!installation && installationId === 'env-token-installation') {
       const integration = await prisma.integration.findFirst({ where: { type: IntegrationType.GITHUB, tenantId } });
-      if (integration) installation = await ensureTokenInstallation(tenantId, integration.id);
+      if (integration) installation = await ensureTokenInstallation(integration.id);
     }
     if (!installation) return reply.code(404).send({ error: 'Installation not found' });
 
