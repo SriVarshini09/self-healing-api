@@ -8,6 +8,7 @@ import { startSelfMonitor } from './services/self-monitor.js';
 
 async function main() {
   const app = Fastify({
+    trustProxy: config.SHAPI_TRUST_PROXY_HOPS > 0 ? config.SHAPI_TRUST_PROXY_HOPS : false,
     logger: config.NODE_ENV === 'development' ? {
       transport: {
         target: 'pino-pretty',

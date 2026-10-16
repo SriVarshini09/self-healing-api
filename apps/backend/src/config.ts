@@ -101,6 +101,13 @@ const configSchema = z.object({
   // service alerts you, even if the whole process is down.
   SHAPI_HEARTBEAT_URL: z.preprocess(value => value === '' ? undefined : value, z.string().url().optional()),
   ALERT_WEBHOOK_MAX_ATTEMPTS: z.coerce.number().int().positive().default(3),
+  // How many reverse proxies sit in front of the API and append to X-Forwarded-For. 0 (default)
+  // trusts none, so request.ip is the socket peer. Behind proxies that is the PROXY's address, and
+  // every visitor then shares one rate-limit bucket (login, signup, "request an invite"). Set it to
+  // the real hop count so each visitor is limited on their own address. Too high lets a caller
+  // choose their own address with an X-Forwarded-For header; too low is the same as 0.
+  // Render with the dashboard's nginx in front: 3. See OPERATIONS.md.
+  SHAPI_TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(0),
   // Email alerts via Resend (https://resend.com). Both must be set for email destinations to send.
   RESEND_API_KEY: z.preprocess(value => value === '' ? undefined : value, z.string().optional()),
   ALERT_EMAIL_FROM: z.preprocess(value => value === '' ? undefined : value, z.string().optional()),

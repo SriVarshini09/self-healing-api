@@ -189,3 +189,18 @@ Render's free plan sleeps a web service after about 15 minutes without traffic, 
 the background cycle sleeps with it, so checks and alerts stop for customers who are
 not sending events. The heartbeat will (correctly) go quiet. Use a paid always-on
 instance before real customers depend on SHAPI.
+
+## 8. Rate limits behind proxies (`SHAPI_TRUST_PROXY_HOPS`)
+
+By default the API trusts no proxy, so a request's address is whoever connected to it. Behind Render
+(and the dashboard's nginx, which forwards `/api` to the API's public URL) that is always a proxy,
+so **every visitor shares one rate-limit bucket**: ten sign-in, sign-up or password-reset attempts
+from anyone in 15 minutes, or five "request an invite" submissions in an hour, then everyone is told
+to wait. Set `SHAPI_TRUST_PROXY_HOPS` to the number of proxies that append to `X-Forwarded-For`.
+
+- Visitor -> Render edge -> dashboard nginx -> Render edge -> API: the forwarded chain at the API is
+  `client, edge, nginx` plus the connecting edge, so use **3**.
+- Visitor -> Render edge -> API (calls straight to the API's URL): use **1**.
+- Too low behaves like 0. Too high is the risk: a caller sending their own `X-Forwarded-For` can then
+  pick the address they are limited under. Treat it as a deployment decision, and verify by signing in
+  from two different networks and confirming they do not block each other.
