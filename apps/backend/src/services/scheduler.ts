@@ -10,11 +10,16 @@ import { purgeIfDue } from './retention.js';
 export async function evaluateAllInvariantWindows(now = new Date()): Promise<void> {
   const invariants = await prisma.invariant.findMany();
   for (const invariant of invariants) {
-    const windowStart = new Date(now.getTime() - invariant.evaluationWindowSec * 1000);
-    const evaluation = await evaluateInvariantWindow(invariant, windowStart, now);
-    if (!evaluation) continue;
-    await checkDrift(invariant.id);
-    logger.debug({ invariantId: invariant.id, status: evaluation.status }, 'Invariant window evaluated');
+    // One workspace's broken rule must not stop everyone else's from being evaluated.
+    try {
+      const windowStart = new Date(now.getTime() - invariant.evaluationWindowSec * 1000);
+      const evaluation = await evaluateInvariantWindow(invariant, windowStart, now);
+      if (!evaluation) continue;
+      await checkDrift(invariant.id);
+      logger.debug({ invariantId: invariant.id, status: evaluation.status }, 'Invariant window evaluated');
+    } catch (error) {
+      logger.error({ invariantId: invariant.id, error: error instanceof Error ? error.message : String(error) }, 'Invariant evaluation failed');
+    }
   }
 }
 

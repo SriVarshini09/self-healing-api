@@ -188,6 +188,12 @@ jobs:
       - name: "Delete workspace + retention end to end (Owner only, name typed, everything gone, others untouched, old data purged)"
         run: pnpm --filter @shapi/backend e2e:delete-workspace
 
+      - name: "Webhook isolation (events reach the tenant whose secret signed them; production never skips signatures)"
+        run: pnpm --filter @shapi/backend e2e:webhook-isolation
+
+      - name: "Tenant isolation (every id-based route refuses another workspace)"
+        run: pnpm --filter @shapi/backend e2e:tenant-isolation
+
       - name: "Route audit (every API route: auth required, no 5xx on bad input, no leaked internals)"
         run: pnpm --filter @shapi/backend e2e:route-audit
 

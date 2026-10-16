@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect } from 'vitest';
 import Stripe from 'stripe';
 import crypto from 'crypto';
-import { verifyStripeWebhook } from '../stripe.js';
+import { isPlaceholderWebhookSecret, verifyStripeWebhook } from '../stripe.js';
 
 const payload = JSON.stringify({
   id: 'evt_test',
@@ -42,5 +42,31 @@ describe('stripe webhook verification', () => {
     const header = stripe.webhooks.generateTestHeaderString({ payload, secret });
     const r = verifyStripeWebhook(payload, header, secret);
     expect(r.verified).toBe(true);
+  });
+
+  describe('in production', () => {
+    const realEnv = process.env.NODE_ENV;
+    afterEach(() => { process.env.NODE_ENV = realEnv; });
+
+    it('never skips signature checks, whatever the secret or header', () => {
+      process.env.NODE_ENV = 'production';
+      expect(() => verifyStripeWebhook(payload, 'test', 'whsec_real_test_secret_123')).toThrow();
+      expect(() => verifyStripeWebhook(payload, 'whatever', 'whsec_your_stripe_webhook_secret')).toThrow(/production/);
+      expect(() => verifyStripeWebhook(payload, 'whatever', 'whsec_demo_secret_1234567890abcdef')).toThrow(/production/);
+      expect(() => verifyStripeWebhook(payload, 'whatever', undefined)).toThrow(/production/);
+    });
+
+    it('still verifies real signatures', () => {
+      process.env.NODE_ENV = 'production';
+      const secret = 'whsec_real_test_secret_123';
+      expect(verifyStripeWebhook(payload, sign(payload, secret), secret).verified).toBe(true);
+    });
+  });
+
+  it('knows which secrets are placeholders', () => {
+    for (const secret of ['', undefined, null, 'whsec_dev_stripe_secret_1234567890abcdef', 'whsec_your_stripe_webhook_secret', 'whsec_demo_secret_1234567890abcdef']) {
+      expect(isPlaceholderWebhookSecret(secret)).toBe(true);
+    }
+    expect(isPlaceholderWebhookSecret('whsec_real_test_secret_123')).toBe(false);
   });
 });

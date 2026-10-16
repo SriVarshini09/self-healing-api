@@ -3,6 +3,7 @@ import { prisma } from '../utils/prisma.js';
 import { logger } from '../utils/logger.js';
 import { queueIncidentAlert } from '../services/alert-queue.js';
 import { observeStripeEvent } from '../services/stripe-changes.js';
+import { isPlaceholderWebhookSecret } from '../services/stripe.js';
 import crypto from 'crypto';
 import type {
   Prisma} from '@prisma/client';
@@ -43,16 +44,7 @@ export async function webhookRoutes(app: FastifyInstance) {
 
 type WebhookKind = 'stripe' | 'github' | 'sendgrid' | 'twilio' | 'custom';
 
-const DEV_STRIPE_SECRETS = new Set([
-  '',
-  'whsec_dev_stripe_secret_1234567890abcdef',
-  'whsec_your_stripe_webhook_secret',
-  'whsec_demo_secret_1234567890abcdef',
-]);
-
-function isDevSecret(secret: string): boolean {
-  return DEV_STRIPE_SECRETS.has(secret);
-}
+const isDevSecret = isPlaceholderWebhookSecret;
 
 function toPrismaIntegrationType(kind: WebhookKind): IntegrationType {
   switch (kind) {
@@ -81,6 +73,7 @@ async function handleStripeWebhook(request: WebhookRequest, reply: FastifyReply)
   // whose secret actually authenticated the request.
   const candidates = await prisma.integration.findMany({
     where: { type: IntegrationType.STRIPE, webhookEnabled: true },
+    orderBy: { createdAt: 'asc' },
   });
   if (!candidates.length || !headers['stripe-signature']) {
     return reply.code(401).send({ error: 'Invalid webhook signature' });
@@ -97,19 +90,31 @@ async function handleStripeWebhook(request: WebhookRequest, reply: FastifyReply)
   const { verifyStripeWebhook } = await import('../services/stripe.js');
   let candidate: (typeof candidates)[number] | undefined;
   let payload: Record<string, unknown> | undefined;
+  // Local-dev only (never in production, see verifyStripeWebhook): an integration
+  // with a placeholder secret accepts unsigned events. It may only claim an event
+  // when no integration's real signature matched, otherwise it would swallow
+  // other tenants' genuine events just by being earlier in the list.
+  let unverified: { integration: (typeof candidates)[number]; payload: Record<string, unknown> } | undefined;
   for (const integration of candidates) {
     const secret = envSecret && !isDevSecret(envSecret) && candidates.length === 1
       ? envSecret
       : integration.webhookSecret ?? undefined;
     try {
       const result = verifyStripeWebhook(rawBody, headers['stripe-signature'], secret);
-      candidate = integration;
-      payload = result.event as unknown as Record<string, unknown>;
-      if (result.verified) logger.debug({ integrationId: integration.id }, 'Stripe signature verified via SDK');
-      break;
+      if (result.verified) {
+        candidate = integration;
+        payload = result.event as unknown as Record<string, unknown>;
+        logger.debug({ integrationId: integration.id }, 'Stripe signature verified via SDK');
+        break;
+      }
+      unverified ??= { integration, payload: result.event as unknown as Record<string, unknown> };
     } catch (err) {
       logger.debug({ integrationId: integration.id, err: err instanceof Error ? err.message : String(err) }, 'Stripe candidate did not verify');
     }
+  }
+  if (!candidate && unverified) {
+    candidate = unverified.integration;
+    payload = unverified.payload;
   }
   if (!candidate || !payload) {
     logger.warn('Stripe webhook verification failed for all configured integrations');
@@ -411,7 +416,9 @@ export async function processWebhookEvent(
 
     logger.debug({ webhookEventId }, 'Webhook event processed successfully');
   } catch (error) {
-    await prisma.webhookEvent.update({
+    // The event can be gone already (its workspace was deleted mid-processing);
+    // still report the original failure rather than the follow-up one.
+    await prisma.webhookEvent.updateMany({
       where: { id: webhookEventId },
       data: {
         status: WebhookEventStatus.FAILED,
@@ -424,6 +431,18 @@ export async function processWebhookEvent(
 
 export async function recoverPendingWebhookEvents(): Promise<void> {
   const staleBefore = new Date(Date.now() - 5 * 60 * 1000);
+  // An event that crashed mid-processing five times is never retried again. Mark it
+  // FAILED so it stops looking "in progress" forever (and stops tripping self-monitoring).
+  await prisma.webhookEvent.updateMany({
+    where: {
+      retryCount: { gte: 5 },
+      OR: [
+        { status: WebhookEventStatus.PROCESSING, processedAt: { lt: staleBefore } },
+        { status: WebhookEventStatus.RETRYING, receivedAt: { lt: new Date(Date.now() - 60 * 60 * 1000) } },
+      ],
+    },
+    data: { status: WebhookEventStatus.FAILED, errorMessage: 'Gave up after repeated processing attempts' },
+  });
   const events = await prisma.webhookEvent.findMany({
     where: {
       retryCount: { lt: 5 },

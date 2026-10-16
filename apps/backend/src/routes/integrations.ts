@@ -7,12 +7,17 @@ import { z } from 'zod';
 import { tenantIdFor } from '../utils/auth-context.js';
 import { pageParams } from '../utils/pagination.js';
 import { publicApiOrigin } from '../utils/public-url.js';
+import { isPlaceholderWebhookSecret } from '../services/stripe.js';
 
 const integrationCreateSchema = z.object({
   name: z.string().trim().min(1).max(200),
   type: z.string().trim().min(1),
   config: z.record(z.unknown()).optional(),
-  webhookSecret: z.string().min(1).optional(),
+  // Providers issue long secrets (Stripe: whsec_...). Short ones are guessable, and
+  // placeholder values would switch signature checking off, so they are refused in production.
+  webhookSecret: z.string().min(16).max(256)
+    .refine(value => process.env.NODE_ENV !== 'production' || !isPlaceholderWebhookSecret(value), 'Use the real signing secret from your provider')
+    .optional(),
   webhookEnabled: z.boolean().optional(),
 });
 
