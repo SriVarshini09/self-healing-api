@@ -47,7 +47,7 @@ provisioned. The [query runner](packages/outcome-checks/src/runner.ts) enforces:
 | --- | --- |
 | Database URLs, Stripe restricted keys, Slack webhook URLs | AES-256-GCM with a random IV per value. Never returned by the API after saving; the dashboard shows only host and database name. Deleting a check deletes its credentials. |
 | Stripe webhook signing secrets | In SHAPI's database without field-level encryption. A leaked signing secret lets someone send events *to* SHAPI; it grants no access to your Stripe account. |
-| Stripe events sent to SHAPI's webhook | Stored so checks can run and incidents can show what happened. They contain what Stripe sends, which can include customer emails. Kept while the workspace exists; retention settings are planned. |
+| Stripe events sent to SHAPI's webhook | Stored so checks can run and incidents can show what happened. They contain what Stripe sends, which can include customer emails. Deleted automatically after `SHAPI_RETENTION_DAYS` (default 90; the same applies to SDK events, finished check runs and closed incidents). Events an open incident is still replaying are kept until it closes. **Delete workspace** in Settings removes everything at once. |
 | Learned Stripe event shapes (change monitor) | Field names and value kinds (string, object, …) per event type, with counts. Never values. |
 | Invite requests (public landing page) | The email, name, company and note you submit, used only to contact you about the beta. Ask us and we delete it. |
 | Passwords | scrypt (N=16384, r=8, p=1) with a per-password salt. |
@@ -82,7 +82,7 @@ keys (`sk_live_…`) are refused; test-mode secret keys are accepted for trials.
 We'd rather list these than have you find them:
 
 - Stripe webhook signing secrets are not field-encrypted (see above).
-- No automatic retention or deletion of stored Stripe events yet.
+- Deleting a workspace removes it from the live database immediately; copies in operator database backups age out with the backup rotation.
 - The private-address check resolves DNS just before connecting. A hostname whose
   DNS changes in the moment between that check and the connection is not caught.
 - No third-party audit or SOC 2 report.

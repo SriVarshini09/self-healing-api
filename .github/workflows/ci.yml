@@ -185,6 +185,9 @@ jobs:
       - name: Teammates end to end (invite links, roles enforced, revoke, removal signs out, isolation)
         run: pnpm --filter @shapi/backend e2e:team
 
+      - name: "Delete workspace + retention end to end (Owner only, name typed, everything gone, others untouched, old data purged)"
+        run: pnpm --filter @shapi/backend e2e:delete-workspace
+
       - name: "Route audit (every API route: auth required, no 5xx on bad input, no leaked internals)"
         run: pnpm --filter @shapi/backend e2e:route-audit
 

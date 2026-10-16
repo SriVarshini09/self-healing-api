@@ -6,6 +6,8 @@ import { logger } from '../utils/logger.js';
 import { authenticatedKey, tenantIdFor } from '../utils/auth-context.js';
 import { emailAvailable, sendEmail } from '../services/email.js';
 import { createInvite, INVITABLE_ROLES, inviteEmail, TeamError } from '../services/team.js';
+import { deleteWorkspace } from '../services/retention.js';
+import { destroySession, getCookie, SESSION_COOKIE } from '../utils/auth-sessions.js';
 
 const patchSchema = z.object({ name: z.string().trim().min(2).max(80) }).strict();
 const inviteSchema = z.object({
@@ -13,6 +15,7 @@ const inviteSchema = z.object({
   role: z.enum(INVITABLE_ROLES).default(TenantRole.OPERATOR),
 }).strict();
 const roleSchema = z.object({ role: z.enum(INVITABLE_ROLES) }).strict();
+const deleteSchema = z.object({ confirm: z.string() }).strict();
 
 function canManage(role: TenantRole): boolean {
   return role === TenantRole.OWNER || role === TenantRole.ADMIN;
@@ -47,6 +50,26 @@ export async function workspaceRoutes(app: FastifyInstance) {
       select: { id: true, name: true, slug: true, createdAt: true },
     });
     return reply.send(tenant);
+  });
+
+  // Permanent. Only a signed-in Owner (a person, never an API key), and only by
+  // typing the workspace name back.
+  app.delete('/workspace', async (request, reply) => {
+    const caller = authenticatedKey(request);
+    const tenantId = tenantIdFor(request);
+    const owner = await prisma.user.findFirst({ where: { id: caller.id, tenantId, role: TenantRole.OWNER }, select: { id: true } });
+    if (!owner) return reply.code(403).send({ error: 'Only the workspace Owner, signed in, can delete the workspace' });
+    const parsed = deleteSchema.safeParse(request.body ?? {});
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { name: true } });
+    if (!tenant) return reply.code(404).send({ error: 'Workspace not found' });
+    if (!parsed.success || parsed.data.confirm.trim() !== tenant.name) {
+      return reply.code(400).send({ error: 'Type the workspace name exactly to confirm' });
+    }
+    await deleteWorkspace(tenantId);
+    logger.warn({ tenantId, userId: owner.id }, 'Workspace deleted by its owner');
+    // The session row went with the workspace; clear the browser cookie too.
+    await destroySession(getCookie(request.headers.cookie, SESSION_COOKIE), reply);
+    return reply.code(204).send();
   });
 
   // Members and pending invites. Everyone in the workspace can see who else is in it.

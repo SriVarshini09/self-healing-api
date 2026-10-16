@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Database, KeyRound, Lock, Network, ShieldAlert } from 'lucide-react';
 import { Card, PageHeader, Pill, useShapi } from '../ui';
 
-export type Trust = { egressIps: string[]; dedicatedEncryptionKey: boolean; privateDatabaseHostsBlocked: boolean };
+export type Trust = { egressIps: string[]; dedicatedEncryptionKey: boolean; privateDatabaseHostsBlocked: boolean; retentionDays?: number };
 
 const REPO = 'https://github.com/SriVarshini09/self-healing-api';
 const SETUP_GUIDE = `${REPO}/blob/master/docs/QUICK-SETUP.md`;
@@ -93,7 +93,8 @@ export function SecurityPage({ signedOut = false }: { signedOut?: boolean }) {
           </Fact>
           <Fact icon={<Database />} title="Stripe events you send to SHAPI">
             Stored so checks can run and incidents can show what happened. They contain what Stripe puts in them, which can
-            include customer emails. Today they are kept while your workspace exists; retention settings are on the roadmap.
+            include customer emails. They are deleted automatically after {t?.retentionDays ?? 90} days (closed incidents too; open
+            incidents keep what they need). Deleting your workspace in Settings removes everything right away.
             To spot Stripe changes, SHAPI also keeps each event type's field names and value kinds, never the values.
           </Fact>
           <Fact icon={<Lock />} title="Accounts">
