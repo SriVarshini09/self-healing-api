@@ -31,11 +31,12 @@ describe('stale alert delivery recovery', () => {
 
     await reclaimStaleProcessingAlerts(now);
 
-    expect(fake.updateMany).toHaveBeenCalledTimes(2);
+    expect(fake.updateMany).toHaveBeenCalledTimes(4);
     expect(fake.updateMany).toHaveBeenNthCalledWith(1, {
       where: {
         status: 'PROCESSING',
         updatedAt: { lt: new Date('2026-10-01T00:00:00.000Z') },
+        NOT: { channel: { startsWith: 'dest:' } },
         attempts: { gte: 3 },
       },
       data: {
@@ -48,6 +49,7 @@ describe('stale alert delivery recovery', () => {
       where: {
         status: 'PROCESSING',
         updatedAt: { lt: new Date('2026-10-01T00:00:00.000Z') },
+        NOT: { channel: { startsWith: 'dest:' } },
         attempts: { lt: 3 },
       },
       data: {
@@ -56,5 +58,17 @@ describe('stale alert delivery recovery', () => {
         lastError: 'delivery attempt expired before completion',
       },
     });
+  });
+
+  it('gives workspace destinations their own, larger attempt limit', async () => {
+    await reclaimStaleProcessingAlerts(new Date('2026-10-01T00:05:00.000Z'));
+    expect(fake.updateMany).toHaveBeenNthCalledWith(3, expect.objectContaining({
+      where: expect.objectContaining({ channel: { startsWith: 'dest:' }, attempts: { gte: 8 } }),
+      data: expect.objectContaining({ status: 'FAILED' }),
+    }));
+    expect(fake.updateMany).toHaveBeenNthCalledWith(4, expect.objectContaining({
+      where: expect.objectContaining({ channel: { startsWith: 'dest:' }, attempts: { lt: 8 } }),
+      data: expect.objectContaining({ status: 'RETRYING' }),
+    }));
   });
 });

@@ -2,9 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
   buildEmailMessage,
   buildSlackMessage,
+  DESTINATION_MAX_ATTEMPTS,
   destinationChannel,
+  escapeSlackText,
   isEmail,
+  isPermanentHttpFailure,
   isSlackWebhookUrl,
+  nextDestinationAttempt,
   parseDestinationChannel,
   plainTitle,
 } from './alerts-core.js';
@@ -19,6 +23,34 @@ const incident = {
   integration: { id: 'int-1', name: 'Stripe', type: 'STRIPE' },
   invariant: { id: 'outcome-chk-1', name: 'Outcome: Paid customers are provisioned' },
 };
+
+describe('alert delivery patience', () => {
+  it('spreads workspace-destination retries over about 25 minutes, capped at 10 minutes', () => {
+    const now = new Date('2026-10-01T00:00:00.000Z');
+    const waits = Array.from({ length: 7 }, (_, index) => nextDestinationAttempt(index + 1, now).getTime() - now.getTime());
+    expect(waits).toEqual([15_000, 30_000, 60_000, 120_000, 240_000, 480_000, 600_000]);
+    expect(waits.reduce((sum, wait) => sum + wait, 0)).toBeGreaterThan(20 * 60_000);
+    expect(DESTINATION_MAX_ATTEMPTS).toBe(8);
+  });
+
+  it('treats only client errors other than 408/425/429 as permanent', () => {
+    for (const status of [400, 401, 403, 404, 410]) expect(isPermanentHttpFailure(status)).toBe(true);
+    for (const status of [408, 425, 429, 500, 502, 503]) expect(isPermanentHttpFailure(status)).toBe(false);
+  });
+
+  it('escapes Slack markup in values that come from event data', () => {
+    expect(escapeSlackText('<!channel> & <https://evil.example|click>')).toBe('&lt;!channel&gt; &amp; &lt;https://evil.example|click&gt;');
+    const incident = {
+      id: 'i1', title: 'T', description: 'd', severity: 'HIGH', status: 'DETECTED', detectedAt: new Date(),
+      integration: { id: 'x', name: 'Stripe <prod>', type: 'STRIPE' }, invariant: null,
+    };
+    const message = buildSlackMessage(incident, { event: 'detected', dashboardUrl: 'https://app.example.test', detail: 'Customer <!channel> paid' });
+    const text = JSON.stringify(message);
+    expect(text).not.toContain('<!channel>');
+    expect(text).toContain('Customer &lt;!channel&gt; paid');
+    expect(message.text).toContain('Stripe &lt;prod&gt;');
+  });
+});
 
 describe('alert destinations', () => {
   it('accepts only real Slack incoming-webhook URLs', () => {
