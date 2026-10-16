@@ -7,6 +7,7 @@ import { tenantIdFor } from '../utils/auth-context.js';
 import { enqueueIncidentAlert } from '../services/alerts.js';
 import { logger } from '../utils/logger.js';
 import { pageParams } from '../utils/pagination.js';
+import { driftConfigSchema, firstProblem } from './request-schemas.js';
 
 export async function driftRoutes(app: FastifyInstance) {
   app.get('/drift/config/:integrationId', async (request, reply) => {
@@ -26,18 +27,15 @@ export async function driftRoutes(app: FastifyInstance) {
     const { integrationId } = (request.params ?? {}) as { integrationId: string };
     const integration = await prisma.integration.findFirst({ where: { id: integrationId, tenantId } });
     if (!integration) return reply.code(404).send({ error: 'Integration not found' });
-    const data = (request.body ?? {}) as Partial<{
-      baselineWindowDays: number;
-      detectionWindowHours: number;
-      minDetectionSamples: number;
-      significanceThreshold: number;
-      minEffectSize: number;
-      enabled: boolean;
-    }>;
+    // Strict and validated: `create: { integrationId, ...data }` let a body's own integrationId
+    // replace the one authorised above and write another workspace's config.
+    const parsed = driftConfigSchema.safeParse(request.body ?? {});
+    if (!parsed.success) return reply.code(400).send({ error: firstProblem(parsed.error), details: parsed.error.flatten() });
+    const data = parsed.data;
     const config = await prisma.driftDetectionConfig.upsert({
       where: { integrationId },
       update: data,
-      create: { integrationId, ...data },
+      create: { ...data, integrationId },
     });
     return reply.send(config);
   });

@@ -78,6 +78,8 @@ services:
       BACKEND_URL: http://backend:3001
       VITE_API_URL: ${VITE_API_URL:?set VITE_API_URL}
       VITE_SHAPI_API_KEY: ${VITE_SHAPI_API_KEY-}
+      # The key above is only published when this is exactly "true" (see deploy/dashboard-entrypoint.sh).
+      SHAPI_DASHBOARD_ALLOW_PUBLIC_KEY: ${SHAPI_DASHBOARD_ALLOW_PUBLIC_KEY-}
     depends_on:
       backend:
         condition: service_healthy

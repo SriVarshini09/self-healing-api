@@ -28,7 +28,7 @@ export const OUTCOME_MAX_ATTEMPTS = 3;
 export const OUTCOME_RETRY_DELAY_MS = 60_000;
 export const STRIPE_RECONCILE_INTERVAL_MS = 15 * 60_000;
 const FIRST_RECONCILE_LOOKBACK_MS = 24 * 60 * 60_000;
-const MAX_RECONCILE_EVENTS = 1000;
+export const MAX_RECONCILE_EVENTS = 1000;
 
 export interface StripeEventLike {
   id: string;
@@ -284,9 +284,19 @@ export async function reconcileOutcomeCheck(
     if (event.type !== check.triggerEventType) continue;
     runsQueued += await queueRun(check, event.id, event, new Date(event.created * 1000), OutcomeRunSource.RECONCILE, now);
   }
+  // Stripe lists newest first, so hitting the cap means the OLDEST events of this pass were not
+  // looked at, and the next pass starts later. Say so on the check rather than pretending
+  // the reconcile was complete.
+  const capped = events.length >= MAX_RECONCILE_EVENTS;
+  if (capped) logger.warn({ checkId: check.id, cap: MAX_RECONCILE_EVENTS }, 'Stripe reconcile hit its event cap');
   await prisma.outcomeCheck.update({
     where: { id: check.id },
-    data: { lastReconciledAt: now, lastError: null },
+    data: {
+      lastReconciledAt: now,
+      lastError: capped
+        ? `Stripe reconcile saw ${MAX_RECONCILE_EVENTS}+ events in one pass, so the oldest were not checked. Checks driven by webhooks are not affected.`
+        : null,
+    },
   });
   return { eventsSeen: events.length, runsQueued };
 }

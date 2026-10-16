@@ -60,7 +60,9 @@ export async function authenticateSession(token: string | undefined): Promise<Au
   });
   if (!session) return null;
   if (session.expiresAt <= new Date()) {
-    await prisma.authSession.delete({ where: { id: session.id } });
+    // deleteMany: a parallel request (or the retention purge) may have removed it already,
+    // and that must read as "not signed in", not as a 404 from a failed delete.
+    await prisma.authSession.deleteMany({ where: { id: session.id } });
     return null;
   }
   const permissions = session.user.role === TenantRole.VIEWER ? ['read'] : ['read', 'write'];

@@ -4,10 +4,18 @@ import { registerPlugins } from './plugins/index.js';
 import { registerRoutes } from './routes/index.js';
 import { logger } from './utils/logger.js';
 import { startEvaluationScheduler } from './services/scheduler.js';
+import { trustProxyHops } from './utils/rate-limit.js';
 import { startSelfMonitor } from './services/self-monitor.js';
+
+// A rejected promise nobody awaited (a background task, a fire-and-forget write) would otherwise
+// terminate the whole process for every tenant. Log it loudly and keep serving.
+process.on('unhandledRejection', reason => {
+  logger.error({ error: reason instanceof Error ? reason.message : String(reason), stack: reason instanceof Error ? reason.stack : undefined }, 'Unhandled promise rejection');
+});
 
 async function main() {
   const app = Fastify({
+    trustProxy: trustProxyHops(config.SHAPI_TRUST_PROXY_HOPS),
     logger: config.NODE_ENV === 'development' ? {
       transport: {
         target: 'pino-pretty',

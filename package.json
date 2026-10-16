@@ -22,7 +22,7 @@
     "db:studio": "pnpm --filter @shapi/backend db:studio"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2",
+    "concurrently": "^9.2.5",
     "typescript": "^5.3.3"
   },
   "engines": {

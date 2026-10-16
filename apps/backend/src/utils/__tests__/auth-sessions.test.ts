@@ -102,7 +102,14 @@ describe('auth sessions', () => {
     fake.findUnique.mockResolvedValue({ id: 'expired-session', expiresAt: new Date(Date.now() - 1), user: {} });
 
     await expect(authenticateSession('expired-token')).resolves.toBeNull();
-    expect(fake.delete).toHaveBeenCalledWith({ where: { id: 'expired-session' } });
+    expect(fake.deleteMany).toHaveBeenCalledWith({ where: { id: 'expired-session' } });
+    expect(fake.delete).not.toHaveBeenCalled();
+  });
+
+  it('treats an already-removed expired session as not signed in, not as an error', async () => {
+    fake.findUnique.mockResolvedValue({ id: 'gone', expiresAt: new Date(Date.now() - 1), user: {} });
+    fake.deleteMany.mockResolvedValue({ count: 0 });
+    await expect(authenticateSession('expired-token')).resolves.toBeNull();
   });
 
   it('deletes the session and clears the cookie on logout', async () => {

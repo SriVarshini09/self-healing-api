@@ -54,6 +54,11 @@ export async function runOutcomeQuery(options: RunOutcomeQueryOptions): Promise<
     statement_timeout: statementTimeout,
     application_name: 'shapi-outcome-check',
   });
+  // pg also emits 'error' on the client when the connection drops, in addition to rejecting the
+  // running query. With no listener that is an uncaught exception, which takes down the whole API
+  // (every tenant). The customer's database is outside our control: it can restart, or be a
+  // server built to hang up mid-query. The failure already reaches the caller through the query.
+  client.on('error', () => undefined);
   const started = Date.now();
   await client.connect();
   try {

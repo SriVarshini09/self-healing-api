@@ -1,10 +1,11 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyError, FastifyInstance } from 'fastify';
 import { config } from '../config.js';
 import { prisma } from '../utils/prisma.js';
 import { serializeJson } from '../utils/json.js';
 import { incrementCounter, isMetricsTokenValid, renderPrometheus } from '../utils/metrics.js';
 import { logger } from '../utils/logger.js';
 import { rateLimitKey } from '../utils/rate-limit.js';
+import { containsNullByte, urlContainsNullByte } from '../utils/null-bytes.js';
 import { apiDocsCss, apiDocsJs } from '../docs-theme.js';
 
 export async function registerPlugins(app: FastifyInstance) {
@@ -15,7 +16,7 @@ export async function registerPlugins(app: FastifyInstance) {
   // One place for errors that escape a route: "record not found" is a 404,
   // client errors keep their message, and server errors are logged in full but
   // answered without internals (no database messages or file paths).
-  app.setErrorHandler((error, request, reply) => {
+  app.setErrorHandler((error: FastifyError, request, reply) => {
     const code = (error as { code?: string }).code;
     if (code === 'P2025') return reply.code(404).send({ error: 'Not found' });
     // A unique value is already taken. Say so plainly, without naming whose it is.
@@ -24,6 +25,16 @@ export async function registerPlugins(app: FastifyInstance) {
     if (status < 500) return reply.code(status).send({ error: error.message });
     logger.error({ requestId: request.id, method: request.method, url: request.url, error: error.message, stack: error.stack }, 'Unhandled route error');
     return reply.code(500).send({ error: 'Something went wrong on our side. Please try again.', requestId: request.id });
+  });
+
+  // U+0000 in a URL, query or body makes PostgreSQL fail, which used to surface as a 500.
+  app.addHook('onRequest', async (request, reply) => {
+    if (urlContainsNullByte(request.raw.url ?? '')) return reply.code(400).send({ error: 'The request contains an invalid character' });
+  });
+  app.addHook('preValidation', async (request, reply) => {
+    if (containsNullByte(request.body) || containsNullByte(request.query)) {
+      return reply.code(400).send({ error: 'The request contains an invalid character' });
+    }
   });
 
   app.addHook('onResponse', async (request, reply) => {

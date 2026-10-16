@@ -82,6 +82,9 @@ jobs:
       - name: Build dashboard
         run: pnpm --filter @shapi/dashboard build
 
+      - name: Dashboard entrypoint never publishes an API key by default
+        run: sh deploy/test-dashboard-entrypoint.sh
+
       - name: Build production dashboard
         run: |
           pnpm --dir dashboard install --frozen-lockfile --ignore-workspace
@@ -193,6 +196,12 @@ jobs:
 
       - name: "Tenant isolation (every id-based route refuses another workspace)"
         run: pnpm --filter @shapi/backend e2e:tenant-isolation
+
+      - name: "Drift detection (improvements ignored, mid-window regressions caught, severity by points lost)"
+        run: pnpm --filter @shapi/backend e2e:drift
+
+      - name: "Fuzz every API route, 15 seeded rounds (no 5xx, no leaked internals, no crash, viewers cannot write)"
+        run: pnpm --filter @shapi/backend e2e:fuzz
 
       - name: "Route audit (every API route: auth required, no 5xx on bad input, no leaked internals)"
         run: pnpm --filter @shapi/backend e2e:route-audit

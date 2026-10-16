@@ -50,6 +50,32 @@ describe.skipIf(!url)('runOutcomeQuery (real Postgres)', () => {
     await admin.query('DROP FUNCTION shapi_test_write()');
   });
 
+  it('survives the database dropping the connection mid-query instead of crashing the process', async () => {
+    const crashes: Error[] = [];
+    const onCrash = (error: Error) => crashes.push(error);
+    process.on('uncaughtException', onCrash);
+    try {
+      const running = runOutcomeQuery({
+        connectionString: url!,
+        sql: 'SELECT 1 FROM generate_series(1, 400000000) AS g WHERE g = -1',
+        params: [],
+        statementTimeoutMs: 20_000,
+      });
+      // Hang up from the database side while the query is running.
+      let killed = 0;
+      for (let attempt = 0; attempt < 40 && killed === 0; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        killed = (await admin.query("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE application_name = 'shapi-outcome-check'")).rowCount ?? 0;
+      }
+      expect(killed).toBeGreaterThan(0);
+      await expect(running).rejects.toThrow();
+      await new Promise(resolve => setTimeout(resolve, 300));
+      expect(crashes.map(error => error.message)).toEqual([]);
+    } finally {
+      process.off('uncaughtException', onCrash);
+    }
+  });
+
   it('enforces the statement timeout', async () => {
     await admin.query(`CREATE OR REPLACE FUNCTION shapi_test_slow() RETURNS int AS $$
       BEGIN PERFORM pg_catalog.pg_sleep(2); RETURN 1; END $$ LANGUAGE plpgsql`);

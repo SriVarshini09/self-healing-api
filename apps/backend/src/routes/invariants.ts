@@ -10,6 +10,7 @@ import { tenantIdFor } from '../utils/auth-context.js';
 import { config } from '../config.js';
 import { repairTargetReadiness } from '../services/repair-target-readiness.js';
 import { pageParams } from '../utils/pagination.js';
+import { firstProblem, invariantCreateSchema, invariantEvaluateSchema, invariantPatchSchema } from './request-schemas.js';
 
 function withRepairTargetReadiness<T extends {
   id: string;
@@ -69,24 +70,9 @@ export async function invariantRoutes(app: FastifyInstance) {
 
   app.post('/invariants', async (request, reply) => {
     const tenantId = tenantIdFor(request);
-    const data = (request.body ?? {}) as {
-      integrationId: string;
-      name: string;
-      description?: string;
-      predicateExpression: string;
-      predicateDescription: string;
-      predicateExample?: string;
-      repairRepository?: string | null;
-      repairFilePath?: string | null;
-      repairRequiredChecks?: string[];
-      evaluationWindowSec?: number;
-      minSamples?: number;
-      expectedSuccessRate?: number;
-    };
-
-    if (!data.integrationId || !data.name || !data.predicateExpression) {
-      return reply.code(400).send({ error: 'integrationId, name, predicateExpression required' });
-    }
+    const parsed = invariantCreateSchema.safeParse(request.body ?? {});
+    if (!parsed.success) return reply.code(400).send({ error: firstProblem(parsed.error), details: parsed.error.flatten() });
+    const data = parsed.data;
 
     try {
       validatePredicateExpression(data.predicateExpression);
@@ -146,19 +132,11 @@ export async function invariantRoutes(app: FastifyInstance) {
   app.patch('/invariants/:id', async (request, reply) => {
     const tenantId = tenantIdFor(request);
     const { id } = (request.params ?? {}) as { id: string };
-    const data = (request.body ?? {}) as Partial<{
-      name: string;
-      description: string;
-      predicateExpression: string;
-      predicateDescription: string;
-      predicateExample: string;
-      repairRepository: string | null;
-      repairFilePath: string | null;
-      repairRequiredChecks: string[];
-      evaluationWindowSec: number;
-      minSamples: number;
-      expectedSuccessRate: number;
-    }>;
+    // Validated and strict: this object goes into the database update below, so an unknown
+    // field (integrationId, status, a nested { integration: { connect } }) must be refused.
+    const parsed = invariantPatchSchema.safeParse(request.body ?? {});
+    if (!parsed.success) return reply.code(400).send({ error: firstProblem(parsed.error), details: parsed.error.flatten() });
+    const data = parsed.data;
 
     const existing = await prisma.invariant.findFirst({ where: { id, integration: { tenantId } } });
     if (!existing) return reply.code(404).send({ error: 'Invariant not found' });
@@ -243,7 +221,9 @@ export async function invariantRoutes(app: FastifyInstance) {
   app.post('/invariants/:id/evaluate', async (request, reply) => {
     const tenantId = tenantIdFor(request);
     const { id } = (request.params ?? {}) as { id: string };
-    const body = (request.body ?? {}) as { windowStart?: string; windowEnd?: string };
+    const parsedBody = invariantEvaluateSchema.safeParse(request.body ?? {});
+    if (!parsedBody.success) return reply.code(400).send({ error: firstProblem(parsedBody.error), details: parsedBody.error.flatten() });
+    const body = parsedBody.data;
 
     const invariant = await prisma.invariant.findFirst({ where: { id, integration: { tenantId } } });
     if (!invariant) return reply.code(404).send({ error: 'Invariant not found' });

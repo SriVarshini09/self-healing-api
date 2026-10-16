@@ -64,7 +64,7 @@ export async function sdkRoutes(app: FastifyInstance) {
         await evaluateInvariantsForEvent(
           integration.id,
           body.type,
-          (body.payload ?? {}) as Record<string, unknown>,
+          body.payload ?? {},
           {},
         );
       }

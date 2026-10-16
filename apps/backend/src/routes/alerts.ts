@@ -139,6 +139,10 @@ export async function alertRoutes(app: FastifyInstance) {
     const { id } = request.params as { id: string };
     const destination = await prisma.alertDestination.findFirst({ where: { id, tenantId } });
     if (!destination) return reply.code(404).send({ error: 'Alert destination not found' });
+    // A setup problem on this instance, not a failure of the provider: say so with a 409.
+    if (destination.kind === 'EMAIL' && !emailAlertsAvailable()) {
+      return reply.code(409).send({ error: 'Email alerts are not configured on this SHAPI instance yet. Use Slack, or ask the operator to set RESEND_API_KEY and ALERT_EMAIL_FROM.' });
+    }
     try {
       await sendTestAlert(destination);
       await prisma.alertDestination.update({ where: { id }, data: { lastDeliveredAt: new Date(), lastError: null } });
