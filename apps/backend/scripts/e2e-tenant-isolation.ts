@@ -128,9 +128,27 @@ try {
   assert(await prisma.aPIKey.findUnique({ where: { id: apiKey.id } }), 'API key still exists');
   assert((await prisma.integration.findUnique({ where: { id: integration.id } }))?.webhookSecret === `whsec_alpha_${runId}_abcdefgh`, 'webhook secret not rotated');
 
+  console.log('4. two workspaces can use the same SDK event id');
+  const sdk = (key: string, who: string, eventId: string) => app.inject({
+    method: 'POST', url: '/api/v1/sdk/track', headers: { 'x-api-key': key },
+    payload: { eventId, integration: 'stripe', type: 'order.paid', payload: { who } },
+  });
+  const sharedId = `order-1-${runId}`;
+  const fromA = await sdk(a.key, 'alpha', sharedId);
+  const fromB = await sdk(b.key, 'bravo', sharedId);
+  assert(fromA.statusCode === 201 && fromB.statusCode === 201, 'both workspaces get success');
+  assert(JSON.parse(fromA.body).id !== JSON.parse(fromB.body).id, "the second workspace is not handed the first one's row");
+  assert((await prisma.trackedEvent.count({ where: { tenantId: a.tenant.id, eventId: sharedId } })) === 1
+    && (await prisma.trackedEvent.count({ where: { tenantId: b.tenant.id, eventId: sharedId } })) === 1, 'each workspace has its own stored event');
+  const listedB = JSON.parse((await app.inject({ method: 'GET', url: '/api/v1/sdk/events', headers: { 'x-api-key': b.key } })).body);
+  assert(listedB.data.length === 1 && listedB.data[0].payload.who === 'bravo', 'and only sees its own');
+  await sdk(a.key, 'alpha', sharedId);
+  assert((await prisma.trackedEvent.count({ where: { tenantId: a.tenant.id, eventId: sharedId } })) === 1, 'resending the same id within a workspace stays idempotent');
+
   console.log('\nE2E TENANT ISOLATION OK');
 } finally {
   await prisma.integration.deleteMany({ where: { tenantId: { in: tenants } } });
+  await prisma.trackedEvent.deleteMany({ where: { tenantId: { in: tenants } } });
   await prisma.aPIKey.deleteMany({ where: { tenantId: { in: tenants } } });
   await prisma.user.deleteMany({ where: { tenantId: { in: tenants } } });
   await prisma.tenant.deleteMany({ where: { id: { in: tenants } } });

@@ -178,18 +178,21 @@ async function recordOutcome(
     params: run.params,
     matched,
   };
-  await prisma.trackedEvent.upsert({
-    where: { eventId: `outcome:${run.id}` },
-    update: {},
-    create: {
-      eventId: `outcome:${run.id}`,
-      tenantId: integration.tenantId,
-      integration: integration.type,
-      type,
-      payload: payload as Prisma.InputJsonValue,
-      correlationId: run.sourceEventId,
-    },
-  });
+  // One recorded outcome per run (the run id is unique); recording twice is a no-op.
+  const eventId = `outcome:${run.id}`;
+  const recorded = await prisma.trackedEvent.findFirst({ where: { tenantId: integration.tenantId, eventId }, select: { id: true } });
+  if (!recorded) {
+    await prisma.trackedEvent.create({
+      data: {
+        eventId,
+        tenantId: integration.tenantId,
+        integration: integration.type,
+        type,
+        payload: payload as Prisma.InputJsonValue,
+        correlationId: run.sourceEventId,
+      },
+    });
+  }
   await evaluateInvariantsForEvent(check.integrationId, type, payload, {}, {
     invariantIds: [outcomeInvariantId(check.id)],
   });
