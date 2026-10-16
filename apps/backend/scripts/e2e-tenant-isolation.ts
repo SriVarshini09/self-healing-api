@@ -145,6 +145,31 @@ try {
   await sdk(a.key, 'alpha', sharedId);
   assert((await prisma.trackedEvent.count({ where: { tenantId: a.tenant.id, eventId: sharedId } })) === 1, 'resending the same id within a workspace stays idempotent');
 
+  console.log('5. a body cannot re-parent or overwrite records in another workspace');
+  const bIntegration = await prisma.integration.create({ data: { tenantId: b.tenant.id, name: 'B Stripe', type: 'STRIPE', config: {} } });
+  const bInvariant = await prisma.invariant.create({
+    data: { integrationId: bIntegration.id, name: 'B rule', description: 'x', predicateExpression: 'true', predicateDescription: 'x' },
+  });
+  const call = (method: 'PATCH' | 'POST', url: string, payload: unknown) => app.inject({ method, url: `/api/v1${url}`, headers: { 'x-api-key': b.key }, payload: payload as Record<string, unknown> });
+  const reparent = await call('PATCH', `/invariants/${bInvariant.id}`, { name: 'hijack', integration: { connect: { id: integration.id } } });
+  assert(reparent.statusCode === 400, 'moving my rule onto another workspace\'s connection through a nested write is refused');
+  const moveById = await call('PATCH', `/invariants/${bInvariant.id}`, { integrationId: integration.id });
+  assert(moveById.statusCode === 400, 'so is setting integrationId directly');
+  assert((await prisma.invariant.findUniqueOrThrow({ where: { id: bInvariant.id } })).integrationId === bIntegration.id, 'the rule is still on my connection');
+  const wipe = await call('PATCH', `/invariants/${bInvariant.id}`, { incidents: { deleteMany: {} } });
+  assert(wipe.statusCode === 400, 'nested deletes are refused too');
+  const configHijack = await call('PATCH', `/drift/config/${bIntegration.id}`, { integrationId: integration.id, enabled: false });
+  assert(configHijack.statusCode === 400, 'a drift config body cannot name another workspace\'s connection');
+  assert((await prisma.driftDetectionConfig.findUniqueOrThrow({ where: { integrationId: integration.id } })).enabled === true, "the other workspace's drift config is untouched");
+  const legit = await call('PATCH', `/drift/config/${bIntegration.id}`, { enabled: false, minDetectionSamples: 25 });
+  assert(legit.statusCode === 200 && JSON.parse(legit.body).minDetectionSamples === 25, 'a normal drift update still works');
+  const typed = await call('POST', '/invariants', { integrationId: bIntegration.id, name: 'x', predicateExpression: 'true', evaluationWindowSec: { a: 1 } });
+  assert(typed.statusCode === 400, 'a wrongly typed number is a 400, not a database error');
+  const nul = await call('PATCH', `/invariants/${bInvariant.id}`, { name: 'bad\u0000name' });
+  assert(nul.statusCode === 400, 'a NUL character is a 400, not a database error');
+  const nulUrl = await app.inject({ method: 'GET', url: '/api/v1/invariants/a%00b', headers: { 'x-api-key': b.key } });
+  assert(nulUrl.statusCode === 400, 'and so is one in the URL');
+
   console.log('\nE2E TENANT ISOLATION OK');
 } finally {
   await prisma.integration.deleteMany({ where: { tenantId: { in: tenants } } });

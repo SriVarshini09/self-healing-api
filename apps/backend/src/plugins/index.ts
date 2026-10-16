@@ -5,6 +5,7 @@ import { serializeJson } from '../utils/json.js';
 import { incrementCounter, isMetricsTokenValid, renderPrometheus } from '../utils/metrics.js';
 import { logger } from '../utils/logger.js';
 import { rateLimitKey } from '../utils/rate-limit.js';
+import { containsNullByte, urlContainsNullByte } from '../utils/null-bytes.js';
 import { apiDocsCss, apiDocsJs } from '../docs-theme.js';
 
 export async function registerPlugins(app: FastifyInstance) {
@@ -24,6 +25,16 @@ export async function registerPlugins(app: FastifyInstance) {
     if (status < 500) return reply.code(status).send({ error: error.message });
     logger.error({ requestId: request.id, method: request.method, url: request.url, error: error.message, stack: error.stack }, 'Unhandled route error');
     return reply.code(500).send({ error: 'Something went wrong on our side. Please try again.', requestId: request.id });
+  });
+
+  // U+0000 in a URL, query or body makes PostgreSQL fail, which used to surface as a 500.
+  app.addHook('onRequest', async (request, reply) => {
+    if (urlContainsNullByte(request.raw.url ?? '')) return reply.code(400).send({ error: 'The request contains an invalid character' });
+  });
+  app.addHook('preValidation', async (request, reply) => {
+    if (containsNullByte(request.body) || containsNullByte(request.query)) {
+      return reply.code(400).send({ error: 'The request contains an invalid character' });
+    }
   });
 
   app.addHook('onResponse', async (request, reply) => {
