@@ -5,7 +5,11 @@ import type { AuthenticatedRequest } from '../../utils/auth-context.js';
 import { incidentRoutes } from '../incidents.js';
 
 const fake = vi.hoisted(() => ({
-  incident: { id: 'inc-1', integrationId: 'int-1', status: 'DETECTED', rootCause: null as string | null, suggestedFix: null as string | null },
+  incident: {
+    id: 'inc-1', integrationId: 'int-1', status: 'DETECTED', rootCause: null as string | null, suggestedFix: null as string | null,
+    triagedAt: null as Date | null, resolvedAt: null as Date | null,
+  },
+  lastUpdate: null as Record<string, unknown> | null,
   candidates: [] as Array<{ id: string; incidentId: string; description: string }>,
   replayJobs: [] as Array<{ id: string; incidentId: string; webhookEventId: string }>,
   diagnosisCalls: 0,
@@ -18,11 +22,16 @@ vi.mock('../../utils/prisma.js', () => ({
     incident: {
       findUnique: async () => ({ ...fake.incident, invariant: null, integration: { id: 'int-1', tenantId: 'tenant-1', type: 'STRIPE', config: {} } }),
       findFirst: async () => ({ ...fake.incident }),
+      update: async ({ data }: { data: Record<string, unknown> }) => {
+        fake.lastUpdate = data;
+        Object.assign(fake.incident, data);
+        return { ...fake.incident, integration: null, invariant: null, replayJobs: [], repairCandidates: [], githubPRs: [] };
+      },
     },
     webhookEvent: {
-      findUnique: async () => {
+      findFirst: async ({ where }: { where: { id: string; integrationId: string } }) => {
         if (fake.changeDuringReplay) fake.incident.status = 'RESOLVED';
-        return { id: 'event-1', integrationId: 'int-1' };
+        return where.id === 'event-1' && where.integrationId === 'int-1' ? { id: 'event-1', integrationId: 'int-1' } : null;
       },
     },
     replayJob: { findUnique: async () => null },
@@ -54,6 +63,8 @@ vi.mock('../../utils/prisma.js', () => ({
   },
 }));
 
+vi.mock('../../services/alert-queue.js', () => ({ queueIncidentAlert: vi.fn(async () => undefined) }));
+
 vi.mock('../../services/diagnosis.js', () => ({
   diagnoseIncident: async () => {
     fake.diagnosisCalls++;
@@ -74,7 +85,8 @@ vi.mock('../../services/repair.js', () => ({
 let app: FastifyInstance;
 
 beforeEach(async () => {
-  Object.assign(fake.incident, { status: 'DETECTED', rootCause: null, suggestedFix: null });
+  Object.assign(fake.incident, { status: 'DETECTED', rootCause: null, suggestedFix: null, triagedAt: null, resolvedAt: null });
+  fake.lastUpdate = null;
   fake.candidates.length = 0;
   fake.replayJobs.length = 0;
   fake.diagnosisCalls = 0;
@@ -146,5 +158,47 @@ describe('incident lifecycle actions', () => {
     expect(response.statusCode).toBe(409);
     expect(fake.replayJobs).toHaveLength(0);
     expect(fake.incident.status).toBe('RESOLVED');
+  });
+});
+
+describe('PATCH /incidents/:id keeps timestamps truthful', () => {
+  const patch = (payload: Record<string, unknown>) => app.inject({ method: 'PATCH', url: '/incidents/inc-1', payload });
+
+  it('stamps resolvedAt when an incident is resolved', async () => {
+    fake.incident.status = 'TRIAGED';
+    expect((await patch({ status: 'RESOLVED' })).statusCode).toBe(200);
+    expect(fake.lastUpdate?.resolvedAt).toBeInstanceOf(Date);
+  });
+
+  it('does not rewrite resolvedAt when the same status is saved again', async () => {
+    const original = new Date('2026-10-01T00:00:00Z');
+    Object.assign(fake.incident, { status: 'RESOLVED', resolvedAt: original });
+    await patch({ status: 'RESOLVED', rootCause: 'edited note' });
+    expect(fake.lastUpdate).not.toHaveProperty('resolvedAt');
+    expect(fake.incident.resolvedAt).toEqual(original);
+  });
+
+  it('clears resolvedAt when a resolved incident is reopened', async () => {
+    Object.assign(fake.incident, { status: 'RESOLVED', resolvedAt: new Date('2026-10-01T00:00:00Z') });
+    await patch({ status: 'TRIAGED' });
+    expect(fake.lastUpdate?.resolvedAt).toBeNull();
+  });
+
+  it('keeps the first triage time', async () => {
+    const first = new Date('2026-10-01T00:00:00Z');
+    Object.assign(fake.incident, { status: 'TRIAGED', triagedAt: first });
+    await patch({ status: 'TRIAGED' });
+    await patch({ status: 'REPLAYING' });
+    await patch({ status: 'TRIAGED' });
+    expect(fake.incident.triagedAt).toEqual(first);
+  });
+});
+
+describe('POST /incidents/:id/replay event scoping', () => {
+  it('answers 404 for an event that is not this incident\'s, same as a missing one', async () => {
+    fake.incident.status = 'TRIAGED';
+    const other = await app.inject({ method: 'POST', url: '/incidents/inc-1/replay', payload: { webhookEventId: 'event-of-another-workspace', fixCandidate: 'add_field:status:"paid"' } });
+    expect(other.statusCode).toBe(404);
+    expect(fake.replayJobs).toHaveLength(0);
   });
 });

@@ -96,12 +96,19 @@ export async function incidentRoutes(app: FastifyInstance) {
     if (!parsed.success) return reply.code(400).send({ error: 'Invalid incident payload', details: parsed.error.flatten() });
     const data = parsed.data;
 
-    const updateData: Prisma.IncidentUpdateInput = { ...data };
-    if (data.status === IncidentStatus.TRIAGED) updateData.triagedAt = new Date();
-    if (data.status === IncidentStatus.RESOLVED) updateData.resolvedAt = new Date();
-
     const existing = await prisma.incident.findFirst({ where: { id, integration: { tenantId } } });
     if (!existing) return reply.code(404).send({ error: 'Incident not found' });
+
+    // Timestamps describe what happened, so they only move when the status really changes:
+    // saving the same status again must not rewrite when it was resolved, and reopening a
+    // resolved incident must clear the resolved time (otherwise its timeline says "resolved"
+    // while it is open).
+    const updateData: Prisma.IncidentUpdateInput = { ...data };
+    if (data.status && data.status !== existing.status) {
+      if (data.status === IncidentStatus.TRIAGED && !existing.triagedAt) updateData.triagedAt = new Date();
+      if (data.status === IncidentStatus.RESOLVED) updateData.resolvedAt = new Date();
+      else if (existing.status === IncidentStatus.RESOLVED) updateData.resolvedAt = null;
+    }
     const incident = await prisma.incident.update({
       where: { id },
       data: updateData,
@@ -252,11 +259,10 @@ export async function incidentRoutes(app: FastifyInstance) {
       return reply.code(409).send({ error: 'Only triaged or replaying incidents can be replayed' });
     }
 
-    const webhookEvent = await prisma.webhookEvent.findUnique({ where: { id: webhookEventId } });
-    if (!webhookEvent) return reply.code(404).send({ error: 'Webhook event not found' });
-    if (webhookEvent.integrationId !== incident.integrationId) {
-      return reply.code(400).send({ error: 'Webhook event does not belong to this incident integration' });
-    }
+    // Scoped to this incident's connection: another workspace's event id answers the same
+    // 404 as one that doesn't exist, so ids can't be probed.
+    const webhookEvent = await prisma.webhookEvent.findFirst({ where: { id: webhookEventId, integrationId: incident.integrationId } });
+    if (!webhookEvent) return reply.code(404).send({ error: 'Webhook event not found for this incident' });
 
     const replayJob = await prisma.$transaction(async tx => {
       const claimed = await tx.incident.updateMany({

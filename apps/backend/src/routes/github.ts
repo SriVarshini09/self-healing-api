@@ -608,7 +608,9 @@ export async function githubRoutes(app: FastifyInstance) {
     const { prNumber, prUrl } = opened;
 
     const pr = await prisma.gitHubPullRequest.create({
-      data: { incidentId, installationId, repository: fullRepo, prNumber, prUrl, title, status: GitHubPRStatus.OPEN },
+      // installation.id is the authorised row; the request's installationId can be the
+      // 'env-token-installation' alias, which is not a foreign key.
+      data: { incidentId, installationId: installation.id, repository: fullRepo, prNumber, prUrl, title, status: GitHubPRStatus.OPEN },
     });
 
     await prisma.incident.update({
