@@ -10,9 +10,12 @@ process.env.ALERT_WEBHOOK_URL = '';
 
 type Captured = { url: string; body: Record<string, unknown> };
 const captured: Captured[] = [];
+// Scripted failures per URL: each call shifts the next status off the list (then 200).
+const scripted: Record<string, number[]> = {};
 const realFetch = globalThis.fetch;
 globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
   const url = String(input instanceof Request ? input.url : input);
+  if (scripted[url]?.length) return new Response('scripted failure', { status: scripted[url].shift()! });
   if (url.startsWith('https://hooks.slack.com/') || url.startsWith('https://api.resend.com/')) {
     captured.push({ url, body: JSON.parse(String(init?.body ?? '{}')) });
     return new Response('ok', { status: 200 });
@@ -26,7 +29,7 @@ const { registerPlugins } = await import('../src/plugins/index.js');
 const { registerRoutes } = await import('../src/routes/index.js');
 const { prisma } = await import('../src/utils/prisma.js');
 const { processDueOutcomeRuns } = await import('../src/services/outcome-checks.js');
-const { deliverPendingAlerts } = await import('../src/services/alerts.js');
+const { deliverPendingAlerts, enqueueIncidentAlert } = await import('../src/services/alerts.js');
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`ASSERTION FAILED: ${message}`);
@@ -113,6 +116,27 @@ try {
   assert(emailCalls().length === 2, 'email gets a "resolved" message');
   const deliveries = await prisma.alertDelivery.findMany({ where: { incidentId: incident.id } });
   assert(deliveries.length === 4 && deliveries.every(d => d.status === 'DELIVERED'), 'outbox shows 4 delivered (2 destinations x detected/resolved)');
+  console.log('6. a provider blip does not lose the alert');
+  const flakyUrl = `https://hooks.slack.com/services/T0000/B0000/flaky${runId}`;
+  const goneUrl = `https://hooks.slack.com/services/T0000/B0000/gone${runId}`;
+  scripted[flakyUrl] = [503];
+  scripted[goneUrl] = [404];
+  const flaky = json(await app.inject({ method: 'POST', url: '/api/v1/alerts/destinations', headers: auth, payload: { kind: 'SLACK', name: '#flaky', slackWebhookUrl: flakyUrl } }));
+  const gone = json(await app.inject({ method: 'POST', url: '/api/v1/alerts/destinations', headers: auth, payload: { kind: 'SLACK', name: '#gone', slackWebhookUrl: goneUrl } }));
+  created.destinations.push(flaky.id, gone.id);
+  await enqueueIncidentAlert(incident.id, 'detected');
+  const t0 = soon();
+  await deliverPendingAlerts(t0);
+  const flakyDelivery = await prisma.alertDelivery.findFirstOrThrow({ where: { incidentId: incident.id, channel: `dest:${flaky.id}:detected` } });
+  assert(flakyDelivery.status === 'RETRYING' && flakyDelivery.attempts === 1, 'a 503 from Slack schedules a retry instead of giving up');
+  const wait = flakyDelivery.nextAttemptAt.getTime() - t0.getTime();
+  assert(wait >= 14_000 && wait <= 16_000, `the retry is about 15 seconds out, not 1 second (got ${wait} ms)`);
+  await deliverPendingAlerts(new Date(t0.getTime() + 20_000));
+  const retried = await prisma.alertDelivery.findUniqueOrThrow({ where: { id: flakyDelivery.id } });
+  assert(retried.status === 'DELIVERED' && retried.attempts === 2, 'and the retry delivers the alert');
+  const goneDelivery = await prisma.alertDelivery.findFirstOrThrow({ where: { incidentId: incident.id, channel: `dest:${gone.id}:detected` } });
+  assert(goneDelivery.status === 'FAILED' && goneDelivery.attempts === 1 && /404/.test(goneDelivery.lastError ?? ''), 'a 404 (removed webhook) fails at once with the reason, no pointless retries');
+
   console.log('\nE2E ALERTS OK');
 } finally {
   for (const id of created.destinations) await prisma.alertDestination.deleteMany({ where: { id } });

@@ -9,7 +9,10 @@ import {
   buildEmailMessage,
   buildSlackMessage,
   destinationChannel,
+  DESTINATION_MAX_ATTEMPTS,
+  isPermanentHttpFailure,
   nextAlertAttempt,
+  nextDestinationAttempt,
   parseDestinationChannel,
   type AlertContext,
   type AlertEvent,
@@ -20,6 +23,14 @@ import {
 // (Slack, email) use channels named by destinationChannel().
 const CHANNEL = 'webhook';
 const STALE_PROCESSING_ERROR = 'delivery attempt expired before completion';
+
+/** A failure retrying cannot fix (removed destination, rejected request). */
+class TerminalAlertError extends Error {}
+
+/** Workspace destinations retry for much longer than the operator webhook. */
+function maxAttemptsFor(channel: string | null | undefined): number {
+  return parseDestinationChannel(channel ?? CHANNEL) ? DESTINATION_MAX_ATTEMPTS : config.ALERT_WEBHOOK_MAX_ATTEMPTS;
+}
 
 /**
  * Queue alerts for an incident: the operator webhook (on detection) and every
@@ -123,7 +134,10 @@ export async function sendToDestination(destination: AlertDestination, incident:
   if (destination.kind === 'SLACK') {
     if (!destination.slackUrlCipher) throw new Error('Slack webhook URL is missing');
     const result = await postJson(decryptSecret(destination.slackUrlCipher), buildSlackMessage(incident, ctx));
-    if (result.status < 200 || result.status >= 300) throw new Error(`Slack returned HTTP ${result.status}${result.text ? `: ${result.text}` : ''}`);
+    if (result.status < 200 || result.status >= 300) {
+      const failure = `Slack returned HTTP ${result.status}${result.text ? `: ${result.text}` : ''}`;
+      throw isPermanentHttpFailure(result.status) ? new TerminalAlertError(failure) : new Error(failure);
+    }
     return;
   }
   if (!emailAlertsAvailable()) throw new Error('Email delivery is not configured on this SHAPI instance (RESEND_API_KEY and ALERT_EMAIL_FROM)');
@@ -136,7 +150,10 @@ export async function sendToDestination(destination: AlertDestination, incident:
     text: message.text,
     html: message.html,
   }, { authorization: `Bearer ${config.RESEND_API_KEY}` });
-  if (result.status < 200 || result.status >= 300) throw new Error(`Email provider returned HTTP ${result.status}${result.text ? `: ${result.text}` : ''}`);
+  if (result.status < 200 || result.status >= 300) {
+    const failure = `Email provider returned HTTP ${result.status}${result.text ? `: ${result.text}` : ''}`;
+    throw isPermanentHttpFailure(result.status) ? new TerminalAlertError(failure) : new Error(failure);
+  }
 }
 
 /** A sample incident for the "Send test alert" button. Nothing is stored. */
@@ -163,26 +180,29 @@ export async function reclaimStaleProcessingAlerts(now = new Date()): Promise<vo
     status: AlertDeliveryStatus.PROCESSING,
     updatedAt: { lt: alertProcessingCutoff(now) },
   };
+  // The operator webhook and workspace destinations have different attempt limits.
+  const operator = { NOT: { channel: { startsWith: 'dest:' } } };
+  const destinations = { channel: { startsWith: 'dest:' } };
 
-  await prisma.alertDelivery.updateMany({
-    where: { ...staleWhere, attempts: { gte: config.ALERT_WEBHOOK_MAX_ATTEMPTS } },
-    data: {
-      status: AlertDeliveryStatus.FAILED,
-      nextAttemptAt: now,
-      lastError: STALE_PROCESSING_ERROR,
-    },
-  });
-  await prisma.alertDelivery.updateMany({
-    where: { ...staleWhere, attempts: { lt: config.ALERT_WEBHOOK_MAX_ATTEMPTS } },
-    data: {
-      status: AlertDeliveryStatus.RETRYING,
-      nextAttemptAt: now,
-      lastError: STALE_PROCESSING_ERROR,
-    },
-  });
+  for (const [scope, limit] of [[operator, config.ALERT_WEBHOOK_MAX_ATTEMPTS], [destinations, DESTINATION_MAX_ATTEMPTS]] as const) {
+    await prisma.alertDelivery.updateMany({
+      where: { ...staleWhere, ...scope, attempts: { gte: limit } },
+      data: {
+        status: AlertDeliveryStatus.FAILED,
+        nextAttemptAt: now,
+        lastError: STALE_PROCESSING_ERROR,
+      },
+    });
+    await prisma.alertDelivery.updateMany({
+      where: { ...staleWhere, ...scope, attempts: { lt: limit } },
+      data: {
+        status: AlertDeliveryStatus.RETRYING,
+        nextAttemptAt: now,
+        lastError: STALE_PROCESSING_ERROR,
+      },
+    });
+  }
 }
-
-class TerminalAlertError extends Error {}
 
 export async function deliverPendingAlerts(now = new Date(), limit = 20): Promise<void> {
   await reclaimStaleProcessingAlerts(now);
@@ -249,12 +269,12 @@ export async function deliverPendingAlerts(now = new Date(), limit = 20): Promis
       throw new Error(`Alert receiver returned HTTP ${result.status}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Alert delivery failed';
-      const terminal = error instanceof TerminalAlertError || attempt >= config.ALERT_WEBHOOK_MAX_ATTEMPTS;
+      const terminal = error instanceof TerminalAlertError || attempt >= maxAttemptsFor(delivery.channel);
       await prisma.alertDelivery.update({
         where: { id: delivery.id },
         data: {
           status: terminal ? AlertDeliveryStatus.FAILED : AlertDeliveryStatus.RETRYING,
-          nextAttemptAt: terminal ? now : nextAlertAttempt(attempt, now),
+          nextAttemptAt: terminal ? now : (target ? nextDestinationAttempt : nextAlertAttempt)(attempt, now),
           lastError: message.slice(0, 1000),
         },
       });

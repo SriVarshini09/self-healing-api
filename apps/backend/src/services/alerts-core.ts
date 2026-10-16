@@ -55,6 +55,30 @@ export function nextAlertAttempt(attempt: number, now = new Date()): Date {
   return new Date(now.getTime() + delayMs);
 }
 
+// Workspace destinations (Slack, email) are the product's main promise: telling a person
+// that a customer paid and got nothing. A provider blip of a few seconds must not lose
+// that message, so they get far more patience than the operator webhook: 8 attempts
+// spread over about 25 minutes (15s, 30s, 1m, 2m, 4m, 8m, 10m).
+export const DESTINATION_MAX_ATTEMPTS = 8;
+
+export function nextDestinationAttempt(attempt: number, now = new Date()): Date {
+  const delayMs = Math.min(10 * 60 * 1000, 15_000 * 2 ** Math.max(0, attempt - 1));
+  return new Date(now.getTime() + delayMs);
+}
+
+/** Retrying a 4xx (bad or removed webhook, rejected request) can never succeed; 408 and 429 can. */
+export function isPermanentHttpFailure(status: number): boolean {
+  return status >= 400 && status < 500 && status !== 408 && status !== 425 && status !== 429;
+}
+
+/**
+ * Slack treats &, < and > as markup: <!channel> pings everyone and <https://x|label> makes a
+ * link. Values in alerts come from event data, so they are escaped as Slack requires.
+ */
+export function escapeSlackText(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 export function alertProcessingCutoff(
   now = new Date(),
   leaseMs = DEFAULT_ALERT_PROCESSING_LEASE_MS,
@@ -122,11 +146,11 @@ export function buildSlackMessage(incident: IncidentAlertInput, ctx: AlertContex
   const lines = [
     ctx.event === 'resolved'
       ? 'This incident was resolved.'
-      : (ctx.detail ?? incident.description),
-    `*Integration:* ${incident.integration.name} · *Severity:* ${incident.severity.toLowerCase()}`,
+      : escapeSlackText(ctx.detail ?? incident.description),
+    `*Integration:* ${escapeSlackText(incident.integration.name)} · *Severity:* ${incident.severity.toLowerCase()}`,
   ];
   return {
-    text: `${title} (${incident.integration.name})`,
+    text: escapeSlackText(`${title} (${incident.integration.name})`),
     blocks: [
       { type: 'header', text: { type: 'plain_text', text: title.slice(0, 150), emoji: false } },
       { type: 'section', text: { type: 'mrkdwn', text: lines.join('\n').slice(0, 2900) } },
