@@ -68,6 +68,7 @@ export async function purgeExpiredData(now = new Date(), retentionDays = config.
     ids => prisma.incident.deleteMany({ where: { id: { in: ids } } }),
   );
 
+  result.driftResults = (await prisma.driftResult.deleteMany({ where: { detectedAt: { lt: cutoff } } })).count;
   result.sessions = (await prisma.authSession.deleteMany({ where: { expiresAt: { lt: now } } })).count;
   result.resetLinks = (await prisma.passwordResetToken.deleteMany({ where: { expiresAt: { lt: now } } })).count;
   result.invites = (await prisma.workspaceInvite.deleteMany({ where: { expiresAt: { lt: new Date(now.getTime() - 7 * DAY_MS) } } })).count;

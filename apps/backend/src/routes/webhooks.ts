@@ -16,7 +16,7 @@ import {
 
 type WebhookRequest = FastifyRequest & { rawBody?: unknown };
 import { evaluatePredicate as sandboxedEvaluate } from '@shapi/invariant-engine';
-import { detectDrift } from '@shapi/drift-detection';
+import { detectDrift, driftSeverity } from '@shapi/drift-detection';
 import { publicApiOrigin } from '../utils/public-url.js';
 
 export async function webhookRoutes(app: FastifyInstance) {
@@ -516,10 +516,19 @@ export async function checkDrift(invariantId: string) {
     },
   );
 
-  const alreadyRecorded = await prisma.driftResult.findFirst({
-    where: { invariantId, detectedAt: { gte: currentStart } },
+  // Evaluate on every pass so a regression that starts mid-window is caught within minutes,
+  // not at the next window. Only an already-reported regression suppresses a new one, and
+  // healthy results are sampled (not stored on every pass) to keep history small.
+  const reported = await prisma.driftResult.findFirst({
+    where: { invariantId, detected: true, detectedAt: { gte: currentStart } },
   });
-  if (alreadyRecorded) return;
+  if (reported) return;
+  if (!result.detected) {
+    const sampled = await prisma.driftResult.findFirst({
+      where: { invariantId, detectedAt: { gte: new Date(Date.now() - HEALTHY_SAMPLE_INTERVAL_MS) } },
+    });
+    if (sampled) return;
+  }
 
   await prisma.driftResult.create({
     data: {
@@ -538,25 +547,8 @@ export async function checkDrift(invariantId: string) {
   }
 }
 
-export function performProportionTest(successes: number, trials: number, baselineRate: number) {
-  if (trials === 0) return { pValue: 1, effectSize: 0 };
-  const currentRate = successes / trials;
-  const pooledRate = (successes + baselineRate * trials) / (trials + trials);
-  const se = Math.sqrt(pooledRate * (1 - pooledRate) * (2 / trials));
-  const z = se === 0 ? 0 : (currentRate - baselineRate) / se;
-  const pValue = 2 * (1 - normalCDF(Math.abs(z)));
-  const denom = Math.sqrt(Math.max(baselineRate * (1 - baselineRate), 1e-9));
-  const effectSize = (currentRate - baselineRate) / denom;
-  return { pValue, effectSize };
-}
-
-export function normalCDF(x: number): number {
-  const t = 1 / (1 + 0.2316419 * x);
-  const d = 0.3989423 * Math.exp((-x * x) / 2);
-  const prob =
-    d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
-  return x > 0 ? 1 - prob : prob;
-}
+/** A healthy drift result is stored at most this often per invariant. */
+const HEALTHY_SAMPLE_INTERVAL_MS = 15 * 60 * 1000;
 
 async function createDriftIncident(
   invariantId: string,
@@ -580,12 +572,7 @@ async function createDriftIncident(
 
   if (existingIncident) return;
 
-  const severity =
-    Math.abs(effectSize) > 1
-      ? IncidentSeverity.CRITICAL
-      : Math.abs(effectSize) > 0.8
-        ? IncidentSeverity.HIGH
-        : IncidentSeverity.MEDIUM;
+  const severity = IncidentSeverity[driftSeverity(baselineRate, currentRate)];
 
   const incident = await prisma.incident.create({
     data: {

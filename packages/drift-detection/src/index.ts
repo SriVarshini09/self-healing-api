@@ -23,6 +23,8 @@ export interface DriftOutput {
 }
 
 export function normalCDF(x: number): number {
+  // The polynomial below is only valid for x >= 0; use symmetry for the lower half.
+  if (x < 0) return 1 - normalCDF(-x);
   const t = 1 / (1 + 0.2316419 * x);
   const d = 0.3989423 * Math.exp((-x * x) / 2);
   const prob =
@@ -57,9 +59,26 @@ export function detectDrift(input: DriftInput, cfg: DriftConfig = {}): DriftOutp
     baselineRate,
     input.baselineTrials,
   );
+  // Drift here means the outcome got WORSE. A significant improvement (for example right
+  // after a fix) is not an incident, and must not open one that says the rate "dropped".
   const detected =
     input.currentTrials >= (cfg.minDetectionSamples ?? 1) &&
+    currentRate < baselineRate &&
     pValue < significanceThreshold &&
     Math.abs(effectSize) >= minEffectSize;
   return { detected, pValue, effectSize, baselineRate, currentRate };
+}
+
+export type DriftSeverity = 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+/**
+ * How bad a drop is, in terms people understand: percentage points lost. (The effect size is
+ * scaled by the baseline's variance, which explodes near 0% and 100%: a baseline of 100% made
+ * even a 2% drop look "critical".)
+ */
+export function driftSeverity(baselineRate: number, currentRate: number): DriftSeverity {
+  const drop = baselineRate - currentRate;
+  if (drop >= 0.3) return 'CRITICAL';
+  if (drop >= 0.1) return 'HIGH';
+  return 'MEDIUM';
 }
