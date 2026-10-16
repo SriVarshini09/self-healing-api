@@ -7,6 +7,12 @@ import { startEvaluationScheduler } from './services/scheduler.js';
 import { trustProxyHops } from './utils/rate-limit.js';
 import { startSelfMonitor } from './services/self-monitor.js';
 
+// A rejected promise nobody awaited (a background task, a fire-and-forget write) would otherwise
+// terminate the whole process for every tenant. Log it loudly and keep serving.
+process.on('unhandledRejection', reason => {
+  logger.error({ error: reason instanceof Error ? reason.message : String(reason), stack: reason instanceof Error ? reason.stack : undefined }, 'Unhandled promise rejection');
+});
+
 async function main() {
   const app = Fastify({
     trustProxy: trustProxyHops(config.SHAPI_TRUST_PROXY_HOPS),

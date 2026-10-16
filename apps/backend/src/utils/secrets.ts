@@ -31,7 +31,7 @@ export function encryptionKeys(source: KeySource = config): Buffer[] {
 
 export function encryptSecret(plaintext: string, keys: Buffer[] = encryptionKeys()): string {
   const iv = randomBytes(12);
-  const cipher = createCipheriv('aes-256-gcm', keys[0], iv);
+  const cipher = createCipheriv('aes-256-gcm', keys[0], iv, { authTagLength: 16 });
   const ciphertext = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
   return [VERSION, iv.toString('base64'), cipher.getAuthTag().toString('base64'), ciphertext.toString('base64')].join(':');
 }
@@ -42,7 +42,7 @@ export function decryptSecretWithKeyIndex(token: string, keys: Buffer[] = encryp
   if (version !== VERSION || !iv || !tag || !ciphertext) throw new Error('Unrecognized secret format');
   for (const [keyIndex, key] of keys.entries()) {
     try {
-      const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64'));
+      const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64'), { authTagLength: 16 });
       decipher.setAuthTag(Buffer.from(tag, 'base64'));
       const plaintext = Buffer.concat([decipher.update(Buffer.from(ciphertext, 'base64')), decipher.final()]).toString('utf8');
       return { plaintext, keyIndex };
