@@ -18,6 +18,8 @@ export async function registerPlugins(app: FastifyInstance) {
   app.setErrorHandler((error, request, reply) => {
     const code = (error as { code?: string }).code;
     if (code === 'P2025') return reply.code(404).send({ error: 'Not found' });
+    // A unique value is already taken. Say so plainly, without naming whose it is.
+    if (code === 'P2002') return reply.code(409).send({ error: 'That value is already in use. Choose a different one.' });
     const status = error.statusCode && error.statusCode >= 400 ? error.statusCode : 500;
     if (status < 500) return reply.code(status).send({ error: error.message });
     logger.error({ requestId: request.id, method: request.method, url: request.url, error: error.message, stack: error.stack }, 'Unhandled route error');

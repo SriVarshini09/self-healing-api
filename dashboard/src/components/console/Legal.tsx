@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { Card, PageHeader, useShapi } from './ui';
 import type { Trust } from './pages/Security';
 
@@ -26,6 +26,8 @@ function Contact({ email }: { email?: string }) {
 }
 
 function LegalShell({ title, sub, children }: { title: string; sub: string; children: ReactNode }) {
+  // These pages render outside the console shell, which normally owns the tab title.
+  useEffect(() => { document.title = `${title} · SHAPI`; }, [title]);
   return (
     <div className="c-app">
       <main className="c-main">
