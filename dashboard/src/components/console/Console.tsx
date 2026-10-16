@@ -19,6 +19,7 @@ import { ForgotPassword, ResetPasswordScreen } from './PasswordReset';
 import { AcceptInviteScreen } from './AcceptInvite';
 import { Landing } from './Landing';
 import { SystemBanner } from './SystemBanner';
+import { PrivacyPage, TermsPage } from './Legal';
 import './console.css';
 
 const DOCS_URL = 'https://github.com/SriVarshini09/self-healing-api#readme';
@@ -390,6 +391,11 @@ function AccessScreen({ state, onSignedIn, initialMode = 'signin' }: {
                 <a href="#/">About SHAPI</a>
                 <a href="#/security">How SHAPI handles your data</a>
               </p>
+              {mode === 'signup' && (
+                <p className="c-hint" style={{ textAlign: 'center', margin: '8px 0 0' }}>
+                  By creating a workspace you agree to the <a href="#/terms">Terms</a> and the <a href="#/privacy">Privacy</a> notice.
+                </p>
+              )}
               {config.oidcEnabled && (
                 <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <span className="c-hint" style={{ textAlign: 'center' }}>or</span>
@@ -455,6 +461,9 @@ export function Console() {
   if (route.startsWith('accept-invite')) {
     return <AcceptInviteScreen token={new URLSearchParams(route.split('?')[1] ?? '').get('token') ?? ''} />;
   }
+  // Terms and Privacy are public: readable before signing up and while signed in.
+  if (route === 'terms') return <TermsPage />;
+  if (route === 'privacy') return <PrivacyPage />;
   if (authState.status !== 'ready' && route === 'security') {
     // Readable before signing up: it only calls the public /trust endpoint.
     return <div className="c-app"><main className="c-main"><div className="c-content" style={{ maxWidth: 1000, width: '100%', margin: '0 auto' }}><SecurityPage signedOut /></div></main></div>;

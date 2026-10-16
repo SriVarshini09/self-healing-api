@@ -185,6 +185,8 @@ export function Landing({ signup }: { signup: Signup | null }) {
       <footer className="l-footer">
         <span>© SHAPI</span>
         <a href="#/security">Security</a>
+        <a href="#/terms">Terms</a>
+        <a href="#/privacy">Privacy</a>
         <a href={REPO} target="_blank" rel="noreferrer">GitHub</a>
         <a href="#/signin">Sign in</a>
       </footer>

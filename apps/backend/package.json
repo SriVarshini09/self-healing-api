@@ -30,6 +30,7 @@
     "auth:reset-link": "tsx scripts/password-reset-link.ts",
     "invites:list": "tsx scripts/list-invite-requests.ts",
     "e2e:team": "tsx scripts/e2e-team.ts",
+    "e2e:delete-workspace": "tsx scripts/e2e-delete-workspace.ts",
     "e2e:route-audit": "tsx scripts/e2e-route-audit.ts"
   },
   "dependencies": {

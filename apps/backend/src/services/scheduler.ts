@@ -5,6 +5,7 @@ import { logger } from '../utils/logger.js';
 import { deliverPendingAlerts } from './alerts.js';
 import { processDueOutcomeRuns, reconcileDueStripeChecks } from './outcome-checks.js';
 import { recordSchedulerTick } from './self-monitor.js';
+import { purgeIfDue } from './retention.js';
 
 export async function evaluateAllInvariantWindows(now = new Date()): Promise<void> {
   const invariants = await prisma.invariant.findMany();
@@ -36,6 +37,11 @@ export function startEvaluationScheduler(intervalSeconds: number): () => void {
       await processDueOutcomeRuns();
     } catch (error) {
       logger.error({ error }, 'Scheduled outcome checks failed');
+    }
+    try {
+      await purgeIfDue();
+    } catch (error) {
+      logger.error({ error }, 'Scheduled retention purge failed');
     } finally {
       running = false;
     }

@@ -20,6 +20,7 @@ export function SettingsPage() {
       {workspace.data && <WorkspaceCard workspace={workspace.data} canManage={canManage} onSaved={() => void workspace.reload()} />}
       {workspace.data && <TeamCard />}
       {workspace.data && <AlertsCard canEdit={workspace.data.caller.role !== 'VIEWER'} />}
+      {workspace.data && workspace.data.caller.role === 'OWNER' && <DeleteWorkspaceCard workspace={workspace.data} />}
       {workspace.data && (canManage
         ? <ApiKeysCard />
         : <Card title="API keys"><Empty>Only an Owner or Admin can manage API keys.</Empty></Card>)}
@@ -70,6 +71,52 @@ function WorkspaceCard({ workspace, canManage, onSaved }: { workspace: Workspace
         </div>
         {message && <p className={`c-note is-${message.tone} c-span-2`}>{message.text}</p>}
       </form>
+    </Card>
+  );
+}
+
+function DeleteWorkspaceCard({ workspace }: { workspace: Workspace }) {
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+
+  const remove = async (event: FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await sendJson('workspace', 'DELETE', { confirm: typed });
+      // The server has cleared the session; a reload lands on the public page.
+      window.location.assign('/');
+    } catch (failure) {
+      setError(failure);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card title="Delete workspace" sub="Permanent. Removes your connections and their stored credentials, events, incidents, checks, alert destinations, team and API keys.">
+      <div className="c-card-body c-form">
+        {!open ? (
+          <div className="c-row c-span-2">
+            <button className="c-btn is-danger" type="button" onClick={() => setOpen(true)}>Delete this workspace…</button>
+            <span className="c-hint">Only the Owner can do this. It can't be undone.</span>
+          </div>
+        ) : (
+          <form className="c-form c-span-2" onSubmit={event => void remove(event)}>
+            <label className="c-field">
+              <span className="c-label">Type <strong>{workspace.name}</strong> to confirm</span>
+              <input className="c-input" value={typed} onChange={event => setTyped(event.target.value)} autoComplete="off" autoFocus />
+            </label>
+            <div className="c-row">
+              <button className="c-btn is-danger" type="submit" disabled={busy || typed.trim() !== workspace.name}>{busy ? 'Deleting…' : 'Delete everything'}</button>
+              <button className="c-btn is-quiet" type="button" disabled={busy} onClick={() => { setOpen(false); setTyped(''); setError(null); }}>Cancel</button>
+            </div>
+            {error !== null && <p className="c-note is-bad">{errorMessage(error, 'Could not delete the workspace')}</p>}
+          </form>
+        )}
+      </div>
     </Card>
   );
 }

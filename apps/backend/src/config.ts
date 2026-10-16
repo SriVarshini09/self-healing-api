@@ -18,6 +18,10 @@ const configSchema = z.object({
   HOST: z.string().default('0.0.0.0'),
   INVARIANT_EVALUATION_INTERVAL_SEC: z.coerce.number().int().positive().default(60),
   SHAPI_MAX_INVARIANTS_PER_TENANT: z.coerce.number().int().positive().default(100),
+  // How long received Stripe/webhook events, tracked events and finished check runs
+  // are kept. Older rows are deleted daily. 30 days is the floor: drift detection
+  // compares against a recent baseline.
+  SHAPI_RETENTION_DAYS: z.coerce.number().int().min(30).max(3650).default(90),
   DATABASE_URL: z.string().url(),
   JWT_SECRET: z.string().min(32),
   // Key for secrets stored at rest (outcome-check database URLs, Stripe keys).
@@ -52,6 +56,9 @@ const configSchema = z.object({
   // Where "Request an invite" submissions are emailed (needs Resend). List them
   // any time with `pnpm --filter @shapi/backend invites:list`.
   SHAPI_OPERATOR_EMAIL: z.preprocess(value => value === '' ? undefined : value, z.string().email().optional()),
+  // Public contact address shown on the Terms and Privacy pages (and in GET /trust).
+  // Separate from SHAPI_OPERATOR_EMAIL on purpose: that one stays private.
+  SHAPI_CONTACT_EMAIL: z.preprocess(value => value === '' ? undefined : value, z.string().email().optional()),
   SHAPI_BOOTSTRAP_TOKEN: z.preprocess(
     value => value === '' ? undefined : value,
     z.string().min(32).optional(),
