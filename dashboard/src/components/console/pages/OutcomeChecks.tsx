@@ -309,7 +309,7 @@ function CheckRow({ check, onChanged }: { check: OutcomeCheck; onChanged: () => 
       {panel === 'delete' && (
         <div className="c-note is-bad c-row">
           <span className="c-grow">Delete this check and its history? Existing incidents are kept.</span>
-          <button className="c-btn is-danger" onClick={() => void remove()} disabled={busy}>Delete</button>
+          <button className="c-btn is-danger" onClick={() => void remove()} disabled={busy}>Yes, delete</button>
           <button className="c-btn" onClick={() => setPanel(null)}>Cancel</button>
         </div>
       )}

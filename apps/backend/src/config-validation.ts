@@ -20,6 +20,7 @@ export type ProductionConfigInput = {
   ALERT_WEBHOOK_SECRET?: string;
   SHAPI_ENCRYPTION_KEY?: string;
   SHAPI_EGRESS_IPS?: string[];
+  DASHBOARD_URL?: string;
 };
 
 function present(value: string | undefined): boolean {
@@ -79,6 +80,9 @@ export function productionConfigWarnings(input: ProductionConfigInput): string[]
   }
   if (!input.SHAPI_EGRESS_IPS?.length) {
     warnings.push('SHAPI_EGRESS_IPS is not set: customers cannot see which IPs to allowlist on their database firewall.');
+  }
+  if (!input.DASHBOARD_URL || /localhost|127\.0\.0\.1/.test(input.DASHBOARD_URL)) {
+    warnings.push('DASHBOARD_URL points at localhost: links in alerts, invite and password-reset emails will not open. Set it to the dashboard\'s public URL.');
   }
   return warnings;
 }

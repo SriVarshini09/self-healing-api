@@ -2,7 +2,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import {
   Activity, Check, CheckCircle2, ChevronLeft, ChevronRight, CircleAlert, ListChecks, ShieldCheck, Timer, TrendingDown, TrendingUp,
 } from 'lucide-react';
-import { Empty, ErrorNote, Pill, cleanTitle, compact, formatDuration, label, timeAgo, useShapi, type Tone } from '../ui';
+import { Empty, ErrorNote, Pill, cleanTitle, compact, formatDuration, label, rowLink, timeAgo, useShapi, type Tone } from '../ui';
 import { DailyOutcomes } from '../charts';
 import { OPEN_STATUSES, type Incident, type OutcomeCheck } from '../types';
 
@@ -175,7 +175,7 @@ export function OverviewPage({ go }: { go: (route: string) => void }) {
                     {checkList.slice(0, 6).map(check => {
                       const failed = check.runsLast24h?.FAILED ?? 0;
                       return (
-                        <tr key={check.id} className="is-link" onClick={() => go('checks')}>
+                        <tr key={check.id} {...rowLink(() => go('checks'))}>
                           <td><div className="c-cell-entity"><span className="c-match-logo" style={{ background: '#e6f5ec', color: '#1f7a4d' }}><ListChecks size={13} /></span><span className="c-truncate">{check.name}</span></div></td>
                           <td className="c-muted c-small"><code>{check.triggerEventType}</code></td>
                           <td><span className="c-row"><Pill tone="ok">{check.runsLast24h?.PASSED ?? 0} ok</Pill><Pill tone={failed ? 'bad' : 'neutral'}>{failed} failed</Pill></span></td>

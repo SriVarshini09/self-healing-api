@@ -39,6 +39,8 @@ function WorkspaceCard({ workspace, canManage, onSaved }: { workspace: Workspace
     setMessage(null);
     try {
       await sendJson('workspace', 'PATCH', { name });
+      // The sidebar shows the workspace name too; let it refresh now.
+      window.dispatchEvent(new Event('shapi:workspace-changed'));
       setMessage({ tone: 'ok', text: 'Workspace renamed.' });
       onSaved();
     } catch (error) {

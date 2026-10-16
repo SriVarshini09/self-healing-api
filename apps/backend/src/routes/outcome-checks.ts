@@ -21,6 +21,7 @@ import {
   reconcileOutcomeCheck,
   syncOutcomeInvariant,
 } from '../services/outcome-checks.js';
+import { clampInt } from '../utils/pagination.js';
 
 // Restricted keys (rk_) are the recommended way to connect. Secret keys are
 // accepted in test mode only; a live secret key grants far more than SHAPI needs.
@@ -255,7 +256,7 @@ export async function outcomeCheckRoutes(app: FastifyInstance) {
     const runs = await prisma.outcomeCheckRun.findMany({
       where,
       orderBy: { createdAt: 'desc' },
-      take: Math.min(Number(q.limit ?? 50) || 50, 200),
+      take: clampInt(q.limit, 50, 1, 200),
     });
     return reply.send({ data: runs });
   });

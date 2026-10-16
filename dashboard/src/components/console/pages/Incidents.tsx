@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { CircleAlert } from 'lucide-react';
-import { Card, Empty, ErrorNote, PageHeader, Pill, cleanTitle, label, severityTone, statusTone, timeAgo, useShapi } from '../ui';
+import { Card, Empty, ErrorNote, PageHeader, Pill, cleanTitle, label, rowLink, severityTone, statusTone, timeAgo, useShapi } from '../ui';
 import { OPEN_STATUSES, type Incident } from '../types';
 
 type Filter = 'open' | 'closed' | 'all';
@@ -37,7 +37,7 @@ export function IncidentsPage({ go }: { go: (route: string) => void }) {
               </thead>
               <tbody>
                 {rows.map(incident => (
-                  <tr key={incident.id} className="is-link" onClick={() => go(`incidents/${incident.id}`)}>
+                  <tr key={incident.id} {...rowLink(() => go(`incidents/${incident.id}`))}>
                     <td><Pill tone={severityTone(incident.severity)}>{label(incident.severity)}</Pill></td>
                     <td className="c-strong">{cleanTitle(incident.invariant?.name ?? incident.title)}</td>
                     <td className="c-muted">{incident.integration?.name ?? '—'}</td>

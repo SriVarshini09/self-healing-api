@@ -269,7 +269,20 @@ async function runOidcSessionSmoke() {
   }
 }
 
+// Old /landing links must redirect to the site root with a relative Location:
+// behind a proxy, an absolute one carries nginx's internal port and http.
+async function checkLandingRedirect() {
+  for (const path of ['/landing', '/landing/']) {
+    const response = await fetch(`${dashboardUrl}${path}`, { redirect: 'manual' });
+    const location = response.headers.get('location');
+    if (response.status !== 301 || location !== '/') {
+      throw new Error(`${path} should redirect to "/" (got ${response.status} ${location ?? 'no location'})`);
+    }
+  }
+}
+
 try {
+  await checkLandingRedirect();
   await runDashboardSmoke({
     label: 'direct API',
     configuredApiUrl: apiUrl,
@@ -284,7 +297,7 @@ try {
   });
   await runOidcAccessSmoke();
   await runOidcSessionSmoke();
-  console.log('Production dashboard smoke passed: direct API, same-origin proxy, OIDC access gate, OIDC session sign-out, overview, connections (webhook setup, deliveries, GitHub, alerts), rules with repair readiness, outcome checks, incidents and incident detail.');
+  console.log('Production dashboard smoke passed: /landing redirect, direct API, same-origin proxy, OIDC access gate, OIDC session sign-out, overview, connections (webhook setup, deliveries, GitHub, alerts), rules with repair readiness, outcome checks, incidents and incident detail.');
 } finally {
   await browser.close();
 }

@@ -113,7 +113,7 @@ function AddDestination({ emailAvailable, onCreated }: { emailAvailable: boolean
             disabled={!emailAvailable}
           />
           {!emailAvailable && (
-            <span className="c-hint">Email isn't set up on this SHAPI instance yet (the operator sets RESEND_API_KEY and ALERT_EMAIL_FROM). Use Slack for now.</span>
+            <span className="c-hint">Email alerts aren't switched on for this SHAPI workspace yet. Use Slack for now.</span>
           )}
         </label>
       )}

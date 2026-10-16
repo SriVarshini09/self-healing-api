@@ -5,6 +5,8 @@ import { IntegrationType, WebhookEventStatus } from '@prisma/client';
 import crypto from 'crypto';
 import { z } from 'zod';
 import { tenantIdFor } from '../utils/auth-context.js';
+import { pageParams } from '../utils/pagination.js';
+import { publicApiOrigin } from '../utils/public-url.js';
 
 const integrationCreateSchema = z.object({
   name: z.string().trim().min(1).max(200),
@@ -34,8 +36,7 @@ export async function integrationRoutes(app: FastifyInstance) {
     const tenantId = tenantIdFor(request);
     const q = (request.query ?? {}) as Record<string, unknown>;
     const typeRaw = q.type as string | undefined;
-    const page = Number(q.page ?? 1) || 1;
-    const pageSize = Math.min(Number(q.pageSize ?? 20) || 20, 100);
+    const { page, pageSize } = pageParams(q);
 
     const where: Prisma.IntegrationWhereInput = { tenantId };
     if (typeRaw) where.type = parseType(typeRaw);
@@ -135,8 +136,7 @@ export async function integrationRoutes(app: FastifyInstance) {
     const tenantId = tenantIdFor(request);
     const { id } = (request.params ?? {}) as { id: string };
     const q = (request.query ?? {}) as Record<string, unknown>;
-    const page = Number(q.page ?? 1) || 1;
-    const pageSize = Math.min(Number(q.pageSize ?? 20) || 20, 100);
+    const { page, pageSize } = pageParams(q);
 
     const where: Prisma.WebhookEventWhereInput = { integrationId: id, integration: { tenantId } };
     if (typeof q.status === 'string' && (Object.values(WebhookEventStatus) as string[]).includes(q.status)) {
@@ -180,7 +180,7 @@ export async function integrationRoutes(app: FastifyInstance) {
     });
     if (!integration) return reply.code(404).send({ error: 'Integration not found' });
 
-    const baseUrl = process.env.BACKEND_URL || 'http://localhost:3001';
+    const baseUrl = publicApiOrigin(request);
     let webhookUrl: string;
     switch (integration.type) {
       case 'STRIPE':

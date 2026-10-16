@@ -21,11 +21,17 @@ export async function fetchShapi<T>(path: string, init: RequestInit = {}): Promi
   });
   if (!response.ok) {
     const failure = (await response.json().catch(() => null)) as { error?: unknown } | null;
-    throw new Error(
-      typeof failure?.error === 'string'
-        ? `${response.status}: ${failure.error}`
-        : `${response.status} ${path}`
-    );
+    // Show the server's sentence as-is; people don't need HTTP status codes.
+    const message = typeof failure?.error === 'string'
+      ? failure.error
+      : response.status === 401
+        ? 'Your session has ended. Sign in again.'
+        : response.status === 403
+          ? "You don't have permission to do that."
+          : response.status === 429
+            ? 'Too many requests. Wait a minute and try again.'
+            : `Something went wrong (error ${response.status}). Please try again.`;
+    throw Object.assign(new Error(message), { status: response.status });
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;

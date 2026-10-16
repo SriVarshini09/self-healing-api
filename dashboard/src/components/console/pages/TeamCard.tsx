@@ -127,6 +127,9 @@ export function TeamCard() {
                   </td>
                 </tr>
               ))}
+              {!data.members.length && !data.invites.length && (
+                <tr><td colSpan={4} className="c-muted">No people in this workspace yet. It is being used with an API key.</td></tr>
+              )}
               {data.invites.map(pending => (
                 <tr key={pending.id}>
                   <td>

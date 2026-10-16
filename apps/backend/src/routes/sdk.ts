@@ -4,6 +4,7 @@ import type { Prisma } from '@prisma/client';
 import { IntegrationType } from '@prisma/client';
 import { z } from 'zod';
 import { tenantIdFor } from '../utils/auth-context.js';
+import { pageParams } from '../utils/pagination.js';
 
 const trackSchema = z.object({
   eventId: z.string().trim().min(1).max(200),
@@ -77,8 +78,7 @@ export async function sdkRoutes(app: FastifyInstance) {
   app.get('/sdk/events', async (request, reply) => {
     const tenantId = tenantIdFor(request);
     const q = (request.query ?? {}) as Record<string, unknown>;
-    const page = Number(q.page ?? 1) || 1;
-    const pageSize = Math.min(Number(q.pageSize ?? 20) || 20, 100);
+    const { page, pageSize } = pageParams(q);
     const where: Prisma.TrackedEventWhereInput = { tenantId };
     if (typeof q.integration === 'string') {
       const s = q.integration.toUpperCase();

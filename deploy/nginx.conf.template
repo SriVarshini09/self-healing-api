@@ -4,6 +4,9 @@ server {
 
   root /usr/share/nginx/html;
   index index.html;
+  # Behind Render's proxy nginx only sees its internal port and plain HTTP;
+  # relative redirects keep the visitor on the public https address.
+  absolute_redirect off;
 
   add_header X-Content-Type-Options nosniff always;
   add_header X-Frame-Options DENY always;

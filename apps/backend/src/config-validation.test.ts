@@ -104,9 +104,19 @@ describe('productionConfigWarnings', () => {
     expect(productionConfigIssues(safe)).toEqual([]);
   });
 
-  it('is quiet when both are configured, and outside production', () => {
-    expect(productionConfigWarnings({ ...safe, SHAPI_ENCRYPTION_KEY: 'k'.repeat(40), SHAPI_EGRESS_IPS: ['44.226.145.213', '44.229.200.0/24'] })).toEqual([]);
+  it('is quiet when everything is configured, and outside production', () => {
+    expect(productionConfigWarnings({
+      ...safe,
+      SHAPI_ENCRYPTION_KEY: 'k'.repeat(40),
+      SHAPI_EGRESS_IPS: ['44.226.145.213', '44.229.200.0/24'],
+      DASHBOARD_URL: 'https://shapi-dashboard.onrender.com',
+    })).toEqual([]);
     expect(productionConfigWarnings({ ...safe, NODE_ENV: 'development' })).toEqual([]);
+  });
+
+  it('warns when emailed and alert links would point at localhost', () => {
+    const warnings = productionConfigWarnings({ ...safe, DASHBOARD_URL: 'http://localhost:5173' });
+    expect(warnings.some(warning => warning.startsWith('DASHBOARD_URL points at localhost'))).toBe(true);
   });
 });
 
