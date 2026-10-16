@@ -3,7 +3,7 @@
 ## Summary (honest, 2026-10-13)
 
 - **Proven:** silent-failure *detection* on a webhook stream; incident lifecycle; drift test; 150+ automated tests; hosted deployment; one real GitHub App repair-PR loop.
-- **Benchmark:** outcome checks detect 9/10 injected Stripe webhook bugs (8/9 silent) in nextjs/saas-starter with 0 false positives, and surfaced a real stale-plan-name bug in the unmodified kit (benchmark/README.md, CI job `benchmark`).
+- **Benchmark:** outcome checks detect 9/10 injected Stripe webhook bugs (8/9 silent) in nextjs/saas-starter and 9/9 (7/7 silent) in shadcn-ui/taxonomy, with 0 false positives on both unmodified kits. They surfaced a real stale-plan-name bug in saas-starter and a real renewal failure in taxonomy on Stripe API versions 2025-03-31 and later (benchmark/README.md, CI job `benchmark`).
 - **Real Stripe:** outcome checks verified against a real Stripe sandbox on 2026-10-14 (two paid test subscriptions, events pulled through the Stripe Events API, one passed, one paid-but-not-provisioned failure, incident opened; `pnpm --filter @shapi/backend stripe:live-test`).
 - **Not proven:** that repair works on code that is not this repo's own demo app; any use by an outside team.
 - **Diagnosis** is rule-based heuristics. **Repair** is reviewed adapters for the demo app plus generic predicate/retry suggestions.

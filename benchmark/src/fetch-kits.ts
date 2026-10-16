@@ -22,5 +22,6 @@ for (const kit of KITS) {
   git('fetch', '-q', '--depth', '1', 'origin', kit.commit);
   git('checkout', '-q', '--force', 'FETCH_HEAD');
   git('clean', '-qfd');
+  kit.prepare?.(dir);
   console.log(`${kit.name}: ${kit.repo}@${git('rev-parse', 'HEAD').slice(0, 12)}`);
 }

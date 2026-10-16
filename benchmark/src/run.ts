@@ -25,6 +25,8 @@ const benchDir = join(import.meta.dirname, '..');
 interface CheckResult { checkId: string; eventId: string; matched: boolean; error?: string }
 interface VariantResult {
   kit: string;
+  /** Checks that fail on the unmodified kit for a documented real reason (see Scenario.knownIssue). */
+  knownIssueFailures: string[];
   variant: string;
   title: string;
   expected: 'baseline' | 'silent' | 'loud';
@@ -40,6 +42,24 @@ function databaseUrl(name: string): string {
   url.pathname = `/${name}`;
   url.search = '';
   return url.toString();
+}
+
+/** The kit's `@/` imports and the Next.js stubs, for tsx to resolve while loading that kit. */
+function writeKitTsconfig(kit: Kit): string {
+  const path = join(benchDir, '.kits', `tsconfig.${kit.name}.json`);
+  writeFileSync(path, JSON.stringify({
+    extends: '../tsconfig.json',
+    compilerOptions: {
+      baseUrl: '..',
+      paths: {
+        '@/*': [`.kits/${kit.name}/*`],
+        'next/server': ['stubs/next-server.ts'],
+        'next/headers': ['stubs/next-headers.ts'],
+        'next/navigation': ['stubs/next-navigation.ts'],
+      },
+    },
+  }, null, 2));
+  return path;
 }
 
 function applyMutation(kitDir: string, mutation: Mutation): () => void {
@@ -72,7 +92,7 @@ async function runVariant(kit: Kit, variant: string, title: string, expected: Va
       ['--import', 'tsx', join(benchDir, 'src', 'variant.ts'), kit.name],
       {
         cwd: benchDir,
-        env: { ...process.env, ...kit.env, [kit.databaseEnvVar]: url, TSX_TSCONFIG_PATH: join(benchDir, 'tsconfig.json') },
+        env: { ...process.env, ...kit.env, [kit.databaseEnvVar]: url, TSX_TSCONFIG_PATH: writeKitTsconfig(kit) },
         stdio: ['ignore', 'pipe', 'pipe'],
         timeout: 60_000,
       },
@@ -106,15 +126,20 @@ async function runVariant(kit: Kit, variant: string, title: string, expected: Va
     }
     await probeDb.end();
 
+    // Scenarios with a documented real issue are reported separately: they fail on the
+    // unmodified kit too, so they say nothing about an injected bug.
+    const known = new Set(kit.scenarios.filter(scenario => scenario.knownIssue).flatMap(scenario => scenario.events.map(event => event.id)));
+    const counted = deliveries.filter(delivery => !known.has(delivery.eventId));
     return {
       kit: kit.name,
       variant,
       title,
       expected,
-      deliveries,
-      allDeliveries2xx: deliveries.every(delivery => delivery.status >= 200 && delivery.status < 300),
-      checks,
-      failedChecks: checks.filter(check => !check.matched).map(check => `${check.checkId}@${check.eventId}`),
+      knownIssueFailures: checks.filter(check => known.has(check.eventId) && !check.matched).map(check => `${check.checkId}@${check.eventId}`),
+      deliveries: counted,
+      allDeliveries2xx: counted.every(delivery => delivery.status >= 200 && delivery.status < 300),
+      checks: checks.filter(check => !known.has(check.eventId)),
+      failedChecks: checks.filter(check => !known.has(check.eventId) && !check.matched).map(check => `${check.checkId}@${check.eventId}`),
       probes,
     };
   } finally {
@@ -143,9 +168,11 @@ function summarize(results: VariantResult[]) {
       lines.push(`| ${row.variant}: ${row.title} | ${statuses}${row.allDeliveries2xx ? ' (silent)' : ''} | ${row.failedChecks.length ? row.failedChecks.map(check => check.split('@')[0]).join(', ') : 'none'} | ${row.failedChecks.length ? 'yes' : '**no**'} |`);
     }
     const findings = baseline.probes.filter(probe => probe.finding);
-    if (findings.length) {
+    const issues = kit.scenarios.filter(scenario => scenario.knownIssue && baseline.knownIssueFailures.some(failure => scenario.events.some(event => failure.endsWith(`@${event.id}`))));
+    if (findings.length || issues.length) {
       lines.push('', '### Found in the unmodified kit', '');
       for (const probe of findings) lines.push(`- **${probe.id}**: ${probe.finding}`);
+      for (const scenario of issues) lines.push(`- **${scenario.id}**: ${scenario.knownIssue}`);
     }
     lines.push('');
   }
@@ -180,9 +207,16 @@ console.log(`\n${report}`);
 // Guard rails for CI: a false positive on an unmodified kit, or a silent
 // injected bug that stops being detected, fails the run.
 const falsePositives = results.filter(result => result.expected === 'baseline' && result.failedChecks.length > 0);
-const expectedDetections = new Set(['M1-drop-updated-case', 'M2-wrong-id-field', 'M3-status-filter', 'M4-inverted-guard',
-  'M5-copy-paste-null', 'M6-cancel-keeps-subscription', 'M7-drop-deleted-case', 'M8-wrong-lookup-column', 'M10-renamed-secret-env']);
-const regressions = results.filter(result => expectedDetections.has(result.variant) && result.failedChecks.length === 0);
+const mustDetect = new Set(KITS.flatMap(kit => kit.mustDetect.map(id => `${kit.name}/${id}`)));
+const regressions = results.filter(result => mustDetect.has(`${result.kit}/${result.variant}`) && result.failedChecks.length === 0);
+// A documented real issue must keep reproducing, or the write-up is stale.
+const staleIssues = KITS.flatMap(kit => kit.scenarios.filter(scenario => scenario.knownIssue)
+  .filter(scenario => !results.find(result => result.kit === kit.name && result.expected === 'baseline')!.knownIssueFailures.some(failure => scenario.events.some(event => failure.endsWith(`@${event.id}`))))
+  .map(scenario => `${kit.name}/${scenario.id}`));
+if (staleIssues.length) {
+  console.error(`\nFAIL: documented issue no longer reproduces: ${staleIssues.join(', ')}`);
+  process.exitCode = 1;
+}
 if (falsePositives.length || regressions.length) {
   console.error(`\nFAIL: ${falsePositives.length} false positive(s), ${regressions.length} detection regression(s)`);
   process.exitCode = 1;
