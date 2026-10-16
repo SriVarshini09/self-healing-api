@@ -96,6 +96,10 @@ const configSchema = z.object({
   ALERT_WEBHOOK_URL: z.preprocess(value => value === '' ? undefined : value, z.string().url().optional()),
   ALERT_WEBHOOK_SECRET: z.preprocess(value => value === '' ? undefined : value, z.string().optional()),
   ALERT_WEBHOOK_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
+  // Dead-man's switch: GET this URL every minute while SHAPI's own pipeline is healthy
+  // (healthchecks.io, Better Stack, Uptime Kuma push monitor...). When pings stop, that
+  // service alerts you, even if the whole process is down.
+  SHAPI_HEARTBEAT_URL: z.preprocess(value => value === '' ? undefined : value, z.string().url().optional()),
   ALERT_WEBHOOK_MAX_ATTEMPTS: z.coerce.number().int().positive().default(3),
   // Email alerts via Resend (https://resend.com). Both must be set for email destinations to send.
   RESEND_API_KEY: z.preprocess(value => value === '' ? undefined : value, z.string().optional()),

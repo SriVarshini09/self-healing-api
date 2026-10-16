@@ -159,3 +159,32 @@ Record the commit SHA, Render deploy IDs, hosted-readiness output, GitHub App
 delivery ID, and the final repair-readiness summary. CI and local Docker checks
 prove the repository and container behavior; only the hosted gate proves the
 actual public URLs, provider secrets, tenant onboarding, and public webhook.
+
+## 7. Watch SHAPI itself
+
+SHAPI catches silent failures, so it must not have one of its own: a stopped
+scheduler looks exactly like "all green". Three layers:
+
+1. **Self-check (always on).** Every minute SHAPI checks its database, that its
+   background cycle has completed recently (stalled after three missed intervals,
+   minimum three minutes), and that nothing is stuck: outcome checks more than
+   10 minutes overdue, alerts waiting more than 15 minutes, received events not
+   processed after 15 minutes. If any fails, the dashboard shows a "SHAPI is
+   running behind" banner to everyone signed in (`GET /api/v1/system/status`).
+2. **Operator email.** With `SHAPI_OPERATOR_EMAIL` plus Resend configured, you get
+   one email when a check starts failing (repeated every 6 hours while it
+   persists) and one when it recovers.
+3. **Dead-man's switch (recommended).** Layers 1 and 2 die with the process. Create
+   a push/heartbeat monitor in healthchecks.io, Better Stack or Uptime Kuma, expected
+   every 1 minute with a 5 minute grace, and set its URL as `SHAPI_HEARTBEAT_URL`.
+   SHAPI pings it only while all checks pass, so a crash, a deploy gone wrong or a
+   stuck pipeline all end in silence and the external service alerts you.
+
+`/metrics` (token-protected in production) also exports `shapi_self_check_ok{check=...}`,
+`shapi_scheduler_seconds_since_ok_tick`, `shapi_outcome_runs_overdue`,
+`shapi_alerts_stuck` and `shapi_webhook_events_stuck`.
+
+Render's free plan sleeps a web service after about 15 minutes without traffic, and
+the background cycle sleeps with it, so checks and alerts stop for customers who are
+not sending events. The heartbeat will (correctly) go quiet. Use a paid always-on
+instance before real customers depend on SHAPI.

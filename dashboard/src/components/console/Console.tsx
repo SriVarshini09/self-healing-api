@@ -18,6 +18,7 @@ import { SecurityPage } from './pages/Security';
 import { ForgotPassword, ResetPasswordScreen } from './PasswordReset';
 import { AcceptInviteScreen } from './AcceptInvite';
 import { Landing } from './Landing';
+import { SystemBanner } from './SystemBanner';
 import { PrivacyPage, TermsPage } from './Legal';
 import './console.css';
 
@@ -175,7 +176,7 @@ function Shell() {
             {openCount > 0 && <span className="c-badge">{openCount}</span>}
           </a>
         </header>
-        <main className="c-content">{page}</main>
+        <main className="c-content"><SystemBanner />{page}</main>
       </div>
     </div>
   );

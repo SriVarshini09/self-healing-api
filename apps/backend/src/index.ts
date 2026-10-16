@@ -4,6 +4,7 @@ import { registerPlugins } from './plugins/index.js';
 import { registerRoutes } from './routes/index.js';
 import { logger } from './utils/logger.js';
 import { startEvaluationScheduler } from './services/scheduler.js';
+import { startSelfMonitor } from './services/self-monitor.js';
 
 async function main() {
   const app = Fastify({
@@ -42,7 +43,9 @@ async function main() {
     process.once('SIGINT', () => void shutdown('SIGINT'));
 
     await app.listen({ port: config.PORT, host: config.HOST });
-    stopScheduler = startEvaluationScheduler(config.INVARIANT_EVALUATION_INTERVAL_SEC);
+    const stopEvaluation = startEvaluationScheduler(config.INVARIANT_EVALUATION_INTERVAL_SEC);
+    const stopSelfMonitor = startSelfMonitor();
+    stopScheduler = () => { stopEvaluation(); stopSelfMonitor(); };
     logger.info(`🚀 Server listening on http://${config.HOST}:${config.PORT}`);
     logger.info(`📚 API Docs: http://${config.HOST}:${config.PORT}/docs`);
   } catch (err) {
