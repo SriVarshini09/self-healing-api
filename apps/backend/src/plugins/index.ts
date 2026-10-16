@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyError, FastifyInstance } from 'fastify';
 import { config } from '../config.js';
 import { prisma } from '../utils/prisma.js';
 import { serializeJson } from '../utils/json.js';
@@ -15,7 +15,7 @@ export async function registerPlugins(app: FastifyInstance) {
   // One place for errors that escape a route: "record not found" is a 404,
   // client errors keep their message, and server errors are logged in full but
   // answered without internals (no database messages or file paths).
-  app.setErrorHandler((error, request, reply) => {
+  app.setErrorHandler((error: FastifyError, request, reply) => {
     const code = (error as { code?: string }).code;
     if (code === 'P2025') return reply.code(404).send({ error: 'Not found' });
     // A unique value is already taken. Say so plainly, without naming whose it is.

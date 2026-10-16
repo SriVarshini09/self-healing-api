@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import Fastify from 'fastify';
-import { rateLimitKey } from './rate-limit.js';
+import { rateLimitKey, trustProxyHops } from './rate-limit.js';
 
 // Documents how request.ip (and so the rate-limit bucket) depends on SHAPI_TRUST_PROXY_HOPS.
 async function keyFor(trustProxy: number | false, headers: Record<string, string>, remoteAddress: string) {
-  const app = Fastify({ trustProxy });
+  const app = Fastify({ trustProxy: trustProxyHops(trustProxy === false ? 0 : trustProxy) });
   app.get('/key', async request => ({ key: rateLimitKey(request), ip: request.ip }));
   const response = await app.inject({ method: 'GET', url: '/key', headers, remoteAddress });
   await app.close();

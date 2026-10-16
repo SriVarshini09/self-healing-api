@@ -4,11 +4,12 @@ import { registerPlugins } from './plugins/index.js';
 import { registerRoutes } from './routes/index.js';
 import { logger } from './utils/logger.js';
 import { startEvaluationScheduler } from './services/scheduler.js';
+import { trustProxyHops } from './utils/rate-limit.js';
 import { startSelfMonitor } from './services/self-monitor.js';
 
 async function main() {
   const app = Fastify({
-    trustProxy: config.SHAPI_TRUST_PROXY_HOPS > 0 ? config.SHAPI_TRUST_PROXY_HOPS : false,
+    trustProxy: trustProxyHops(config.SHAPI_TRUST_PROXY_HOPS),
     logger: config.NODE_ENV === 'development' ? {
       transport: {
         target: 'pino-pretty',
