@@ -194,6 +194,9 @@ jobs:
       - name: "Tenant isolation (every id-based route refuses another workspace)"
         run: pnpm --filter @shapi/backend e2e:tenant-isolation
 
+      - name: "Drift detection (improvements ignored, mid-window regressions caught, severity by points lost)"
+        run: pnpm --filter @shapi/backend e2e:drift
+
       - name: "Route audit (every API route: auth required, no 5xx on bad input, no leaked internals)"
         run: pnpm --filter @shapi/backend e2e:route-audit
 

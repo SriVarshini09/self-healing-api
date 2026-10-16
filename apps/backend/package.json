@@ -32,6 +32,7 @@
     "e2e:team": "tsx scripts/e2e-team.ts",
     "e2e:delete-workspace": "tsx scripts/e2e-delete-workspace.ts",
     "e2e:webhook-isolation": "tsx scripts/e2e-webhook-isolation.ts",
+    "e2e:drift": "tsx scripts/e2e-drift.ts",
     "e2e:tenant-isolation": "tsx scripts/e2e-tenant-isolation.ts",
     "e2e:route-audit": "tsx scripts/e2e-route-audit.ts"
   },
