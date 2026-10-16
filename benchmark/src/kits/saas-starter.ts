@@ -50,6 +50,8 @@ export const saasStarter: Kit = {
   repo: 'nextjs/saas-starter',
   commit: '6e33e58b1e553a41fe22e6b941a7229a002de361',
   license: 'MIT (c) 2025 Vercel',
+  mustDetect: ['M1-drop-updated-case', 'M2-wrong-id-field', 'M3-status-filter', 'M4-inverted-guard',
+    'M5-copy-paste-null', 'M6-cancel-keeps-subscription', 'M7-drop-deleted-case', 'M8-wrong-lookup-column', 'M10-renamed-secret-env'],
   routeFile: ROUTE,
   schemaFiles: ['lib/db/migrations/0000_soft_the_anarchist.sql'],
   databaseEnvVar: 'POSTGRES_URL',

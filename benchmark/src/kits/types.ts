@@ -24,6 +24,12 @@ export interface Scenario {
   description: string;
   seedSql: string[];
   events: StripeEventFixture[];
+  /**
+   * Set when the unmodified kit is expected to fail this scenario for a real,
+   * documented reason (not a SHAPI false positive). Its failures are reported as
+   * findings instead of failing the baseline.
+   */
+  knownIssue?: string;
 }
 
 export interface StripeEventFixture {
@@ -52,9 +58,18 @@ export interface Kit {
   repo: string;
   commit: string;
   license: string;
+  /** Silent bugs that must stay detected; a regression fails CI. */
+  mustDetect: string[];
+  /** Runs after the pinned commit is checked out (e.g. generate an ORM client). */
+  prepare?: (kitDir: string) => void;
+  /**
+   * Stripe API objects the kit's handler fetches by id (e.g. subscriptions.retrieve).
+   * Served by an in-process fake so no network or real key is involved.
+   */
+  stripeApi?: { subscriptions?: Record<string, Record<string, unknown>> };
   /** Kit-relative path of the webhook route module exporting POST(request). */
   routeFile: string;
-  /** Kit-relative SQL files that create the schema. */
+  /** Kit-relative SQL files that create the schema (applied in order). */
   schemaFiles: string[];
   /** Env the kit reads at import time (the database URL is added by the harness). */
   env: Record<string, string>;
