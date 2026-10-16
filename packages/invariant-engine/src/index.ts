@@ -76,7 +76,11 @@ const nodeRequire = createRequire(__filename);
 let isolatedVm: IsolatedVmModule | null | undefined;
 
 function requiresIsolatedVm(): boolean {
-  return process.env.NODE_ENV === 'production' || process.env.SHAPI_REQUIRE_ISOLATED_VM === 'true';
+  // Anything that is not local development or a test run must use the real isolate. (Staging
+  // used to fall through to node:vm if isolated-vm failed to load, running customer predicates
+  // without a sandbox.)
+  const env = process.env.NODE_ENV;
+  return env === 'production' || env === 'staging' || process.env.SHAPI_REQUIRE_ISOLATED_VM === 'true';
 }
 
 function loadIsolatedVm(): IsolatedVmModule | null {
@@ -138,9 +142,14 @@ export function evaluatePredicate(
     // This path is intentionally unavailable in production. It keeps local
     // tests and development usable on Windows machines without node-gyp while
     // Docker/CI enforce the isolated-vm runtime.
-    const sandbox: Record<string, unknown> = { event: eventCopy, result: undefined };
+    // The event is rebuilt INSIDE the context from a JSON string. An object created in this realm
+    // gives predicate code a path to this realm's Function and so to `process`
+    // (event["constructor"]["constructor"]("return process")() slips past the pattern list above).
+    // node:vm is still not a security boundary the way isolated-vm is; this only stops the fallback
+    // being a one-line host escape.
+    const sandbox: Record<string, unknown> = { __eventJson: JSON.stringify(eventCopy), result: undefined };
     vm.createContext(sandbox);
-    const script = new vm.Script(`result = (${expression});`);
+    const script = new vm.Script(`event = JSON.parse(__eventJson); result = (${expression});`);
     script.runInContext(sandbox, { timeout: EVAL_TIMEOUT_MS });
     return { passed: Boolean(sandbox.result) };
   } catch (e) {

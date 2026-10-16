@@ -79,4 +79,32 @@ describe('invariant-engine', () => {
     expect(determineHealth(1, 0.99, 1, 10)).toBe('unknown');
     expect(determineHealth(1, 0.99, 20, 10)).toBe('healthy');
   });
+
+  describe('sandbox boundary', () => {
+    const run = (expression: string) => evaluatePredicate(expression, { type: 'x', payload: { a: 1 }, headers: {} });
+
+    it('cannot reach the host process through the event object, even past the pattern list', () => {
+      // These bypass the regex blocklist, so only the sandbox itself stops them.
+      expect(run('event["constructor"]["constructor"]("return typeof process")() === "undefined"').passed).toBe(true);
+      expect(run('event.payload["constructor"]["constructor"]("return typeof require")() === "undefined"').passed).toBe(true);
+      expect(run('event["constructor"]["constructor"]("return typeof process")() === "object"').passed).toBe(false);
+    });
+
+    it('still evaluates normal predicates against the event', () => {
+      expect(run("event.type === 'x' && event.payload.a === 1").passed).toBe(true);
+      expect(run("event.payload.a === 2").passed).toBe(false);
+    });
+
+    it('refuses the obvious dangerous patterns and bad syntax', () => {
+      expect(run('process.exit(1)').passed).toBe(false);
+      expect(run('require("fs")').passed).toBe(false);
+      expect(run('event.type ===').error).toMatch(/syntax/i);
+    });
+
+    it('cannot change the event for later evaluations', () => {
+      const shared = { type: 'x', payload: { a: 1 }, headers: {} };
+      evaluatePredicate('(event.payload.a = 99) === 99', shared);
+      expect(shared.payload.a).toBe(1);
+    });
+  });
 });
